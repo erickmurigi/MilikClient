@@ -201,7 +201,7 @@ function Home() {
       </nav>
 
       {/* Hero Section with better spacing */}
-      <section className="relative min-h-[85vh] flex items-center bg-gradient-to-br from-gray-50 to-[#f0f9f2] py-20">
+      <section className="relative min-h-[85vh] flex items-center bg-gradient-to-br from-gray-50 to-[#f0f9f2] py-10">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             {/* Left Content */}
@@ -212,7 +212,7 @@ function Home() {
                 Made for Kenya — M-PESA Ready
               </div>
               
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-4 text-gray-900">
+              <h1 className="text-4xl md:text-5xl lg:text-5xl font-bold leading-tight mb-4 text-gray-900">
                 Property Management System in Kenya
               </h1>
               <p className="text-[#027333] text-xl font-semibold mb-4">
