@@ -2,6 +2,7 @@
 
 @import 'tailwindcss';
 
+
 :root {
   --color-brand-50: #f0f9f2;
   --color-brand-100: #dbf1e0;
@@ -25,11 +26,7 @@
   --muted: #475569;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+
 
 html {
   scroll-behavior: smooth;

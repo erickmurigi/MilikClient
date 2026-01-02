@@ -156,7 +156,7 @@ function Home() {
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation - Fixed with shadow and proper spacing */}
-      <nav className="sticky top-0 z-50 bg-white shadow-md py-4 ">
+      <nav  className="sticky top-0 z-50 bg-white shadow-md py-4">
         <div className="container mx-auto px-8">
           <div className="flex items-center  justify-between">
             {/* Logo */}
