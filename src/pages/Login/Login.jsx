@@ -21,8 +21,11 @@ import {
   FaMoneyBillWave
 } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
+import './login.css';
+import { useNavigate } from 'react-router-dom';
 
 function Login() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -106,9 +109,7 @@ function Login() {
     
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
+    } 
     
     return newErrors;
   };
@@ -128,11 +129,13 @@ function Login() {
     setTimeout(() => {
       setLoading(false);
       setLoginSuccess(true);
+      navigate('/dashboard');
       
       // Reset success state after 2 seconds
       setTimeout(() => {
         setLoginSuccess(false);
         console.log('Login successful!', formData);
+
       }, 2000);
     }, 1500);
   };
@@ -165,7 +168,7 @@ function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-green-50 flex items-center justify-center p-4 overflow-hidden relative">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-green-50 flex items-center justify-center p-4 overflow-hidden relative">
       {/* Animated Background Particles */}
       <div className="absolute inset-0 overflow-hidden">
         {[...Array(20)].map((_, i) => (
