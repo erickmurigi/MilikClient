@@ -19,6 +19,7 @@ import {
   FaEnvelope,
   FaWhatsapp
 } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
 
 function Home() {
   // FAQ Data
@@ -181,9 +182,10 @@ function Home() {
               
               {/* Action Buttons */}
               <div className="flex items-center space-x-4">
+                <Link to="/login">
                 <button className="px-5 py-2.5 border border-[#027333] text-[#027333] rounded-lg font-medium hover:bg-[#f0f9f2] transition-colors">
                   Sign In
-                </button>
+                </button></Link>
                 <button className="px-5 py-2.5 bg-[#027333] text-white rounded-lg font-medium hover:bg-[#026227] transition-colors shadow-md">
                   Get Started Free
                 </button>
