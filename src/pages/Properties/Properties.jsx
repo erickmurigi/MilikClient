@@ -176,25 +176,25 @@ const Properties = () => {
         </div>
 
         {/* Search and Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-6 shadow">
+        <div className="bg-white dark:bg-gray-100 rounded-xl p-4 mb-6 shadow">
           <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
             <div className="relative flex-1">
-              <FaSearch className="absolute left-3 top-3 text-gray-400" />
+              <FaSearch className="absolute left-3 top-3 text-gray-800" />
               <input
                 type="text"
                 placeholder="Search properties by name, address, or landlord..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-white"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-black"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             <div className="flex space-x-3">
-              <select className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-white">
+              <select className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-black">
                 {propertyTypes.map(type => (
                   <option key={type} value={type.toLowerCase()}>{type}</option>
                 ))}
               </select>
-              <select className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-white">
+              <select className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-black">
                 {statuses.map(status => (
                   <option key={status} value={status.toLowerCase()}>{status}</option>
                 ))}
@@ -206,7 +206,7 @@ const Properties = () => {
         {/* Properties Grid/Table */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {properties.map((property) => (
-            <div key={property.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
+            <div key={property.id} className="bg-white dark:bg-gray-200 rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
               {/* Property Image/Header */}
               <div className="relative h-48 bg-gradient-to-r from-blue-500 to-purple-600">
                 <div className="absolute top-4 right-4">
@@ -228,25 +228,25 @@ const Properties = () => {
 
               {/* Property Details */}
               <div className="p-6">
-                <div className="flex items-center text-gray-600 dark:text-gray-400 mb-4">
+                <div className="flex items-center text-gray-300 dark:text-gray-600 mb-4">
                   <FaMapMarkerAlt className="mr-2" />
                   <span className="text-sm">{property.address}</span>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Landlord</p>
-                    <p className="font-medium dark:text-white">{property.landlord}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-600">Landlord</p>
+                    <p className="font-medium dark:text-black">{property.landlord}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Units</p>
-                    <p className="font-medium dark:text-white">{property.units} total</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-600">Units</p>
+                    <p className="font-medium dark:text-black">{property.units} total</p>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Occupancy</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-600">Occupancy</p>
                     <div className="flex items-center">
                       <div className="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2 mr-2">
                         <div 
@@ -254,16 +254,16 @@ const Properties = () => {
                           style={{ width: `${(property.occupied / property.units) * 100}%` }}
                         ></div>
                       </div>
-                      <span className="text-sm font-medium dark:text-white">{property.occupied}/{property.units}</span>
+                      <span className="text-sm font-medium dark:text-gray-500">{property.occupied}/{property.units}</span>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Monthly Rent</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-600">Monthly Rent</p>
                     <p className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{property.totalRent}</p>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400 mb-4">
+                <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-500 mb-4">
                   <div className="flex items-center">
                     <FaCalendarAlt className="mr-1" />
                     <span>Last inspected: {property.lastInspection}</span>
@@ -283,13 +283,13 @@ const Properties = () => {
                     </button>
                   </Link>
                   <Link to={`/properties/${property.id}/edit`} className="flex-1">
-                    <button className="w-full px-4 py-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-lg flex items-center justify-center space-x-2">
+                    <button className="w-full px-4 py-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-600 dark:text-blue-500 rounded-lg flex items-center justify-center space-x-2">
                       <FaEdit />
                       <span>Edit</span>
                     </button>
                   </Link>
                   <Link to={`/units?property=${property.id}`} className="flex-1">
-                    <button className="w-full px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 rounded-lg flex items-center justify-center space-x-2">
+                    <button className="w-full px-4 py-2 bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-600 dark:text-emerald-600 rounded-lg flex items-center justify-center space-x-2">
                       <FaHome />
                       <span>Units</span>
                     </button>

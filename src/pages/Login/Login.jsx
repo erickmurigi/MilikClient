@@ -409,23 +409,6 @@ function Login() {
                     </button>
                   </div>
                   
-                  {/* Password Strength Indicator */}
-                  {formData.password && (
-                    <div className="mt-3">
-                      <div className="flex justify-between text-xs text-gray-600 mb-1">
-                        <span>Password Strength:</span>
-                        <span className={passwordStrength >= 3 ? 'text-green-600' : passwordStrength >= 2 ? 'text-yellow-600' : 'text-red-600'}>
-                          {getPasswordStrengthText(passwordStrength)}
-                        </span>
-                      </div>
-                      <div className="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full ${getPasswordStrengthColor(passwordStrength)} transition-all duration-500`}
-                          style={{ width: `${passwordStrength * 25}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
                   
                   {errors.password && (
                     <div className="flex items-center gap-2 mt-2 text-red-600 text-sm">
