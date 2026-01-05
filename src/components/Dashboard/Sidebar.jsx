@@ -30,10 +30,10 @@ import {
   FaTimes,
   FaSyncAlt
 } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
 
 const Sidebar = ({ isOpen, setIsOpen, activeTab, setActiveTab, darkMode }) => {
   const [expandedSections, setExpandedSections] = useState({});
-
   const menuItems = {
     client: [
       { id: 'dashboard', name: 'Dashboard', icon: <FaTachometerAlt />, badge: null }
@@ -93,63 +93,119 @@ const Sidebar = ({ isOpen, setIsOpen, activeTab, setActiveTab, darkMode }) => {
     }));
   };
 
-  const MenuItem = ({ item, section, darkMode }) => {
+const MenuItem = ({ item, section, darkMode }) => {
   const isActive = activeTab === item.id;
   const hasSubmenu = item.hasSubmenu;
   const isExpanded = expandedSections[item.id];
 
+  // Define routes for each menu item
+  const routes = {
+    dashboard: '/dashboard',
+    landlords: '/landlords',
+    properties: '/properties',
+    units: '/units',
+    tenants: '/tenants',
+    leases: '/leases',
+    vacants: '/vacants',
+    maintenances: '/maintenances',
+    inspections: '/inspections',
+    invoices: '/invoices',
+    'water-billings': '/water-billings',
+    'electricity-billings': '/electricity-billings',
+    // Add other routes as needed
+  };
+
   return (
     <li>
-      <button
-        onClick={() => {
-          if (hasSubmenu) {
-            toggleSection(item.id);
-          } else {
-            setActiveTab(item.id);
-            setIsOpen(false);
-          }
-        }}
-        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 ${
-          isActive
-            ? darkMode 
-              ? 'bg-emerald-900/20 text-emerald-300 border border-emerald-800'
-              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-            : darkMode
-            ? 'hover:bg-gray-700 text-gray-300'
-            : 'hover:bg-gray-100 text-gray-700'
-        }`}
-      >
-        <div className="flex items-center space-x-3">
-          <span className={`${isActive 
-            ? darkMode ? 'text-emerald-400' : 'text-emerald-600'
-            : darkMode ? 'text-gray-400' : 'text-gray-500'
-          }`}>
-            {item.icon}
-          </span>
-          <span className={`font-medium `}>
-            {item.name}
-          </span>
-        </div>
-        <div className="flex items-center space-x-2">
-          {item.badge && (
-            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-              item.badge > 0 && item.name === 'Invoices'
-                ? darkMode 
-                  ? 'bg-red-900 text-red-200'
-                  : 'bg-red-100 text-red-800'
-                : darkMode
-                ? 'bg-emerald-900 text-emerald-200'
-                : 'bg-emerald-100 text-emerald-800'
+      {hasSubmenu ? (
+        <button
+          onClick={() => toggleSection(item.id)}
+          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 ${
+            isActive
+              ? darkMode 
+                ? 'bg-emerald-900/20 text-emerald-300 border border-emerald-800'
+                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+              : darkMode
+              ? 'hover:bg-gray-700 text-gray-300'
+              : 'hover:bg-gray-100 text-gray-700'
+          }`}
+        >
+          <div className="flex items-center space-x-3">
+            <span className={`${isActive 
+              ? darkMode ? 'text-emerald-400' : 'text-emerald-600'
+              : darkMode ? 'text-gray-400' : 'text-gray-500'
             }`}>
-              {item.badge}
+              {item.icon}
             </span>
-          )}
-          {hasSubmenu && (
+            <span className={`font-medium ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+              {item.name}
+            </span>
+          </div>
+          <div className="flex items-center space-x-2">
+            {item.badge && (
+              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                item.badge > 0 && item.name === 'Invoices'
+                  ? darkMode 
+                    ? 'bg-red-900 text-red-200'
+                    : 'bg-red-100 text-red-800'
+                  : darkMode
+                  ? 'bg-emerald-900 text-emerald-200'
+                  : 'bg-emerald-100 text-emerald-800'
+              }`}>
+                {item.badge}
+              </span>
+            )}
             <FaChevronDown className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-xs transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-          )}
-        </div>
-      </button>
-
+          </div>
+        </button>
+      ) : (
+        <Link to={routes[item.id] || '/'}>
+          <button
+            onClick={() => {
+              setActiveTab(item.id);
+              setIsOpen(false);
+            }}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 ${
+              isActive
+                ? darkMode 
+                  ? 'bg-emerald-900/20 text-emerald-300 border border-emerald-800'
+                  : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                : darkMode
+                ? 'hover:bg-gray-700 text-gray-300'
+                : 'hover:bg-gray-100 text-gray-700'
+            }`}
+          >
+            <div className="flex items-center space-x-3">
+              <span className={`${isActive 
+                ? darkMode ? 'text-emerald-400' : 'text-emerald-600'
+                : darkMode ? 'text-gray-400' : 'text-gray-500'
+              }`}>
+                {item.icon}
+              </span>
+              <span className={`font-medium ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+                {item.name}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              {item.badge && (
+                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                  item.badge > 0 && item.name === 'Invoices'
+                    ? darkMode 
+                      ? 'bg-red-900 text-red-200'
+                      : 'bg-red-100 text-red-800'
+                    : darkMode
+                    ? 'bg-emerald-900 text-emerald-200'
+                    : 'bg-emerald-100 text-emerald-800'
+                }`}>
+                  {item.badge}
+                </span>
+              )}
+            </div>
+          </button>
+        </Link>
+      )}
+      
+      {/* Submenu items */}
       {hasSubmenu && isExpanded && submenuItems[item.id] && (
         <ul className="ml-10 mt-1 space-y-1 animate-slideDown">
           {submenuItems[item.id].map((subItem, idx) => (

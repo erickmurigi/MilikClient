@@ -28,7 +28,7 @@ const Navbar = ({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode }) => {
                 Dashboard Overview
               </h1>
               <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Welcome back, Ezekiel
+                Welcome back, Erick
               </p>
             </div>
           </div>
@@ -74,13 +74,13 @@ const Navbar = ({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode }) => {
               </div>
               <div className="hidden md:block text-right">
                 <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Ezekiel Muki
+                  Erick Murigi
                 </p>
                 <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                   Admin
                 </p>
               </div>
-              <Link to="/logout">
+              <Link to="/home">
                 <button className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
                   <FaSignOutAlt className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'}`} />
                 </button>
