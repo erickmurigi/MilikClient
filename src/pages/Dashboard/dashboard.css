@@ -12,6 +12,28 @@
   animation: float 3s ease-in-out infinite;
 }
 
+/* dashboard.css */
+.dashboard-content {
+  min-height: calc(100vh - 5rem);
+  width: 100%;
+}
+
+/* Ensure proper scrolling on mobile */
+@media (max-width: 1024px) {
+  .sidebar-open {
+    overflow: hidden;
+  }
+  
+  .sidebar-closed {
+    overflow: auto;
+  }
+}
+
+/* Smooth transitions */
+* {
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;

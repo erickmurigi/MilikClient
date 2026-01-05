@@ -8,37 +8,37 @@ import QuickActions from '../../components/Dashboard/QuickActions';
 import AlertBanner from '../../components/Dashboard/AlertBanner';
 import './dashboard.css';
 
-const Dashboard = () => {
+const Dashboard = ({ darkMode }) => {
   return (
-    <DashboardLayout>
-      {/* Alert Banner */}
-      <AlertBanner />
+   <DashboardLayout>
+      <div className={`space-y-6 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+        {/* Alert Banner */}
+      
 
-      {/* Metrics Grid */}
-      <MetricsGrid />
+        {/* Metrics Grid */}
+        <MetricsGrid darkMode={darkMode} />
 
-      {/* Charts and Data Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Properties Overview */}
-        <div className="lg:col-span-2">
-          <PropertiesOverview />
+        {/* Charts and Data Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Properties Overview */}
+          <div className="lg:col-span-2">
+            <PropertiesOverview darkMode={darkMode} />
+          </div>
+
+          {/* Recent Activity */}
+          <div>
+            <RecentActivity darkMode={darkMode} />
+          </div>
         </div>
 
-        {/* Recent Activity */}
-        <div>
-          <RecentActivity />
-        </div>
-      </div>
+        {/* Financial Overview */}
+        <FinancialOverview darkMode={darkMode} />
 
-      {/* Financial Overview */}
-      <div className="mb-8">
-        <FinancialOverview />
+        {/* Quick Actions */}
+        <QuickActions darkMode={darkMode} />
       </div>
-
-      {/* Quick Actions */}
-      <QuickActions />
     </DashboardLayout>
   );
 };
-
+ 
 export default Dashboard;

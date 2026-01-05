@@ -92,70 +92,84 @@ const Sidebar = ({ isOpen, setIsOpen, activeTab, setActiveTab, darkMode }) => {
     }));
   };
 
-  const MenuItem = ({ item, section }) => {
-    const isActive = activeTab === item.id;
-    const hasSubmenu = item.hasSubmenu;
-    const isExpanded = expandedSections[item.id];
+  const MenuItem = ({ item, section, darkMode }) => {
+  const isActive = activeTab === item.id;
+  const hasSubmenu = item.hasSubmenu;
+  const isExpanded = expandedSections[item.id];
 
-    return (
-      <li>
-        <button
-          onClick={() => {
-            if (hasSubmenu) {
-              toggleSection(item.id);
-            } else {
-              setActiveTab(item.id);
-              setIsOpen(false);
-            }
-          }}
-          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 ${
-            isActive
-              ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-              : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
-          }`}
-        >
-          <div className="flex items-center space-x-3">
-            <span className={`${isActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400'}`}>
-              {item.icon}
+  return (
+    <li>
+      <button
+        onClick={() => {
+          if (hasSubmenu) {
+            toggleSection(item.id);
+          } else {
+            setActiveTab(item.id);
+            setIsOpen(false);
+          }
+        }}
+        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 ${
+          isActive
+            ? darkMode 
+              ? 'bg-emerald-900/20 text-emerald-300 border border-emerald-800'
+              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+            : darkMode
+            ? 'hover:bg-gray-700 text-gray-300'
+            : 'hover:bg-gray-100 text-gray-700'
+        }`}
+      >
+        <div className="flex items-center space-x-3">
+          <span className={`${isActive 
+            ? darkMode ? 'text-emerald-400' : 'text-emerald-600'
+            : darkMode ? 'text-gray-400' : 'text-gray-500'
+          }`}>
+            {item.icon}
+          </span>
+          <span className={`font-medium `}>
+            {item.name}
+          </span>
+        </div>
+        <div className="flex items-center space-x-2">
+          {item.badge && (
+            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+              item.badge > 0 && item.name === 'Invoices'
+                ? darkMode 
+                  ? 'bg-red-900 text-red-200'
+                  : 'bg-red-100 text-red-800'
+                : darkMode
+                ? 'bg-emerald-900 text-emerald-200'
+                : 'bg-emerald-100 text-emerald-800'
+            }`}>
+              {item.badge}
             </span>
-            <span className="font-medium text-gray-900 dark:text-gray-100">{item.name}</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            {item.badge && (
-              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                item.badge > 0 && item.name === 'Invoices'
-                  ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                  : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
-              }`}>
-                {item.badge}
-              </span>
-            )}
-            {hasSubmenu && (
-              <FaChevronDown className={`text-gray-400 text-xs transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-            )}
-          </div>
-        </button>
+          )}
+          {hasSubmenu && (
+            <FaChevronDown className={`${darkMode ? 'text-gray-400' : 'text-gray-500'} text-xs transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+          )}
+        </div>
+      </button>
 
-        {hasSubmenu && isExpanded && submenuItems[item.id] && (
-          <ul className="ml-10 mt-1 space-y-1 animate-slideDown">
-            {submenuItems[item.id].map((subItem, idx) => (
-              <li key={idx}>
-                <button className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
-                  <FaAngleRight className="text-xs" />
-                  <span>{subItem}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </li>
-    );
-  };
+      {hasSubmenu && isExpanded && submenuItems[item.id] && (
+        <ul className="ml-10 mt-1 space-y-1 animate-slideDown">
+          {submenuItems[item.id].map((subItem, idx) => (
+            <li key={idx}>
+              <button className={`flex items-center space-x-2 px-3 py-2 text-sm hover:text-emerald-600 transition-colors
+                ${darkMode ? 'text-gray-400 hover:text-emerald-400' : 'text-gray-600 hover:text-emerald-600'}`}>
+                <FaAngleRight className="text-xs" />
+                <span>{subItem}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+};
 
   return (
     <>
       {/* Mobile Overlay */}
-      {isOpen && (
+        {isOpen && (
         <div 
           className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden transition-opacity duration-300"
           onClick={() => setIsOpen(false)}
@@ -164,28 +178,29 @@ const Sidebar = ({ isOpen, setIsOpen, activeTab, setActiveTab, darkMode }) => {
 
       {/* Sidebar */}
       <aside className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-800 
-        border-r border-gray-200 dark:border-gray-700
+        fixed inset-y-0 left-0 z-50 w-64 
+        ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'}
+        border-r ${darkMode ? 'border-gray-700' : 'border-gray-200'}
         transform transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         shadow-xl lg:shadow-none
       `}>
         {/* Sidebar Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className={`flex items-center justify-between px-6 py-4 ${darkMode ? 'border-gray-700' : 'border-gray-200'} border-b`}>
           <div className="flex items-center space-x-3">
             <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 flex items-center justify-center">
               <FaBuilding className="text-white text-sm" />
             </div>
             <div>
-              <h2 className="font-bold text-lg text-gray-900 dark:text-white">Milik PMS</h2>
-              <p className="text-xs text-gray-600 dark:text-gray-400">Professional Edition</p>
+              <h2 className={`font-bold text-lg ${darkMode ? 'text-white' : 'text-gray-900'}`}>Milik PMS</h2>
+              <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Professional Edition</p>
             </div>
           </div>
           <button 
             onClick={() => setIsOpen(false)}
             className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
-            <FaTimes className="text-gray-600 dark:text-gray-400" />
+            <FaTimes className={darkMode ? 'text-gray-300' : 'text-gray-600'} />
           </button>
         </div>
 
@@ -197,19 +212,18 @@ const Sidebar = ({ isOpen, setIsOpen, activeTab, setActiveTab, darkMode }) => {
               <input
                 type="search"
                 placeholder="Search tenant or unit..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 
-                         bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white 
-                         placeholder-gray-500 dark:placeholder-gray-400 
-                         focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none"
+                className={`w-full pl-10 pr-4 py-2.5 rounded-lg border
+                         ${darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'}
+                         focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none`}
               />
-              <FaSearch className="absolute left-3 top-3.5 text-gray-400" />
+              <FaSearch className={`absolute left-3 top-3.5 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
             </div>
           </div>
 
           {/* Menu Sections */}
           {Object.entries(menuItems).map(([section, items]) => (
             <div key={section} className="mb-6">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3 px-3">
+              <h3 className={`text-xs font-semibold uppercase tracking-wider mb-3 px-3 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                 {section}
               </h3>
               <ul className="space-y-1">
