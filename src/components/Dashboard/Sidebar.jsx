@@ -39,6 +39,7 @@ const Sidebar = ({ isOpen, setIsOpen, activeTab, setActiveTab, darkMode }) => {
       { id: 'dashboard', name: 'Dashboard', icon: <FaTachometerAlt />, badge: null }
     ],
     properties: [
+      { id: 'landlords', name: 'Landlords', icon:<FaUsersCog />, badge: 120 },
       { id: 'properties', name: 'Properties', icon: <FaBuilding />, badge: 30 },
       { id: 'units', name: 'Units', icon: <FaLayerGroup />, badge: 75 },
       { id: 'tenants', name: 'Tenants', icon: <FaUsers />, badge: 41 },

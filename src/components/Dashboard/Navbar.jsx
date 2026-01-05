@@ -54,7 +54,7 @@ const Navbar = ({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode }) => {
               <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full"></span>
             </button>
 
-            {/* Demo Warning */}
+            {/* Demo Warning 
             <div className={`hidden md:flex items-center space-x-2 px-3 py-2 rounded-lg
                           ${darkMode 
                             ? 'bg-amber-900/20 border border-amber-800' 
@@ -64,7 +64,7 @@ const Navbar = ({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode }) => {
               <span className={`text-sm font-medium ${darkMode ? 'text-amber-300' : 'text-amber-800'}`}>
                 Demo Account
               </span>
-            </div>
+            </div>*/}
 
             {/* User Profile */}
             <div className="flex items-center space-x-3">

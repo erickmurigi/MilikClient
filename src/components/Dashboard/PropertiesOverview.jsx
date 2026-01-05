@@ -30,7 +30,7 @@ const PropertiesOverview = ({ darkMode }) => {
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="font-semibold dark:text-white">{property.name}</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                <p className="text-sm text-gray-900 dark:text-gray-800 mt-0">
                   {property.occupied}/{property.units} units occupied
                 </p>
               </div>
@@ -39,8 +39,8 @@ const PropertiesOverview = ({ darkMode }) => {
                 <div className="text-sm text-gray-600 dark:text-gray-400">Occupancy</div>
               </div>
             </div>
-            <div className="mt-4">
-              <div className="flex items-center justify-between text-sm mb-2">
+            <div className="mt-0">
+              <div className="flex items-center justify-between text-sm mb-1">
                 <span className="text-gray-600 dark:text-gray-400">Revenue</span>
                 <span className="font-semibold dark:text-white">{property.revenue}/month</span>
               </div>

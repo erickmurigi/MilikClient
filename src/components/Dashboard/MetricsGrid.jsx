@@ -15,7 +15,7 @@ const MetricsGrid = ({ darkMode }) => {
       label: 'Total Properties', 
       value: '30', 
       icon: <FaBuilding />, 
-      color: 'from-emerald-500 to-green-500', 
+      color: 'from-emerald-500 to-green-800', 
       change: '+2.3%' 
     },
     { 
@@ -23,7 +23,7 @@ const MetricsGrid = ({ darkMode }) => {
       label: 'Total Units', 
       value: '75', 
       icon: <FaHome />, 
-      color: 'from-blue-500 to-cyan-500', 
+       color: 'from-emerald-500 to-green-800',  
       change: '+5.1%' 
     },
     { 
@@ -31,7 +31,7 @@ const MetricsGrid = ({ darkMode }) => {
       label: 'Occupancy Rate', 
       value: '53.3%', 
       icon: <FaChartPie />, 
-      color: 'from-purple-500 to-pink-500', 
+       color: 'from-emerald-500 to-green-800', 
       change: '+1.8%' 
     },
     { 
@@ -39,7 +39,7 @@ const MetricsGrid = ({ darkMode }) => {
       label: 'Monthly Collection', 
       value: 'KSh 2.9M', 
       icon: <FaMoneyBillWave />, 
-      color: 'from-orange-500 to-red-500', 
+      color: 'from-emerald-500 to-green-800', 
       change: '+12.5%' 
     },
     { 
@@ -47,7 +47,7 @@ const MetricsGrid = ({ darkMode }) => {
       label: 'Collected This Month', 
       value: 'KSh 4,700', 
       icon: <FaWallet />, 
-      color: 'from-teal-500 to-emerald-500', 
+       color: 'from-emerald-500 to-green-800',  
       change: '-23.4%' 
     },
     { 
@@ -55,7 +55,7 @@ const MetricsGrid = ({ darkMode }) => {
       label: 'Outstanding Balance', 
       value: 'KSh 2.89M', 
       icon: <FaExclamationCircle />, 
-      color: 'from-amber-500 to-yellow-500', 
+       color: 'from-emerald-500 to-green-800', 
       change: '+15.2%' 
     }
   ];
@@ -76,7 +76,7 @@ const MetricsGrid = ({ darkMode }) => {
               {metric.change}
             </span>
           </div>
-          <h3 className="text-2xl font-bold mb-1 leading-tight">{metric.value}</h3>
+          <h3 className="text-1xl font-bold mb-1 leading-tight">{metric.value}</h3>
           <p className="text-white/90 text-sm font-medium">{metric.label}</p>
         </div>
       ))}

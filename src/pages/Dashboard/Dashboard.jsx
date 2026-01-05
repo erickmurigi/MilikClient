@@ -17,6 +17,8 @@ const Dashboard = ({ darkMode }) => {
 
         {/* Metrics Grid */}
         <MetricsGrid darkMode={darkMode} />
+{/* Financial Overview */}
+        <FinancialOverview darkMode={darkMode} />
 
         {/* Charts and Data Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -31,9 +33,7 @@ const Dashboard = ({ darkMode }) => {
           </div>
         </div>
 
-        {/* Financial Overview */}
-        <FinancialOverview darkMode={darkMode} />
-
+        
         {/* Quick Actions */}
         <QuickActions darkMode={darkMode} />
       </div>

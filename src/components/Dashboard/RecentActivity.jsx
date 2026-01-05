@@ -65,7 +65,7 @@ const RecentActivity = ({ darkMode }) => {
               {getIcon(activity.type, activity.color)}
               <div className="flex-1">
                 <h4 className="font-semibold dark:text-white">{activity.title}</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                <p className="text-sm text-gray-600 dark:text-gray-600 mt-1">
                   {activity.description}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">{activity.time}</p>

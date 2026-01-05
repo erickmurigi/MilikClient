@@ -37,7 +37,7 @@ const QuickActions = ({ darkMode }) => {
 
   return (
     <div className={`rounded-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg p-6`}>
-      <h2 className="text-xl font-bold dark:text-white mb-6">Quick Actions</h2>
+      <h2 className="text-xl font-bold dark:text-black mb-6">Quick Actions</h2>
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         {actions.map((action, index) => (
           <button
@@ -51,7 +51,7 @@ const QuickActions = ({ darkMode }) => {
             <div className={`p-3 rounded-lg mb-3 ${getColorClasses(action.color, true)} group-hover:scale-110 transition-transform`}>
               {action.icon}
             </div>
-            <span className="text-sm font-medium dark:text-white">{action.label}</span>
+            <span className="text-sm font-medium dark:text-gray-600">{action.label}</span>
           </button>
         ))}
       </div>
