@@ -11,10 +11,10 @@ const RecentActivity = ({ darkMode }) => {
 
   const getIcon = (type, color) => {
     const colorClasses = {
-      green: 'text-emerald-600',
-      blue: 'text-blue-600',
-      orange: 'text-orange-600',
-      purple: 'text-purple-600'
+      green: 'text-[#2b4450]',
+      blue: 'text-[#2b4450]',
+      orange: 'text-[#2b4450]',
+      purple: 'text-[#2b4450]'
     };
 
     const bgClasses = {
@@ -39,7 +39,7 @@ const RecentActivity = ({ darkMode }) => {
   };
 
   const borderClasses = {
-    green: 'border-emerald-500',
+    green: 'border-[#2b4450]',
     blue: 'border-blue-500',
     orange: 'border-orange-500',
     purple: 'border-purple-500'
@@ -49,7 +49,7 @@ const RecentActivity = ({ darkMode }) => {
     <div className={`rounded-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg p-6`}>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold dark:text-white">Recent Activity</h2>
-        <button className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300">
+        <button className="text-sm font-medium text-[#2b4450] dark:text-[#2b4450] hover:text-[#497285] dark:hover:text-[#497285]">
           Mark all read
         </button>
       </div>

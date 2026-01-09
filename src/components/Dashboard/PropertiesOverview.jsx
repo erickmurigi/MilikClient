@@ -13,7 +13,7 @@ const PropertiesOverview = ({ darkMode }) => {
     <div className={`rounded-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg p-6`}>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold dark:text-white">Properties Overview</h2>
-        <button className="text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300">
+        <button className="text-sm font-medium text-[#2b4450] dark:text-[#2b4450] hover:text-[#497285] dark:hover:text-[#497285]">
           View All →
         </button>
       </div>
@@ -46,7 +46,7 @@ const PropertiesOverview = ({ darkMode }) => {
               </div>
               <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div 
-                  className="h-full bg-gradient-to-r from-emerald-500 to-green-500 rounded-full"
+                  className="h-full bg-gradient-to-r from-[#2b4450] to-[#dfebed] rounded-full"
                   style={{ width: property.occupancy }}
                 ></div>
               </div>

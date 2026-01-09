@@ -94,7 +94,7 @@ const FinancialOverview = ({ darkMode }) => {
           </p>
         </div>
         <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mt-4 md:mt-0">
-          <select className={`px-4 py-2 rounded-lg border text-sm ${
+          <select className={`px-4 py-2 text-xs rounded-lg border text-sm ${
             darkMode 
               ? 'bg-gray-700 border-gray-600 text-white' 
               : 'bg-white border-gray-300 text-gray-900'
@@ -105,10 +105,10 @@ const FinancialOverview = ({ darkMode }) => {
             <option>Custom Range</option>
           </select>
           <div className="flex space-x-2">
-            <button className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white font-medium rounded-lg hover:shadow-lg transition-shadow">
+            <button className="px-1 py-2 text-xs bg-gradient-to-r from-[#497285] to-[#497285] text-white font-medium rounded-lg hover:shadow-lg transition-shadow">
               Export Report
             </button>
-            <button className={`px-4 py-2 font-medium rounded-lg border ${
+            <button className={`px-4 py-2 text-xs font-medium rounded-lg border ${
               darkMode 
                 ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
                 : 'border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -130,16 +130,16 @@ const FinancialOverview = ({ darkMode }) => {
               >
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#497285" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#497285" stopOpacity={0}/>
                   </linearGradient>
                   <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8}/>
                     <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
                   </linearGradient>
                   <linearGradient id="colorNet" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#f78536" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#f78536" stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <CartesianGrid 
@@ -199,20 +199,20 @@ const FinancialOverview = ({ darkMode }) => {
           {/* Total Expected */}
           <div className={`p-4 rounded-xl ${
             darkMode ? 'bg-gray-700/50' : 'bg-white'
-          } border border-emerald-200 dark:border-emerald-800 shadow-sm`}>
+          } border border-emerald-200 dark:border-[#2b4450] shadow-sm`}>
             <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-medium text-emerald-800 dark:text-emerald-300">
+              <div className="text-sm font-medium text-[#2b4450] dark:text-[#2b4450]">
                 Total Expected
               </div>
               <div className="h-8 w-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                <span className="text-emerald-600 dark:text-emerald-400 font-bold">↑</span>
+                <span className="text-emerald-600 dark:text-[#2b4450] font-bold">↑</span>
               </div>
             </div>
-            <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">
+            <div className="text-2xl font-bold text-[#2b4450] dark:text-[#2b4450]">
               KSh 2.9M
             </div>
             <div className="flex items-center mt-2">
-              <span className="text-xs text-emerald-600 dark:text-emerald-400 mr-2">
+              <span className="text-xs text-emerald-600 dark:text-[#497285] mr-2">
                 +12.5% from last month
               </span>
             </div>
@@ -221,20 +221,20 @@ const FinancialOverview = ({ darkMode }) => {
           {/* Collected */}
           <div className={`p-4 rounded-xl ${
             darkMode ? 'bg-gray-700/50' : 'bg-white'
-          } border border-blue-200 dark:border-blue-800 shadow-sm`}>
+          } border border-blue-200 dark:border-[#2b4450] shadow-sm`}>
             <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-medium text-blue-800 dark:text-blue-300">
+              <div className="text-sm font-medium text-[#2b4450] dark:[#2b4450]">
                 Collected
               </div>
               <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                 <span className="text-blue-600 dark:text-blue-400 font-bold">→</span>
               </div>
             </div>
-            <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+            <div className="text-2xl font-bold text-[#2b4450] dark:text-[#2b4450]">
               KSh 4,700
             </div>
             <div className="flex items-center mt-2">
-              <span className="text-xs text-blue-600 dark:text-blue-400">
+              <span className="text-xs text-[#2b4450] dark:text-[#497285]">
                 Updated today
               </span>
             </div>
@@ -243,23 +243,23 @@ const FinancialOverview = ({ darkMode }) => {
           {/* Outstanding */}
           <div className={`p-4 rounded-xl ${
             darkMode ? 'bg-gray-700/50' : 'bg-white'
-          } border border-amber-200 dark:border-amber-800 shadow-sm`}>
+          } border border-amber-200 dark:border-[#2b4450] shadow-sm`}>
             <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-medium text-amber-800 dark:text-amber-300">
+              <div className="text-sm font-medium text-amber-800 dark:text-[#2b4450]">
                 Outstanding
               </div>
               <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                <span className="text-amber-600 dark:text-amber-400 font-bold">⚠</span>
+                <span className="text-amber-600 dark:text-[#497285] font-bold">⚠</span>
               </div>
             </div>
-            <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">
+            <div className="text-2xl font-bold text-amber-700 dark:text-[#2b4450]">
               KSh 2.89M
             </div>
             <div className="flex items-center mt-2">
-              <span className="text-xs text-amber-600 dark:text-amber-400 mr-2">
+              <span className="text-xs text-amber-600 dark:text-[#497285] mr-2">
                 +15.2% from last month
               </span>
-              <button className="text-xs bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 px-2 py-1 rounded">
+              <button className="text-xs bg-amber-100 dark:bg-amber-900/50 text-[#497285] dark:text-[#497285] px-2 py-1 rounded">
                 Review
               </button>
             </div>

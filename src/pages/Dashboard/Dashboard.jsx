@@ -10,15 +10,15 @@ import './dashboard.css';
 
 const Dashboard = ({ darkMode }) => {
   return (
-   <DashboardLayout>
-      <div className={`space-y-6 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-        {/* Alert Banner */}
-      
+    
+      <DashboardLayout>
+        <div className={`space-y-6 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+         
+          {/* Metrics Grid */}
+          <MetricsGrid darkMode={darkMode} />
 
-        {/* Metrics Grid */}
-        <MetricsGrid darkMode={darkMode} />
-{/* Financial Overview */}
-        <FinancialOverview darkMode={darkMode} />
+          {/* Financial Overview */}
+          <FinancialOverview darkMode={darkMode} />
 
         {/* Charts and Data Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -35,8 +35,7 @@ const Dashboard = ({ darkMode }) => {
 
         
         {/* Quick Actions */}
-        <QuickActions darkMode={darkMode} />
-      </div>
+             </div>
     </DashboardLayout>
   );
 };

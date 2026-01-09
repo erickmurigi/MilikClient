@@ -23,6 +23,7 @@ export default {
       colors: {
         brand: {
           50: '#f0f9f2',
+          150: '#2c786c',
           100: '#dbf1e0',
           200: '#b9e3c3',
           300: '#8acf9d',

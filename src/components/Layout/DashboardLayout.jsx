@@ -1,11 +1,13 @@
+// DashboardLayout.js
 import React, { useState } from 'react';
-import Sidebar from '../Dashboard/Sidebar';
-import Navbar from '../Dashboard/Navbar';
 import { Toaster } from 'react-hot-toast';
+import { Link, useNavigate } from 'react-router-dom';
+import './dashboard.css';
+import Navbar from '../../components/Dashboard/Navbar';
+import QuickActions from '../../components/Dashboard/QuickActions';
+
 const DashboardLayout = ({ children }) => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
     <div className={`min-h-screen ${darkMode ? 'dark bg-gray-900' : 'bg-gray-50'}`}>
@@ -21,43 +23,496 @@ const DashboardLayout = ({ children }) => {
         }}
       />
 
-      <div className="flex">
-        {/* Sidebar */}
-        <div className={`
-          ${sidebarOpen ? 'fixed inset-0 z-50 lg:relative lg:z-auto' : 'hidden lg:block'}
-        `}>
-          <div className={`
-            ${sidebarOpen ? 'fixed inset-y-0 left-0 w-64' : 'lg:relative lg:w-64'}
-          `}>
-            <Sidebar 
-              isOpen={sidebarOpen}
-              setIsOpen={setSidebarOpen}
-              activeTab={activeTab}
-              setActiveTab={setActiveTab}
-              darkMode={darkMode}
-            />
+      {/* Fixed Navbar with high z-index */}
+      <div className={`fixed top-0 left-0 right-0 z-50 ${darkMode ? 'bg-gray-800' : 'bg-white'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+        <TopToolbar darkMode={darkMode} />
+      </div>
+      
+      {/* Main content area with padding-top to account for fixed navbar */}
+      <div className="flex flex-1 pt-20"> {/* Add pt-20 (5rem) for navbar height */}
+        {/* Sidebar/Quick Actions - Fixed width */}
+        <div className="w-64 xl:w-72 border-r border-gray-200 dark:border-gray-700">
+          <div className="p-4 h-full mt-2"> {/* Add mt-2 for spacing */}
+            <QuickActions darkMode={darkMode} />
           </div>
         </div>
+        
+        {/* Main content */}
+        <main className="flex-1 p-4 md:p-6 overflow-auto">
+          <div className="max-w-full">
+            {/* Pass darkMode to all child components */}
+            {React.Children.map(children, child => {
+              return React.cloneElement(child, { darkMode });
+            })}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+};
 
-        {/* Main content area */}
-        <div className="flex-1 flex flex-col min-h-screen">
-          <Navbar 
-            sidebarOpen={sidebarOpen}
-            setSidebarOpen={setSidebarOpen}
-            darkMode={darkMode}
-            setDarkMode={setDarkMode}
-          />
-          
-          <main className="flex-1 p-4 md:p-6 overflow-auto">
-            <div className="max-w-full">
-              {/* Pass darkMode to all child components */}
-              {React.Children.map(children, child => {
-                return React.cloneElement(child, { darkMode });
-              })}
+const TopToolbar = ({ darkMode }) => {
+  const [activeMenu, setActiveMenu] = useState(null);
+  const [activeSubMenu, setActiveSubMenu] = useState(null);
+  const navigate = useNavigate();
+
+  // Route configurations
+  const routeConfig = {
+    // File menu routes
+    'new-property': '/properties/new',
+    'open': '/files/open',
+    'save': '/files/save',
+    'export': '/reports/export',
+    'print': '/print',
+    'exit': '/logout',
+    
+    // Properties menu routes
+    'properties-list': '/properties',
+    'add-property': '/properties/new',
+    'property-details': '/properties/details',
+    'units-spaces': '/units',
+    'availability': '/availability',
+    'property-status': '/properties/status',
+    
+    // Units menu routes
+    'units-list': '/units',
+    'add-unit': '/units/new',
+    'space-types': '/units/space-types',
+    'unit-status': '/units/status',
+    
+    // Tenants menu routes
+    'tenants-list': '/tenants',
+    'add-tenant': '/tenants/new',
+    'tenant-agreements': '/agreements',
+    'lease-management': '/leases',
+    'tenant-ledger': '/tenants/ledger',
+    'tenant-financing': '/tenants/financing',
+    'tenant-journals': '/tenants/journals',
+    
+    // Financial menu routes
+    'payment-vouchers': '/financial/payment-vouchers',
+    'consolidate-pvs': '/financial/consolidate-pvs',
+    'service-providers': '/financial/service-providers',
+    'accounts': '/financial/accounts',
+    'transactions': '/financial/transactions',
+    'ledger-entries': '/financial/ledger-entries',
+    
+    // Rental Invoicing submenu routes
+    'new-invoice': '/invoices/new',
+    'increase-bill': '/invoices/increase',
+    'reduce-bill': '/invoices/reduce',
+    'late-penalties': '/invoices/late-penalties',
+    'rental-invoices-vat': '/invoices/vat',
+    'withholding-vat': '/invoices/withholding-vat',
+    'withholding-tax': '/invoices/withholding-tax',
+    'rental-aged-analysis': '/reports/rental-aged-analysis',
+    'landlord-invoices': '/invoices/landlord',
+    
+    // Rental Receipting submenu routes
+    'rental-receipts': '/receipts',
+    'slip-collection': '/receipts/slips',
+    'mpesa-import': '/receipts/mpesa-import',
+    'tenant-prepayments': '/receipts/prepayments',
+    'instant-receipts': '/receipts/instant',
+    'landlord-receipt': '/receipts/landlord',
+    
+    // Expenses submenu routes
+    'expense-requisition': '/expenses/requisition',
+    'notes-payable': '/expenses/notes-payable',
+    'payment-vouchers-list': '/expenses/payment-vouchers',
+    'consolidate-pvs-list': '/expenses/consolidate-pvs',
+    'notes-payment-vouchers': '/expenses/notes-payment-vouchers',
+    
+    // Landlord Payments submenu routes
+    'landlord-standing-orders': '/landlords/standing-orders',
+    'landlord-advancement': '/landlords/advancement',
+    'landlord-jvs': '/landlords/journals',
+    'batch-landlord-jvs': '/landlords/batch-journals',
+    
+    // Reports menu routes
+    'rental-collection': '/reports/rental-collection',
+    'paid-balance': '/reports/paid-balance',
+    'aged-analysis': '/reports/aged-analysis',
+    'landlord-statements': '/reports/landlord-statements',
+    'commission-reports': '/reports/commissions',
+    'tax-reports': '/reports/tax',
+    'tenant-summary': '/reports/tenant-summary',
+    
+    // Tools menu routes
+    'settings': '/settings',
+    'users': '/users',
+    'backup': '/tools/backup',
+    'import-export': '/tools/import-export',
+    'meter-readings': '/meter-readings',
+    'maintenance': '/maintenance',
+    'inspections': '/inspections',
+    
+    // Help menu routes
+    'documentation': '/help/documentation',
+    'support': '/help/support',
+    'about': '/help/about',
+    
+    // Quick Links routes
+    'add-tenant': '/tenants/new',
+    'rental-invoices': '/invoices',
+    'rental-invoice-booking': '/invoices/booking',
+    'debit-note': '/financial/debit-notes',
+    'credit-note': '/financial/credit-notes',
+    'rental-receipts': '/receipts',
+    'rental-receipt': '/receipts/new',
+    'rental-aged-analysis': '/reports/aged-analysis',
+    'paid-balance': '/reports/paid-balance',
+    'tenant-financing': '/tenants/financing',
+    'tenant-journals': '/tenants/journals',
+    'batch-tenant-jvs': '/tenants/batch-journals',
+  };
+
+  const mainMenuItems = [
+    {
+      id: 'file',
+      label: 'File',
+      icon: null,
+      submenu: [
+        { id: 'new-property', label: 'New Property', shortcut: 'Ctrl+N' },
+        { id: 'open', label: 'Open', shortcut: 'Ctrl+O' },
+        { id: 'save', label: 'Save', shortcut: 'Ctrl+S' },
+        { type: 'separator' },
+        { id: 'export', label: 'Export Reports', shortcut: 'Ctrl+E' },
+        { id: 'print', label: 'Print', shortcut: 'Ctrl+P' },
+        { type: 'separator' },
+        { id: 'exit', label: 'Exit', shortcut: 'Alt+F4' }
+      ]
+    },
+    {
+      id: 'properties',
+      label: 'Properties',
+      icon: null,
+      submenu: [
+        { id: 'properties-list', label: 'Properties Listing' },
+        { id: 'add-property', label: 'Add New Property' },
+        { id: 'property-details', label: 'Property Details' },
+        { type: 'separator' },
+        { id: 'units-spaces', label: 'Units/Spaces Management' },
+        { id: 'availability', label: 'Availability Status' },
+        { id: 'property-status', label: 'Property Specific Status' }
+      ]
+    },
+    {
+      id: 'units',
+      label: 'Units',
+      icon: null,
+      submenu: [
+        { id: 'units-list', label: 'Units Listing' },
+        { id: 'add-unit', label: 'Add New Unit' },
+        { id: 'space-types', label: 'Space Types' },
+        { id: 'unit-status', label: 'Unit Status Dashboard' }
+      ]
+    },
+    {
+      id: 'tenants',
+      label: 'Tenants',
+      icon: null,
+      submenu: [
+        { id: 'tenants-list', label: 'Tenants Listing' },
+        { id: 'add-tenant', label: 'Add New Tenant' },
+        { type: 'separator' },
+        { id: 'tenant-agreements', label: 'Tenant Agreements' },
+        { id: 'lease-management', label: 'Lease Management' },
+        { type: 'separator' },
+        { id: 'tenant-ledger', label: 'Tenant Ledger' },
+        { id: 'tenant-financing', label: 'Tenants Financing' },
+        { id: 'tenant-journals', label: 'Tenants Journals' }
+      ]
+    },
+    {
+      id: 'financial',
+      label: 'Financial',
+      icon: null,
+      submenu: [
+        { id: 'rental-invoicing', label: 'Rental Invoicing', hasSubmenu: true },
+        { id: 'rental-receipting', label: 'Rental Receipting', hasSubmenu: true },
+        { type: 'separator' },
+        { id: 'payment-vouchers', label: 'Payment Vouchers' },
+        { id: 'consolidate-pvs', label: 'Consolidate PVs' },
+        { type: 'separator' },
+        { id: 'expenses', label: 'Expenses', hasSubmenu: true },
+        { id: 'landlord-payments', label: 'Landlord Payments', hasSubmenu: true },
+        { id: 'service-providers', label: 'Service Providers' },
+        { type: 'separator' },
+        { id: 'accounts', label: 'Accounts' },
+        { id: 'transactions', label: 'Transactions' },
+        { id: 'ledger-entries', label: 'Ledger Entries' }
+      ]
+    },
+    {
+      id: 'reports',
+      label: 'Reports',
+      icon: null,
+      submenu: [
+        { id: 'rental-collection', label: 'Rental Collection Report' },
+        { id: 'paid-balance', label: 'Paid & Balance Report' },
+        { id: 'aged-analysis', label: 'Aged Analysis' },
+        { type: 'separator' },
+        { id: 'landlord-statements', label: 'Landlord Statements' },
+        { id: 'commission-reports', label: 'Commission Reports' },
+        { id: 'tax-reports', label: 'Tax Reports' },
+        { id: 'tenant-summary', label: 'Tenant Summary' }
+      ]
+    },
+    {
+      id: 'tools',
+      label: 'Tools',
+      icon: null,
+      submenu: [
+        { id: 'settings', label: 'Settings' },
+        { id: 'users', label: 'Users' },
+        { id: 'backup', label: 'Backup/Restore' },
+        { id: 'import-export', label: 'Import/Export' },
+        { type: 'separator' },
+        { id: 'meter-readings', label: 'Meter Readings' },
+        { id: 'maintenance', label: 'Maintenance Management' },
+        { id: 'inspections', label: 'Inspections' }
+      ]
+    },
+    {
+      id: 'help',
+      label: 'Help',
+      icon: null,
+      submenu: [
+        { id: 'documentation', label: 'Documentation' },
+        { id: 'support', label: 'Support' },
+        { id: 'about', label: 'About' }
+      ]
+    }
+  ];
+
+  const nestedSubmenus = {
+    'rental-invoicing': [
+      { id: 'new-invoice', label: 'New Tenant Invoicing' },
+      { id: 'increase-bill', label: 'Increase Bill' },
+      { id: 'reduce-bill', label: 'Reduce Bill' },
+      { id: 'late-penalties', label: 'Late Penalties - Invoices' },
+      { type: 'separator' },
+      { id: 'rental-invoices-vat', label: 'Rental Invoices V.A.T' },
+      { id: 'withholding-vat', label: 'Withholding V.A.T' },
+      { id: 'withholding-tax', label: 'Withholding Tax' },
+      { id: 'rental-aged-analysis', label: 'Rental Aged Analysis' },
+      { id: 'landlord-invoices', label: 'Landlord Invoices' }
+    ],
+    'rental-receipting': [
+      { id: 'rental-receipts', label: 'Rental Receipts' },
+      { id: 'slip-collection', label: 'Slip Collection' },
+      { id: 'mpesa-import', label: 'M-Pesa Batch Import' },
+      { id: 'tenant-prepayments', label: 'Tenants Prepayments' },
+      { id: 'instant-receipts', label: 'Instant Receipts' },
+      { id: 'landlord-receipt', label: 'Landlord Receipt' }
+    ],
+    'expenses': [
+      { id: 'expense-requisition', label: 'Expense Requisition' },
+      { id: 'notes-payable', label: 'Notes Payable' },
+      { id: 'payment-vouchers-list', label: 'Payment Vouchers' },
+      { id: 'consolidate-pvs-list', label: 'Consolidate PVs' },
+      { id: 'notes-payment-vouchers', label: 'Notes Payment Vouchers' }
+    ],
+    'landlord-payments': [
+      { id: 'landlord-standing-orders', label: 'Landlord Standing Orders' },
+      { id: 'landlord-advancement', label: 'Landlord Advancement' },
+      { id: 'landlord-jvs', label: 'Landlord J.Vs' },
+      { id: 'batch-landlord-jvs', label: 'Batch Landlord J.Vs' }
+    ]
+  };
+
+  const handleMenuItemClick = (menuId) => {
+    const route = routeConfig[menuId];
+    if (route) {
+      navigate(route);
+      setActiveMenu(null);
+      setActiveSubMenu(null);
+    }
+  };
+
+  const renderMenuItem = (item, isNested = false) => {
+    if (item.type === 'separator') {
+      return <div key={`sep-${Math.random()}`} className={`h-px ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} my-1`} />;
+    }
+
+    if (item.hasSubmenu) {
+      return (
+        <div 
+          key={item.id}
+          className="relative"
+          onMouseEnter={() => setActiveSubMenu(item.id)}
+          onMouseLeave={() => setTimeout(() => setActiveSubMenu(null), 100)}
+        >
+          <button
+            className={`w-full text-left px-4 py-2 text-sm flex justify-between items-center ${
+              darkMode 
+                ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+            }`}
+          >
+            <span>{item.label}</span>
+            <span className="text-xs">▶</span>
+          </button>
+        </div>
+      );
+    }
+
+    // Regular menu item with route
+    return (
+      <button
+        key={item.id}
+        onClick={() => handleMenuItemClick(item.id)}
+        className={`w-full text-left px-4 py-2 text-sm flex justify-between items-center ${
+          darkMode 
+            ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+            : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+        }`}
+      >
+        <span>{item.label}</span>
+        {item.shortcut && (
+          <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            {item.shortcut}
+          </span>
+        )}
+      </button>
+    );
+  };
+
+  const renderNestedMenuItem = (item, isNested = false) => {
+    if (item.type === 'separator') {
+      return <div key={`sep-${Math.random()}`} className={`h-px ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} my-1`} />;
+    }
+
+    return (
+      <button
+        key={item.id}
+        onClick={() => handleMenuItemClick(item.id)}
+        className={`w-full text-left px-4 py-2 text-sm ${
+          darkMode 
+            ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+            : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+        }`}
+      >
+        {item.label}
+      </button>
+    );
+  };
+
+  return (
+    <div className="relative">
+      <Navbar darkMode={darkMode} />
+      <div className={`flex items-center ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+        {/* Application Logo/Title */}
+        <div className={`px-4 py-2 ${darkMode ? 'bg-gray-900' : 'bg-gray-100'} border-r ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
+          <Link to="/dashboard" className="flex items-center space-x-2 no-underline">
+            <div className="w-6 h-6 bg-gradient-to-r from-[#f78536] to-[#a1a1a1] rounded flex items-center justify-center">
+              <span className="text-white font-bold text-xs">PMS</span>
             </div>
-          </main>
+            <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Milik</span>
+          </Link>
+        </div>
+
+        {/* Main Menu Items */}
+        {mainMenuItems.map((item) => (
+          <div key={item.id} className="relative group">
+            <button
+              onClick={() => {
+                setActiveMenu(activeMenu === item.id ? null : item.id);
+                setActiveSubMenu(null);
+              }}
+              className={`px-4 py-2 text-xs font-medium transition-colors ${
+                activeMenu === item.id
+                  ? darkMode 
+                    ? 'bg-gray-700 text-white'
+                    : 'bg-gray-200 text-gray-900'
+                  : darkMode
+                  ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+              }`}
+            >
+              {item.label}
+            </button>
+
+            {/* Main Dropdown Menu */}
+            {activeMenu === item.id && item.submenu && (
+              <div 
+                className={`absolute left-0 top-full mt-0 w-64 shadow-lg z-50 border ${
+                  darkMode 
+                    ? 'bg-gray-800 border-gray-700' 
+                    : 'bg-white border-gray-200'
+                }`}
+              >
+                {item.submenu.map((subItem, index) => (
+                  <React.Fragment key={subItem.id || index}>
+                    {renderMenuItem(subItem)}
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+
+            {/* Nested Submenu */}
+            {activeMenu === item.id && activeSubMenu && nestedSubmenus[activeSubMenu] && (
+              <div 
+                className={`absolute left-full top-0 w-64 shadow-lg z-50 border ${
+                  darkMode 
+                    ? 'bg-gray-800 border-gray-700' 
+                    : 'bg-white border-gray-200'
+                }`}
+              >
+                {nestedSubmenus[activeSubMenu].map((nestedItem, nestedIndex) => (
+                  <React.Fragment key={nestedItem.id || nestedIndex}>
+                    {renderNestedMenuItem(nestedItem, true)}
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Quick Actions Toolbar */}
+        <div className="flex items-center space-x-1 px-4 py-1 text-xs">
+          <Link to="/tenants/new">
+            <button className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} title="Add Tenant">
+              + Tenant
+            </button>
+          </Link>
+          <Link to="/invoices/new">
+            <button className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} title="New Invoice">
+              + Invoice
+            </button>
+          </Link>
+          <Link to="/receipts">
+            <button className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} title="Receive Payment">
+              + Payment
+            </button>
+          </Link>
+          <div className={`h-6 w-px ${darkMode ? 'bg-gray-600' : 'bg-gray-300'} mx-2`} />
+          <button 
+            onClick={() => window.location.reload()} 
+            className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} 
+            title="Refresh"
+          >
+            ↻
+          </button>
+          <Link to="/settings">
+            <button className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} title="Settings">
+              ⚙
+            </button>
+          </Link>
         </div>
       </div>
+
+      {/* Close menu when clicking outside */}
+      {activeMenu && (
+        <div 
+          className="fixed inset-0 z-40"
+          onClick={() => setActiveMenu(null)}
+        />
+      )}
     </div>
   );
 };

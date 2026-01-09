@@ -11,8 +11,8 @@ import { Link } from 'react-router-dom';
 
 const Navbar = ({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode }) => {
   return (
-    <nav className={`sticky top-0 z-40 ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'} shadow-sm`}>
-      <div className="px-6 py-4">
+    <nav className={`sticky top-0 z-20 ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'} shadow-sm`}>
+      <div className="px-5 py-1">
         <div className="flex items-center justify-between">
           {/* Left Section */}
           <div className="flex items-center space-x-4">
@@ -24,10 +24,10 @@ const Navbar = ({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode }) => {
             </button>
             
             <div>
-              <h1 className={`text-xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+              <h1 className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                 Dashboard Overview
               </h1>
-              <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                 Welcome back, Erick
               </p>
             </div>
@@ -68,15 +68,14 @@ const Navbar = ({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode }) => {
 
             {/* User Profile */}
             <div className="flex items-center space-x-3">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-r from-emerald-500 to-green-500 
-                            flex items-center justify-center">
-                <span className="text-white font-semibold">EM</span>
+              <div className="h-6 w-6 rounded-full bg-gradient-to-r from-[#f78536] to-[#dcdddc] flex items-center justify-center">
+                <span className="text-white text-xs font-semibold">EM</span>
               </div>
               <div className="hidden md:block text-right">
                 <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                   Erick Murigi
                 </p>
-                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                   Admin
                 </p>
               </div>

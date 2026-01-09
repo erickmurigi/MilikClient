@@ -15,7 +15,7 @@ const MetricsGrid = ({ darkMode }) => {
       label: 'Total Properties', 
       value: '30', 
       icon: <FaBuilding />, 
-      color: 'from-emerald-500 to-green-800', 
+      color: 'from-[#2b4450] to-[#497285]', 
       change: '+2.3%' 
     },
     { 
@@ -23,7 +23,7 @@ const MetricsGrid = ({ darkMode }) => {
       label: 'Total Units', 
       value: '75', 
       icon: <FaHome />, 
-       color: 'from-emerald-500 to-green-800',  
+       color: 'from-[#2b4450] to-[#497285]',  
       change: '+5.1%' 
     },
     { 
@@ -31,7 +31,7 @@ const MetricsGrid = ({ darkMode }) => {
       label: 'Occupancy Rate', 
       value: '53.3%', 
       icon: <FaChartPie />, 
-       color: 'from-emerald-500 to-green-800', 
+       color: 'from-[#2b4450] to-[#497285]', 
       change: '+1.8%' 
     },
     { 
@@ -39,7 +39,7 @@ const MetricsGrid = ({ darkMode }) => {
       label: 'Monthly Collection', 
       value: 'KSh 2.9M', 
       icon: <FaMoneyBillWave />, 
-      color: 'from-emerald-500 to-green-800', 
+      color: 'from-[#2b4450] to-[#497285]', 
       change: '+12.5%' 
     },
     { 
@@ -47,7 +47,7 @@ const MetricsGrid = ({ darkMode }) => {
       label: 'Collected This Month', 
       value: 'KSh 4,700', 
       icon: <FaWallet />, 
-       color: 'from-emerald-500 to-green-800',  
+       color: 'from-[#2b4450] to-[#497285]',  
       change: '-23.4%' 
     },
     { 
@@ -55,7 +55,7 @@ const MetricsGrid = ({ darkMode }) => {
       label: 'Outstanding Balance', 
       value: 'KSh 2.89M', 
       icon: <FaExclamationCircle />, 
-       color: 'from-emerald-500 to-green-800', 
+       color: 'from-[#2b4450] to-[#497285]', 
       change: '+15.2%' 
     }
   ];
