@@ -168,13 +168,13 @@ function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-green-50 flex items-center justify-center p-4 overflow-hidden relative">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-[#497285] flex items-center justify-center p-4 overflow-hidden relative">
       {/* Animated Background Particles */}
       <div className="absolute inset-0 overflow-hidden">
         {[...Array(20)].map((_, i) => (
           <div
             key={i}
-            className="absolute w-1 h-1 bg-green-200 rounded-full animate-pulse"
+            className="absolute w-1 h-1 bg-[#f78736d3] rounded-full animate-pulse"
             style={{
               top: `${Math.random() * 100}%`,
               left: `${Math.random() * 100}%`,
@@ -209,44 +209,38 @@ function Login() {
       {/* Back Button */}
       <Link 
         to="/"
-        className="absolute top-6 left-6 md:top-8 md:left-8 flex items-center gap-2 bg-white text-gray-700 hover:text-[#2b4450] transition-all px-4 py-2.5 rounded-lg z-20 group shadow-sm hover:shadow-md border border-gray-200"
+        className="absolute text-xs top-6 left-6 md:top-8 md:left-8 flex items-center gap-2 bg-white text-gray-700 hover:text-[#2b4450] transition-all px-4 py-2.5 rounded-lg z-20 group shadow-sm hover:shadow-md border border-gray-200"
       >
         <FaArrowLeft className="group-hover:-translate-x-1 transition-transform" />
         <span className="font-medium">Back to Home</span>
       </Link>
 
-      <div className="w-full max-w-6xl flex flex-col lg:flex-row gap-8 z-10">
+      <div className="w-full max-w-6xl pt-15 flex flex-col lg:flex-row gap-8 z-10">
         {/* Left Side - Brand & Testimonials */}
         <div className="lg:w-2/5 flex flex-col justify-between">
           {/* Brand Section */}
           <div className="mb-8 lg:mb-0">
             <div className="flex items-center gap-3 mb-6">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#2b4450] to-[#026227] flex items-center justify-center shadow-lg">
-                <FaBuilding className="text-white text-xl" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Milik</h1>
-                <p className="text-gray-600">Property Management System</p>
-              </div>
+              <img src="/logo.png" alt="Milik Logo" className="h-15 w-25 mr-0" />
             </div>
             
             <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-4">
               Professional Property Management <span className="text-[#2b4450]">Made Simple</span>
             </h2>
-            <p className="text-gray-600 mb-8">
+            <p className="text-gray-600 mb-4">
               Join thousands of landlords and property managers who trust Milik to automate their rental business.
             </p>
             
             {/* Features List */}
-            <div className="space-y-4 mb-8">
+            <div className="space-y-1 mb-1">
               {[
                 { icon: <FaMobileAlt />, text: 'M-PESA Integration' },
                 { icon: <FaChartLine />, text: 'Real-time Reports' },
                 { icon: <FaUsers />, text: 'Tenant Portal' },
                 { icon: <FaLeaf />, text: 'Mobile App' }
               ].map((feature, index) => (
-                <div key={index} className="flex items-center gap-3 text-gray-700">
-                  <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center text-[#027333]">
+                <div key={index} className="flex items-center gap-2 text-gray-700 text-xs">
+                  <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center text-[#f78536]">
                     {feature.icon}
                   </div>
                   <span className="font-medium">{feature.text}</span>
@@ -266,7 +260,7 @@ function Login() {
                 <p className="text-gray-500 text-sm">{testimonials[currentTestimonial].role}</p>
               </div>
             </div>
-            <p className="text-gray-700 italic mb-4 border-l-4 border-[#027333] pl-4 py-1">
+            <p className="text-gray-700 italic mb-4 border-l-4 border-[#2b4450] pl-4 py-1">
               "{testimonials[currentTestimonial].text}"
             </p>
             
@@ -288,25 +282,25 @@ function Login() {
           {/* Success Message */}
           {loginSuccess && (
             <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-xl text-center animate-fade-in shadow-sm">
-              <div className="flex items-center justify-center gap-2 text-green-700 font-semibold mb-1">
+              <div className="flex items-center justify-center gap-2 text-[#f78536] font-semibold mb-1">
                 <FaCheckCircle className="animate-bounce" />
                 Login Successful!
               </div>
-              <p className="text-green-600 text-sm">Redirecting to your dashboard...</p>
+              <p className="text-[#f78536] text-sm">Redirecting to your dashboard...</p>
             </div>
           )}
 
           {/* Login Card */}
           <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-200">
             {/* Card Header */}
-            <div className="bg-gradient-to-r from-[#027333] to-[#026227] p-8 text-center relative overflow-hidden">
+            <div className="bg-gradient-to-r from-[#2b4450] to-[#2c786c] p-4 text-center relative overflow-hidden">
               <div className="absolute inset-0 bg-white/10"></div>
               <div className="relative z-10">
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-white/20 rounded-full mb-4 backdrop-blur-sm border border-white/30">
-                  <FaKey className="text-white text-3xl" />
+                <div className="inline-flex items-center justify-center w-10 h-10 bg-white/20 rounded-full mb-4 backdrop-blur-sm border border-white/30">
+                  <FaKey className="text-white text-xs" />
                 </div>
-                <h1 className="text-3xl font-bold text-white mb-2">Secure Login</h1>
-                <p className="text-white/90">Access your Milik dashboard</p>
+                <h1 className="text-2xl font-bold text-white mb-2">Secure Login</h1>
+                <p className="text-white/90 text-xs">Access your Milik dashboard</p>
               </div>
             </div>
 
@@ -317,7 +311,7 @@ function Login() {
                 <div className="absolute inset-0 bg-white/95 backdrop-blur-sm flex items-center justify-center rounded-3xl z-20">
                   <div className="text-center">
                     <div className="relative">
-                      <FaSpinner className="animate-spin text-[#027333] text-5xl mb-4 mx-auto" />
+                      <FaSpinner className="animate-spin text-[#f78536] text-4xl mb-4 mx-auto" />
                       <div className="absolute inset-0 flex items-center justify-center">
                         <div className="h-8 w-8 bg-gradient-to-r from-[#2b4450] to-[#2b4450] rounded-full animate-ping opacity-75"></div>
                       </div>
@@ -353,7 +347,7 @@ function Login() {
                       name="email"
                       value={formData.email}
                       onChange={handleChange}
-                      className={`w-full pl-4 pr-3 py-3.5 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-[#027333] focus:border-transparent outline-none transition-all text-gray-900 placeholder-gray-500 ${
+                      className={`w-full pl-4 pr-3 py-2 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-[#027333] focus:border-transparent outline-none transition-all text-gray-900 placeholder-gray-500 ${
                         errors.email ? 'border-red-400' : 'border-gray-300'
                       }`}
                       placeholder="Enter your email or username"
@@ -380,7 +374,7 @@ function Login() {
                     <button
                       type="button"
                       onClick={handleForgotPassword}
-                      className="text-sm text-[#027333] hover:text-[#026227] font-medium transition-colors flex items-center gap-1"
+                      className="text-sm text-[#f78536] hover:text-[#f78536] font-medium transition-colors flex items-center gap-1"
                       disabled={loading}
                     >
                       Forgot Password?
@@ -393,7 +387,7 @@ function Login() {
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
-                      className={`w-full pl-4 pr-12 py-3.5 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-[#027333] focus:border-transparent outline-none transition-all text-gray-900 placeholder-gray-500 ${
+                      className={`w-full pl-4 pr-12 py-2 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-[#027333] focus:border-transparent outline-none transition-all text-gray-900 placeholder-gray-500 ${
                         errors.password ? 'border-red-400' : 'border-gray-300'
                       }`}
                       placeholder="Enter your password"
@@ -435,7 +429,7 @@ function Login() {
                         onClick={() => !loading && setFormData(prev => ({ ...prev, rememberMe: !prev.rememberMe }))}
                         className={`h-5 w-5 rounded border flex items-center justify-center cursor-pointer transition-all ${
                           formData.rememberMe 
-                            ? 'bg-[#027333] border-[#027333]' 
+                            ? 'bg-[#2b4450] border-[#2b4450]' 
                             : 'bg-gray-100 border-gray-300'
                         }`}
                       >
@@ -450,7 +444,7 @@ function Login() {
                   </div>
                   
                   <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <FaShieldAlt className="text-[#027333]" />
+                    <FaShieldAlt className="text-[#2b4450]" />
                     <span>Secure Connection</span>
                   </div>
                 </div>
@@ -459,7 +453,7 @@ function Login() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-[#027333] to-[#026227] text-white py-4 px-4 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none group relative overflow-hidden"
+                  className="w-full bg-gradient-to-r from-[#2b4450] to-[#2b4450] text-white py-4 px-4 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none group relative overflow-hidden"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                   {loading ? (
@@ -513,7 +507,7 @@ function Login() {
                     New to Milik?{' '}
                     <Link 
                       to="/signup" 
-                      className="text-[#027333] hover:text-[#026227] font-semibold transition-colors hover:underline"
+                      className="text-[#2b4450] hover:text-[#1b2c33] font-semibold transition-colors hover:underline"
                     >
                       Create an account
                     </Link>
@@ -529,7 +523,7 @@ function Login() {
             <div className="bg-gray-50 px-8 py-4 text-center border-t border-gray-200">
               <div className="flex items-center justify-center gap-4 text-xs text-gray-600">
                 <span className="flex items-center gap-1">
-                  <FaShieldAlt className="text-green-600" />
+                  <FaShieldAlt className="text-[#2b4450]" />
                   SSL Encrypted
                 </span>
                 <span className="h-3 w-px bg-gray-300"></span>
@@ -566,7 +560,7 @@ function Login() {
 
       {/* Security Badge */}
       <div className="absolute bottom-6 right-6 bg-white border border-gray-200 rounded-xl p-3 flex items-center gap-3 z-20 shadow-lg">
-        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#027333] to-[#026227] flex items-center justify-center">
+        <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#2b4450] to-[#2b4450] flex items-center justify-center">
           <FaShieldAlt className="text-white" />
         </div>
         <div>

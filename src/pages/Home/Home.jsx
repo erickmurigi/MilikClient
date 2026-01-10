@@ -162,10 +162,8 @@ function Home() {
           <div className="flex items-center  justify-between">
             {/* Logo */}
             <div className="flex items-center">
-              <div className="h-5 w-5 rounded-lg bg-[#2b4450] flex items-center justify-center mr-3">
-                <FaBuilding className="text-white text-xl" />
-              </div>
-              <span className="text-2xl font-bold text-[#2b4450]">Milik</span>
+              <img src="/logo.png" alt="Milik Logo" className="h-11 w-20 mr-0" />
+              
             </div>
 
             {/* Desktop Navigation */}
@@ -183,7 +181,7 @@ function Home() {
               {/* Action Buttons */}
               <div className="flex items-center space-x-4">
                 <Link to="/login">
-                <button className="px-5 py-2.5 border border-[#2b4450] text-[#2b4450] rounded-lg font-medium hover:bg-[#f0f9f2] transition-colors">
+                <button className="px-5 py-1.5 border text-base border-[#2b4450] text-[#2b4450] rounded-lg font-medium hover:bg-[#f0f9f2] transition-colors">
                   Sign In
                 </button></Link>
                 
@@ -288,7 +286,7 @@ function Home() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
                           <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center mr-3">
-                            <FaUserCheck className="text-green-600 text-sm" />
+                            <FaUserCheck className="text-[#f78536] text-sm" />
                           </div>
                           <div>
                             <div className="text-sm font-medium">New Tenant Added</div>
@@ -383,7 +381,7 @@ function Home() {
           </div>
           
           <div className="text-center mt-12">
-            <button className="inline-flex items-center justify-center bg-[#f78536] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#026227] transition-all">
+            <button className="inline-flex items-center justify-center bg-[#f78536] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#2b4450] transition-all">
               View All Features
             </button>
           </div>
@@ -417,7 +415,7 @@ function Home() {
           </div>
           
           <div className="text-center mt-12">
-            <button className="inline-flex items-center justify-center bg-[#f78536] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#026227] transition-all">
+            <button className="inline-flex items-center justify-center bg-[#f78536] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#2b4450] transition-all">
               Get Started Now
             </button>
           </div>
@@ -447,7 +445,7 @@ function Home() {
           </div>
           
           <div className="text-center mt-12">
-            <button className="inline-flex items-center justify-center bg-[#f78536] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#026227] transition-all">
+            <button className="inline-flex items-center justify-center bg-[#f78536] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#2b4450] transition-all">
               Get Started Today
             </button>
           </div>
@@ -515,10 +513,10 @@ function Home() {
             {/* Brand */}
             <div>
               <div className="flex items-center mb-6">
-                <div className="h-10 w-10 rounded-lg bg-[#f78536] flex items-center justify-center mr-3">
-                  <FaBuilding className="text-white" />
-                </div>
-                <span className="text-2xl font-bold text-[#f78536]">Milik</span>
+                <div className="flex items-center">
+              <img src="/logo.png" alt="Milik Logo" className="h-15 w-25 mr-0" />
+              
+            </div>
               </div>
               <p className="text-gray-600 mb-6">
                 All-in-one platform to manage properties, automate rent, and engage tenants across Kenya.
@@ -540,11 +538,11 @@ function Home() {
             <div>
               <h3 className="font-bold text-gray-900 text-lg mb-6">Quick Links</h3>
               <ul className="space-y-3">
-                <li><a href="#" className="text-gray-600 hover:text-[#027333] transition-colors">Home</a></li>
-                <li><a href="#features" className="text-gray-600 hover:text-[#027333] transition-colors">Features</a></li>
-                <li><a href="#how-it-works" className="text-gray-600 hover:text-[#027333] transition-colors">How It Works</a></li>
-                <li><a href="#faq" className="text-gray-600 hover:text-[#027333] transition-colors">FAQ</a></li>
-                <li><a href="#" className="text-gray-600 hover:text-[#027333] transition-colors">Contact</a></li>
+                <li><a href="#" className="text-gray-600 hover:text-[#2c786c] transition-colors">Home</a></li>
+                <li><a href="#features" className="text-gray-600 hover:text-[#2c786c] transition-colors">Features</a></li>
+                <li><a href="#how-it-works" className="text-gray-600 hover:text-[#2c786c] transition-colors">How It Works</a></li>
+                <li><a href="#faq" className="text-gray-600 hover:text-[#2c786c] transition-colors">FAQ</a></li>
+                <li><a href="#" className="text-gray-600 hover:text-[#2c786c] transition-colors">Contact</a></li>
               </ul>
             </div>
 
@@ -552,10 +550,10 @@ function Home() {
             <div>
               <h3 className="font-bold text-gray-900 text-lg mb-6">Resources</h3>
               <ul className="space-y-3">
-                <li><a href="#" className="text-gray-600 hover:text-[#027333] transition-colors">Bank Deposits</a></li>
-                <li><a href="#" className="text-gray-600 hover:text-[#027333] transition-colors">M-Pesa Deposits</a></li>
-                <li><a href="#" className="text-gray-600 hover:text-[#027333] transition-colors">Rent Automation</a></li>
-                <li><a href="#" className="text-gray-600 hover:text-[#027333] transition-colors">Water Billing</a></li>
+                <li><a href="#" className="text-gray-600 hover:text-[#2c786c] transition-colors">Bank Deposits</a></li>
+                <li><a href="#" className="text-gray-600 hover:text-[#2c786c] transition-colors">M-Pesa Deposits</a></li>
+                <li><a href="#" className="text-gray-600 hover:text-[#2c786c] transition-colors">Rent Automation</a></li>
+                <li><a href="#" className="text-gray-600 hover:text-[#2c786c] transition-colors">Water Billing</a></li>
               </ul>
             </div>
 
@@ -563,10 +561,10 @@ function Home() {
             <div>
               <h3 className="font-bold text-gray-900 text-lg mb-6">Get Started</h3>
               <div className="space-y-4">
-                <button className="w-full px-5 py-3 bg-[#f78536] text-white rounded-lg font-medium hover:bg-[#026227] transition-colors shadow-md">
+                <button className="w-full px-5 py-3 bg-[#f78536] text-white rounded-lg font-medium hover:bg-[#2c786c] transition-colors shadow-md">
                   Register Now
                 </button>
-                <button className="w-full px-5 py-3 border border-[#f78536] text-[#f78536] rounded-lg font-medium hover:bg-[#f0f9f2] transition-colors">
+                <button className="w-full px-5 py-3 border border-[#f78536] text-[#f78536] rounded-lg font-medium hover:bg-[#2c786c] transition-colors">
                   Sign In
                 </button>
               </div>
@@ -577,8 +575,8 @@ function Home() {
           <div className="pt-8 border-t border-gray-300 text-center text-gray-600">
             <p className="mb-4">© 2026 Milik Property Management System. All rights reserved.</p>
             <div className="space-x-6">
-              <a href="#" className="hover:text-[#027333] transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-[#027333] transition-colors">Terms of Service</a>
+              <a href="#" className="hover:text-[#2c786c] transition-colors">Privacy Policy</a>
+              <a href="#" className="hover:text-[#2c786c] transition-colors">Terms of Service</a>
             </div>
           </div>
         </div>
@@ -590,7 +588,7 @@ function Home() {
           href="https://wa.me/254791483607"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center h-16 w-16 rounded-full bg-green-500 text-white shadow-xl hover:shadow-2xl hover:scale-110 transition-all"
+          className="flex items-center justify-center h-16 w-16 rounded-full bg-[#2c786c] text-white shadow-xl hover:shadow-2xl hover:scale-110 transition-all"
           aria-label="Chat on WhatsApp"
         >
           <FaWhatsapp className="text-2xl" />

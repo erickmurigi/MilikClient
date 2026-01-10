@@ -406,10 +406,8 @@ const TopToolbar = ({ darkMode }) => {
         {/* Application Logo/Title */}
         <div className={`px-4 py-2 ${darkMode ? 'bg-gray-900' : 'bg-gray-100'} border-r ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
           <Link to="/dashboard" className="flex items-center space-x-2 no-underline">
-            <div className="w-6 h-6 bg-gradient-to-r from-[#f78536] to-[#a1a1a1] rounded flex items-center justify-center">
-              <span className="text-white font-bold text-xs">PMS</span>
-            </div>
-            <span className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>Milik</span>
+            <img src="/logo.png" alt="Milik Logo" className="h-6 w-12 mr-0" />
+              
           </Link>
         </div>
 
