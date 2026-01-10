@@ -162,33 +162,31 @@ function Home() {
           <div className="flex items-center  justify-between">
             {/* Logo */}
             <div className="flex items-center">
-              <div className="h-5 w-5 rounded-lg bg-[#027333] flex items-center justify-center mr-3">
+              <div className="h-5 w-5 rounded-lg bg-[#2b4450] flex items-center justify-center mr-3">
                 <FaBuilding className="text-white text-xl" />
               </div>
-              <span className="text-2xl font-bold text-[#027333]">Milik</span>
+              <span className="text-2xl font-bold text-[#2b4450]">Milik</span>
             </div>
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
-              <a href="#features" className="text-gray-700 hover:text-[#027333] font-medium transition-colors text-base">
+              <a href="#features" className="text-gray-700 hover:text-[#2b4450] font-medium transition-colors text-base">
                 Features
               </a>
-              <a href="#how-it-works" className="text-gray-700 hover:text-[#027333] font-medium transition-colors text-base">
+              <a href="#how-it-works" className="text-gray-700 hover:text-[#2b4450] font-medium transition-colors text-base">
                 How It Works
               </a>
-              <a href="#faq" className="text-gray-700 hover:text-[#027333] font-medium transition-colors text-base">
+              <a href="#faq" className="text-gray-700 hover:text-[#2b4450] font-medium transition-colors text-base">
                 FAQ
               </a>
               
               {/* Action Buttons */}
               <div className="flex items-center space-x-4">
                 <Link to="/login">
-                <button className="px-5 py-2.5 border border-[#027333] text-[#027333] rounded-lg font-medium hover:bg-[#f0f9f2] transition-colors">
+                <button className="px-5 py-2.5 border border-[#2b4450] text-[#2b4450] rounded-lg font-medium hover:bg-[#f0f9f2] transition-colors">
                   Sign In
                 </button></Link>
-                <button className="px-5 py-2.5 bg-[#027333] text-white rounded-lg font-medium hover:bg-[#026227] transition-colors shadow-md">
-                  Get Started Free
-                </button>
+                
               </div>
             </div>
 
@@ -209,15 +207,15 @@ function Home() {
             {/* Left Content */}
             <div className="text-center lg:text-left">
               {/* Badge */}
-              <div className="inline-flex items-center gap-2 bg-[#f0f9f2] text-[#027333] rounded-full px-4 py-2 text-sm font-semibold mb-4">
-                <FaCheckCircle className="text-[#027333]" />
+              <div className="inline-flex items-center gap-2 bg-[#f0f9f2] text-[#2b4450] rounded-full px-4 py-2 text-sm font-semibold mb-4">
+                <FaCheckCircle className="text-[#f78536]" />
                 Made for Kenya — M-PESA Ready
               </div>
               
               <h1 className="text-4xl md:text-5xl lg:text-5xl font-bold leading-tight mb-4 text-gray-900">
                 Property Management System in Kenya
               </h1>
-              <p className="text-[#027333] text-xl font-semibold mb-4">
+              <p className="text-[#2b4450] text-xl font-semibold mb-4">
                 Complete Rental Management & Landlord Software
               </p>
               <p className="text-gray-600 text-lg mb-8 max-w-2xl">
@@ -226,7 +224,7 @@ function Home() {
               
               {/* CTA Buttons */}
               <div className="flex flex-wrap gap-4 justify-center lg:justify-start mb-8">
-                <button className="inline-flex items-center justify-center bg-[#027333] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#026227] transition-all">
+                <button className="inline-flex items-center justify-center bg-[#2b4450] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#026227] transition-all">
                   Start Free
                 </button>
                 <button className="inline-flex items-center justify-center border border-gray-300 bg-white text-gray-700 font-semibold px-8 py-3.5 rounded-lg hover:bg-gray-50 transition-colors">
@@ -237,15 +235,15 @@ function Home() {
               {/* Trust Indicators */}
               <div className="flex flex-wrap gap-6 justify-center lg:justify-start text-gray-600 text-sm">
                 <span className="inline-flex items-center">
-                  <FaShieldAlt className="text-[#027333] mr-2" />
+                  <FaShieldAlt className="text-[#f78536] mr-2" />
                   Bank-grade security
                 </span>
                 <span className="inline-flex items-center">
-                  <FaHeadset className="text-[#027333] mr-2" />
+                  <FaHeadset className="text-[#f78536] mr-2" />
                   Kenyan support
                 </span>
                 <span className="inline-flex items-center">
-                  <FaMobileAlt className="text-[#027333] mr-2" />
+                  <FaMobileAlt className="text-[#f78536] mr-2" />
                   Mobile friendly
                 </span>
               </div>
@@ -254,7 +252,7 @@ function Home() {
             {/* Right Content - Dashboard Preview */}
             <div className="relative">
               <div className="bg-white/80 backdrop-blur-lg border border-white/40 rounded-2xl shadow-2xl p-4">
-                <div className="bg-gradient-to-br from-[#027333] to-[#026227] rounded-xl p-6">
+                <div className="bg-gradient-to-br from-[#2b4450] to-[#2b4450] rounded-xl p-6">
                   {/* Mock Dashboard UI */}
                   <div className="bg-white/95 rounded-lg p-5">
                     <div className="flex items-center justify-between mb-5">
@@ -263,7 +261,7 @@ function Home() {
                         <div className="text-2xl font-bold text-gray-900">KES 1,245,000</div>
                       </div>
                       <div className="h-10 w-10 rounded-full bg-[#f0f9f2] flex items-center justify-center">
-                        <FaBuilding className="text-[#027333]" />
+                        <FaBuilding className="text-[#f78536]" />
                       </div>
                     </div>
                     
@@ -280,7 +278,7 @@ function Home() {
                         <div className="text-xs text-gray-500 mb-1">Collections</div>
                         <div className="text-lg font-bold text-gray-900">98%</div>
                         <div className="h-1 w-full bg-gray-200 rounded-full mt-2">
-                          <div className="h-1 w-4/5 bg-blue-500 rounded-full"></div>
+                          <div className="h-1 w-4/5 bg-[#f78536] rounded-full"></div>
                         </div>
                       </div>
                     </div>
@@ -302,7 +300,7 @@ function Home() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
                           <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
-                            <FaMoneyBillWave className="text-blue-600 text-sm" />
+                            <FaMoneyBillWave className="text-[#f78536] text-sm" />
                           </div>
                           <div>
                             <div className="text-sm font-medium">Rent Received</div>
@@ -324,12 +322,12 @@ function Home() {
               <span className="font-medium">Trusted by landlords & agencies across Kenya</span>
               <span className="hidden sm:inline h-4 w-px bg-gray-300"></span>
               <span className="inline-flex items-center gap-2">
-                <FaShieldAlt className="text-[#027333]" />
+                <FaShieldAlt className="text-[#f78536]" />
                 Encrypted at rest & in transit
               </span>
               <span className="hidden sm:inline h-4 w-px bg-gray-300"></span>
               <span className="inline-flex items-center gap-2">
-                <FaBolt className="text-[#027333]" />
+                <FaBolt className="text-[#f78536]" />
                 Fast onboarding
               </span>
             </div>
@@ -346,7 +344,7 @@ function Home() {
                 key={index}
                 className="rounded-xl bg-gray-50 p-6 shadow-sm hover:shadow-md transition-shadow border border-gray-100"
               >
-                <div className="text-[#027333] text-2xl mb-3 flex justify-center">
+                <div className="text-[#f78536] text-2xl mb-3 flex justify-center">
                   {kpi.icon}
                 </div>
                 <div className="text-2xl font-bold text-gray-900 mb-2">{kpi.value}</div>
@@ -374,7 +372,7 @@ function Home() {
                 className="group"
               >
                 <div className="h-full rounded-xl bg-white shadow-sm border border-gray-100 text-center p-8 transition-all duration-200 group-hover:-translate-y-2 group-hover:shadow-lg">
-                  <div className="text-[#027333] text-3xl mb-4 flex justify-center">
+                  <div className="text-[#f78536] text-3xl mb-4 flex justify-center">
                     {feature.icon}
                   </div>
                   <h5 className="font-semibold text-xl mb-3 text-gray-900">{feature.title}</h5>
@@ -385,7 +383,7 @@ function Home() {
           </div>
           
           <div className="text-center mt-12">
-            <button className="inline-flex items-center justify-center bg-[#027333] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#026227] transition-all">
+            <button className="inline-flex items-center justify-center bg-[#f78536] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#026227] transition-all">
               View All Features
             </button>
           </div>
@@ -406,7 +404,7 @@ function Home() {
                 className="rounded-xl bg-gray-50 p-6 hover:bg-gray-100 transition-colors border border-gray-200"
               >
                 <div className="flex items-start">
-                  <div className="text-[#027333] text-2xl mr-4">
+                  <div className="text-[#f78536] text-2xl mr-4">
                     {step.icon}
                   </div>
                   <div>
@@ -419,7 +417,7 @@ function Home() {
           </div>
           
           <div className="text-center mt-12">
-            <button className="inline-flex items-center justify-center bg-[#027333] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#026227] transition-all">
+            <button className="inline-flex items-center justify-center bg-[#f78536] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#026227] transition-all">
               Get Started Now
             </button>
           </div>
@@ -439,7 +437,7 @@ function Home() {
                 key={index}
                 className="rounded-xl bg-white shadow-sm border border-gray-100 text-center p-8 transition-all duration-200 hover:-translate-y-2 hover:shadow-lg"
               >
-                <div className="text-[#027333] text-3xl mb-4 flex justify-center">
+                <div className="text-[#f78536] text-3xl mb-4 flex justify-center">
                   {user.icon}
                 </div>
                 <h5 className="font-semibold text-xl mb-3 text-gray-900">{user.title}</h5>
@@ -449,7 +447,7 @@ function Home() {
           </div>
           
           <div className="text-center mt-12">
-            <button className="inline-flex items-center justify-center bg-[#027333] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#026227] transition-all">
+            <button className="inline-flex items-center justify-center bg-[#f78536] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#026227] transition-all">
               Get Started Today
             </button>
           </div>
@@ -496,7 +494,7 @@ function Home() {
       </section>
 
       {/* Final CTA with better spacing */}
-      <section className="py-20 text-white text-center bg-gradient-to-br from-[#027333] to-[#026227]">
+      <section className="py-20 text-white text-center bg-gradient-to-br from-[#2b4450] to-[#2c786c]">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-bold mb-6">
             You didn't become a landlord to be a bookkeeper.
@@ -504,7 +502,7 @@ function Home() {
           <p className="mb-8 text-white/90 max-w-2xl mx-auto text-lg">
             Grow your portfolio — let Milik handle rent, accounting & reporting.
           </p>
-          <button className="inline-flex items-center justify-center bg-white text-[#027333] font-semibold px-8 py-3.5 rounded-lg hover:opacity-90 transition-opacity shadow-lg">
+          <button className="inline-flex items-center justify-center bg-white text-[#2b4450] font-semibold px-8 py-3.5 rounded-lg hover:opacity-90 transition-opacity shadow-lg">
             Get Started Free
           </button>
         </div>
@@ -517,10 +515,10 @@ function Home() {
             {/* Brand */}
             <div>
               <div className="flex items-center mb-6">
-                <div className="h-10 w-10 rounded-lg bg-[#027333] flex items-center justify-center mr-3">
+                <div className="h-10 w-10 rounded-lg bg-[#f78536] flex items-center justify-center mr-3">
                   <FaBuilding className="text-white" />
                 </div>
-                <span className="text-2xl font-bold text-[#027333]">Milik</span>
+                <span className="text-2xl font-bold text-[#f78536]">Milik</span>
               </div>
               <p className="text-gray-600 mb-6">
                 All-in-one platform to manage properties, automate rent, and engage tenants across Kenya.
@@ -565,10 +563,10 @@ function Home() {
             <div>
               <h3 className="font-bold text-gray-900 text-lg mb-6">Get Started</h3>
               <div className="space-y-4">
-                <button className="w-full px-5 py-3 bg-[#027333] text-white rounded-lg font-medium hover:bg-[#026227] transition-colors shadow-md">
+                <button className="w-full px-5 py-3 bg-[#f78536] text-white rounded-lg font-medium hover:bg-[#026227] transition-colors shadow-md">
                   Register Now
                 </button>
-                <button className="w-full px-5 py-3 border border-[#027333] text-[#027333] rounded-lg font-medium hover:bg-[#f0f9f2] transition-colors">
+                <button className="w-full px-5 py-3 border border-[#f78536] text-[#f78536] rounded-lg font-medium hover:bg-[#f0f9f2] transition-colors">
                   Sign In
                 </button>
               </div>

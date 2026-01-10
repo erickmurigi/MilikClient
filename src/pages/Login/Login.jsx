@@ -209,7 +209,7 @@ function Login() {
       {/* Back Button */}
       <Link 
         to="/"
-        className="absolute top-6 left-6 md:top-8 md:left-8 flex items-center gap-2 bg-white text-gray-700 hover:text-[#027333] transition-all px-4 py-2.5 rounded-lg z-20 group shadow-sm hover:shadow-md border border-gray-200"
+        className="absolute top-6 left-6 md:top-8 md:left-8 flex items-center gap-2 bg-white text-gray-700 hover:text-[#2b4450] transition-all px-4 py-2.5 rounded-lg z-20 group shadow-sm hover:shadow-md border border-gray-200"
       >
         <FaArrowLeft className="group-hover:-translate-x-1 transition-transform" />
         <span className="font-medium">Back to Home</span>
@@ -221,7 +221,7 @@ function Login() {
           {/* Brand Section */}
           <div className="mb-8 lg:mb-0">
             <div className="flex items-center gap-3 mb-6">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#027333] to-[#026227] flex items-center justify-center shadow-lg">
+              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-[#2b4450] to-[#026227] flex items-center justify-center shadow-lg">
                 <FaBuilding className="text-white text-xl" />
               </div>
               <div>
@@ -231,7 +231,7 @@ function Login() {
             </div>
             
             <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-4">
-              Professional Property Management <span className="text-[#027333]">Made Simple</span>
+              Professional Property Management <span className="text-[#2b4450]">Made Simple</span>
             </h2>
             <p className="text-gray-600 mb-8">
               Join thousands of landlords and property managers who trust Milik to automate their rental business.
@@ -258,7 +258,7 @@ function Login() {
           {/* Testimonials Carousel */}
           <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#027333] to-[#026227] flex items-center justify-center text-white font-semibold">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#2b4450] to-[#2b4450] flex items-center justify-center text-white font-semibold">
                 {testimonials[currentTestimonial].avatar}
               </div>
               <div>
@@ -319,7 +319,7 @@ function Login() {
                     <div className="relative">
                       <FaSpinner className="animate-spin text-[#027333] text-5xl mb-4 mx-auto" />
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="h-8 w-8 bg-gradient-to-r from-[#027333] to-[#026227] rounded-full animate-ping opacity-75"></div>
+                        <div className="h-8 w-8 bg-gradient-to-r from-[#2b4450] to-[#2b4450] rounded-full animate-ping opacity-75"></div>
                       </div>
                     </div>
                     <p className="text-gray-800 font-medium text-lg mb-2">Authenticating...</p>

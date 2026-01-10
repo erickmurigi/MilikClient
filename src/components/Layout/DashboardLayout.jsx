@@ -402,7 +402,7 @@ const TopToolbar = ({ darkMode }) => {
   return (
     <div className="relative">
       <Navbar darkMode={darkMode} />
-      <div className={`flex items-center ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+      <div className={`flex items-center ${darkMode ? 'bg-gray-800' : 'bg-[#dfebed]'}`}>
         {/* Application Logo/Title */}
         <div className={`px-4 py-2 ${darkMode ? 'bg-gray-900' : 'bg-gray-100'} border-r ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
           <Link to="/dashboard" className="flex items-center space-x-2 no-underline">
