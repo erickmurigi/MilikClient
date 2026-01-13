@@ -12,7 +12,14 @@ const Dashboard = ({ darkMode }) => {
   return (
     
       <DashboardLayout>
-        <div className={`space-y-6 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+        <div className="flex flex-1"> {/* Add pt-20 (5rem) for navbar height */}
+        {/* Sidebar/Quick Actions - Fixed width */}
+        <div className="p-0">
+          <div className="pr-4 h-full mt-0"> {/* Add mt-2 for spacing */}
+            <QuickActions darkMode={darkMode} />
+          </div>
+        </div>
+        <div className={`flex-1 overflow-auto space-y-6 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
          
           {/* Metrics Grid */}
           <MetricsGrid darkMode={darkMode} />
@@ -20,8 +27,8 @@ const Dashboard = ({ darkMode }) => {
           {/* Financial Overview */}
           <FinancialOverview darkMode={darkMode} />
 
-        {/* Charts and Data Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+         {/* Charts and Data Grid */}
+         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Properties Overview */}
           <div className="lg:col-span-2">
             <PropertiesOverview darkMode={darkMode} />
@@ -31,10 +38,11 @@ const Dashboard = ({ darkMode }) => {
           <div>
             <RecentActivity darkMode={darkMode} />
           </div>
-        </div>
+         </div>
 
         
         {/* Quick Actions */}
+             </div>
              </div>
     </DashboardLayout>
   );

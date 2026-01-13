@@ -1,10 +1,11 @@
 // DashboardLayout.js
 import React, { useState } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import './dashboard.css';
 import Navbar from '../../components/Dashboard/Navbar';
-import QuickActions from '../../components/Dashboard/QuickActions';
+import TabManager from '../../components/Layout/TabManager';
+import { useTabContext } from '../../context/TabContext';
 
 const DashboardLayout = ({ children }) => {
   const [darkMode, setDarkMode] = useState(false);
@@ -28,19 +29,15 @@ const DashboardLayout = ({ children }) => {
         <TopToolbar darkMode={darkMode} />
       </div>
       
+      {/* Tab Manager - Fixed below navbar */}
+      <div className="fixed top-22 left-0 right-0 z-40">
+        <TabManager darkMode={darkMode} />
+      </div>
+      
       {/* Main content area with padding-top to account for fixed navbar */}
-      <div className="flex flex-1 pt-20"> {/* Add pt-20 (5rem) for navbar height */}
-        {/* Sidebar/Quick Actions - Fixed width */}
-        <div className="w-64 xl:w-72 border-r border-gray-200 dark:border-gray-700">
-          <div className="p-4 h-full mt-2"> {/* Add mt-2 for spacing */}
-            <QuickActions darkMode={darkMode} />
-          </div>
-        </div>
-        
-        {/* Main content */}
+      <div className="flex flex-1 pt-28">
         <main className="flex-1 p-4 md:p-6 overflow-auto">
           <div className="max-w-full">
-            {/* Pass darkMode to all child components */}
             {React.Children.map(children, child => {
               return React.cloneElement(child, { darkMode });
             })}
@@ -54,7 +51,7 @@ const DashboardLayout = ({ children }) => {
 const TopToolbar = ({ darkMode }) => {
   const [activeMenu, setActiveMenu] = useState(null);
   const [activeSubMenu, setActiveSubMenu] = useState(null);
-  const navigate = useNavigate();
+  const { addNewTab } = useTabContext();
 
   // Route configurations
   const routeConfig = {
@@ -151,20 +148,6 @@ const TopToolbar = ({ darkMode }) => {
     'documentation': '/help/documentation',
     'support': '/help/support',
     'about': '/help/about',
-    
-    // Quick Links routes
-    'add-tenant': '/tenants/new',
-    'rental-invoices': '/invoices',
-    'rental-invoice-booking': '/invoices/booking',
-    'debit-note': '/financial/debit-notes',
-    'credit-note': '/financial/credit-notes',
-    'rental-receipts': '/receipts',
-    'rental-receipt': '/receipts/new',
-    'rental-aged-analysis': '/reports/aged-analysis',
-    'paid-balance': '/reports/paid-balance',
-    'tenant-financing': '/tenants/financing',
-    'tenant-journals': '/tenants/journals',
-    'batch-tenant-jvs': '/tenants/batch-journals',
   };
 
   const mainMenuItems = [
@@ -322,10 +305,10 @@ const TopToolbar = ({ darkMode }) => {
     ]
   };
 
-  const handleMenuItemClick = (menuId) => {
+  const handleMenuItemClick = (menuId, label) => {
     const route = routeConfig[menuId];
     if (route) {
-      navigate(route);
+      addNewTab(route, label);
       setActiveMenu(null);
       setActiveSubMenu(null);
     }
@@ -362,7 +345,7 @@ const TopToolbar = ({ darkMode }) => {
     return (
       <button
         key={item.id}
-        onClick={() => handleMenuItemClick(item.id)}
+        onClick={() => handleMenuItemClick(item.id, item.label)}
         className={`w-full text-left px-4 py-2 text-sm flex justify-between items-center ${
           darkMode 
             ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
@@ -387,7 +370,7 @@ const TopToolbar = ({ darkMode }) => {
     return (
       <button
         key={item.id}
-        onClick={() => handleMenuItemClick(item.id)}
+        onClick={() => handleMenuItemClick(item.id, item.label)}
         className={`w-full text-left px-4 py-2 text-sm ${
           darkMode 
             ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
@@ -407,7 +390,6 @@ const TopToolbar = ({ darkMode }) => {
         <div className={`px-4 py-2 ${darkMode ? 'bg-gray-900' : 'bg-gray-100'} border-r ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
           <Link to="/dashboard" className="flex items-center space-x-2 no-underline">
             <img src="/logo.png" alt="Milik Logo" className="h-6 w-12 mr-0" />
-              
           </Link>
         </div>
 
@@ -473,21 +455,27 @@ const TopToolbar = ({ darkMode }) => {
 
         {/* Quick Actions Toolbar */}
         <div className="flex items-center space-x-1 px-4 py-1 text-xs">
-          <Link to="/tenants/new">
-            <button className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} title="Add Tenant">
-              + Tenant
-            </button>
-          </Link>
-          <Link to="/invoices/new">
-            <button className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} title="New Invoice">
-              + Invoice
-            </button>
-          </Link>
-          <Link to="/receipts">
-            <button className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} title="Receive Payment">
-              + Payment
-            </button>
-          </Link>
+          <button 
+            onClick={() => addNewTab('/tenants/new', 'Add Tenant')}
+            className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} 
+            title="Add Tenant"
+          >
+            + Tenant
+          </button>
+          <button 
+            onClick={() => addNewTab('/invoices/new', 'New Invoice')}
+            className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} 
+            title="New Invoice"
+          >
+            + Invoice
+          </button>
+          <button 
+            onClick={() => addNewTab('/receipts', 'Receive Payment')}
+            className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} 
+            title="Receive Payment"
+          >
+            + Payment
+          </button>
           <div className={`h-6 w-px ${darkMode ? 'bg-gray-600' : 'bg-gray-300'} mx-2`} />
           <button 
             onClick={() => window.location.reload()} 
@@ -496,11 +484,13 @@ const TopToolbar = ({ darkMode }) => {
           >
             ↻
           </button>
-          <Link to="/settings">
-            <button className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} title="Settings">
-              ⚙
-            </button>
-          </Link>
+          <button 
+            onClick={() => addNewTab('/settings', 'Settings')}
+            className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} 
+            title="Settings"
+          >
+            ⚙
+          </button>
         </div>
       </div>
 

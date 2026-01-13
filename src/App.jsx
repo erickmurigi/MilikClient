@@ -12,12 +12,13 @@ import Leases from './pages/Lease/Lease';
 import Vacants from './pages/Vacants/Vacants';
 import Maintenances from './pages/Maintenances/Maintenances';
 import Inspections from './pages/Inspections/Inspections';
-
+import { TabProvider } from './context/TabContext';
 function App() {
  
 
   return (
     <BrowserRouter>
+    <TabProvider>
       <Routes>
         <Route path="/" element={<Navigate to="/home" />} />
         <Route path="/home" element={<Home />} />
@@ -31,7 +32,7 @@ function App() {
         <Route path="/vacants" element={<Vacants />} />
         <Route path="/maintenances" element={<Maintenances />} />
         <Route path="/inspections" element={<Inspections />} />
-      </Routes>
+      </Routes></TabProvider>
     </BrowserRouter>
   )
 }

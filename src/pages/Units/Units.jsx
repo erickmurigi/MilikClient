@@ -2,452 +2,269 @@
 import React, { useState } from 'react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import { 
-  FaHome, FaPlus, FaFilter, FaDownload, FaSearch, FaEdit, FaTrash, FaEye,
-  FaUser, FaBuilding, FaDoorOpen, FaTools, FaCalendarAlt, FaMoneyBillWave
+  FaPlus, FaFilter, FaDownload, FaSearch, FaEdit, FaTrash, FaEye,
+  FaEllipsisH, FaFileExport, FaHome, FaUser, FaDoorOpen, FaCalendarAlt
 } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 
 const Units = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
 
-  // Sample units data
+  // Sample units data matching the exact structure
   const units = [
     {
-      id: 1,
+      code: 'U001',
       unitNumber: 'A101',
       property: 'Milik Towers',
       type: '2-Bedroom',
       size: '850 sq ft',
-      rent: 'KSh 45,000',
-      deposit: 'KSh 90,000',
-      status: 'occupied',
+      status: 'Occupied',
       tenant: 'Michael Otieno',
-      lastPayment: '2024-01-01',
-      nextPayment: '2024-02-01',
-      amenities: ['Parking', 'Balcony', 'Security']
+      rent: 'KSh 45,000',
+      lastMaintenance: '2024-01-15',
+      nextInspection: '2024-02-15'
     },
     {
-      id: 2,
+      code: 'U002',
       unitNumber: 'A102',
       property: 'Milik Towers',
       type: '1-Bedroom',
       size: '650 sq ft',
-      rent: 'KSh 32,000',
-      deposit: 'KSh 64,000',
-      status: 'vacant',
+      status: 'Vacant',
       tenant: null,
-      lastPayment: null,
-      nextPayment: null,
-      amenities: ['Parking', 'Balcony']
+      rent: 'KSh 32,000',
+      lastMaintenance: '2024-01-10',
+      nextInspection: '2024-03-10'
     },
     {
-      id: 3,
+      code: 'U003',
       unitNumber: 'B201',
       property: 'Westgate Apartments',
       type: 'Studio',
       size: '450 sq ft',
-      rent: 'KSh 25,000',
-      deposit: 'KSh 50,000',
-      status: 'occupied',
+      status: 'Occupied',
       tenant: 'Grace Wanjiru',
-      lastPayment: '2024-01-05',
-      nextPayment: '2024-02-05',
-      amenities: ['Parking']
+      rent: 'KSh 25,000',
+      lastMaintenance: '2024-01-05',
+      nextInspection: '2024-02-05'
     },
     {
-      id: 4,
+      code: 'U004',
       unitNumber: 'C301',
       property: 'Garden Villas',
       type: '3-Bedroom',
       size: '1200 sq ft',
-      rent: 'KSh 85,000',
-      deposit: 'KSh 170,000',
-      status: 'maintenance',
+      status: 'Maintenance',
       tenant: null,
-      lastPayment: null,
-      nextPayment: null,
-      amenities: ['Parking', 'Garden', 'Pool', 'Security']
+      rent: 'KSh 85,000',
+      lastMaintenance: '2024-01-20',
+      nextInspection: '2024-03-20'
     },
     {
-      id: 5,
+      code: 'U005',
       unitNumber: 'D101',
       property: 'CBD Business Center',
       type: 'Office',
       size: '800 sq ft',
-      rent: 'KSh 65,000',
-      deposit: 'KSh 130,000',
-      status: 'occupied',
+      status: 'Occupied',
       tenant: 'Tech Solutions Ltd',
-      lastPayment: '2024-01-10',
-      nextPayment: '2024-02-10',
-      amenities: ['Parking', 'WiFi', 'Meeting Room']
+      rent: 'KSh 65,000',
+      lastMaintenance: '2024-01-12',
+      nextInspection: '2024-02-12'
     },
     {
-      id: 6,
+      code: 'U006',
       unitNumber: 'E201',
       property: 'Riverside Suites',
       type: 'Penthouse',
       size: '2000 sq ft',
-      rent: 'KSh 180,000',
-      deposit: 'KSh 360,000',
-      status: 'occupied',
+      status: 'Occupied',
       tenant: 'James Wangari',
-      lastPayment: '2024-01-15',
-      nextPayment: '2024-02-15',
-      amenities: ['Parking', 'Pool', 'Gym', 'Concierge', 'Security']
+      rent: 'KSh 180,000',
+      lastMaintenance: '2024-01-18',
+      nextInspection: '2024-02-18'
     }
   ];
 
-  const statusColors = {
-    occupied: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-    vacant: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-    maintenance: 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
-    renovation: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-  };
-
-  const typeColors = {
-    '1-Bedroom': 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-    '2-Bedroom': 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
-    '3-Bedroom': 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
-    'Studio': 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-    'Office': 'bg-cyan-50 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',
-    'Penthouse': 'bg-pink-50 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300'
-  };
-
   return (
     <DashboardLayout>
-      <div className="p-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold dark:text-white">Units Management</h1>
-            <p className="text-gray-600 dark:text-gray-400">Manage all rental units across properties</p>
+      <div className="p-0">
+        {/* Search and Filters Row - Exactly like Properties page */}
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          {/* Filter dropdowns */}
+          <select className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:bg-gray-200 dark:text-gray-800">
+            <option>Unit Code</option>
+            <option>Unit Number...</option>
+            <option>Property...</option>
+          </select>
+          
+          <select className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:bg-gray-200 dark:text-gray-800">
+            <option>Status</option>
+            <option>Occupied</option>
+            <option>Vacant</option>
+            <option>Maintenance</option>
+            <option>Renovation</option>
+          </select>
+          
+          <select className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:bg-gray-200 dark:text-gray-800">
+            <option>Property</option>
+            <option>Milik Towers</option>
+            <option>Westgate Apartments</option>
+            <option>Garden Villas</option>
+            <option>CBD Business Center</option>
+          </select>
+          
+          <select className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:bg-gray-200 dark:text-gray-800">
+            <option>Unit Type</option>
+            <option>1-Bedroom</option>
+            <option>2-Bedroom</option>
+            <option>3-Bedroom</option>
+            <option>Studio</option>
+            <option>Office</option>
+            <option>Penthouse</option>
+          </select>
+
+          {/* Search input */}
+          <div className="relative flex-1 min-w-[200px]">
+            <FaSearch className="absolute left-2 top-1.5 text-gray-500 text-xs" />
+            <input
+              type="text"
+              placeholder="Search"
+              className="w-full pl-7 pr-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:bg-gray-200 dark:text-gray-800"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-          <div className="flex space-x-3 mt-4 md:mt-0">
-            <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
-              <button 
-                onClick={() => setViewMode('grid')}
-                className={`px-3 py-2 ${viewMode === 'grid' ? 'bg-gray-100 dark:bg-gray-700' : ''}`}
-              >
-                Grid
-              </button>
-              <button 
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-2 ${viewMode === 'list' ? 'bg-gray-100 dark:bg-gray-700' : ''}`}
-              >
-                List
-              </button>
-            </div>
-            <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg flex items-center space-x-2">
-              <FaFilter />
-              <span>Filter</span>
-            </button>
-            <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg flex items-center space-x-2">
-              <FaDownload />
-              <span>Export</span>
-            </button>
-            <Link to="/units/add">
-              <button className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-lg flex items-center space-x-2 hover:shadow-lg">
-                <FaPlus />
-                <span>Add Unit</span>
-              </button>
-            </Link>
-          </div>
+
+          {/* Action buttons */}
+          <button className="px-2 py-1 text-xs bg-emerald-500 text-white rounded flex items-center gap-1">
+            <FaPlus className="text-xs" />
+            <span>Add Unit</span>
+          </button>
+          
+          <button className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded flex items-center gap-1">
+            <FaEdit className="text-xs" />
+            <span>Edit Unit</span>
+          </button>
+          
+          <button className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded flex items-center gap-1">
+            <FaEllipsisH className="text-xs" />
+            <span>More Actions</span>
+          </button>
+          
+          <button className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded flex items-center gap-1">
+            <FaFileExport className="text-xs" />
+            <span>Print & Export</span>
+          </button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Units</p>
-                <p className="text-2xl font-bold dark:text-white">75</p>
-              </div>
-              <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                <FaHome className="text-blue-600 dark:text-blue-400 text-xl" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Occupied Units</p>
-                <p className="text-2xl font-bold dark:text-white">41</p>
-              </div>
-              <div className="h-12 w-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                <FaUser className="text-green-600 dark:text-green-400 text-xl" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Vacant Units</p>
-                <p className="text-2xl font-bold dark:text-white">34</p>
-              </div>
-              <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                <FaDoorOpen className="text-blue-600 dark:text-blue-400 text-xl" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Under Maintenance</p>
-                <p className="text-2xl font-bold dark:text-white">12</p>
-              </div>
-              <div className="h-12 w-12 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center">
-                <FaTools className="text-amber-600 dark:text-amber-400 text-xl" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 mb-6 shadow">
-          <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
-            <div className="relative flex-1">
-              <FaSearch className="absolute left-3 top-3 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search units by number, property, or tenant..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-white"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="flex space-x-3">
-              <select className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-white">
-                <option>All Properties</option>
-                <option>Milik Towers</option>
-                <option>Westgate Apartments</option>
-                <option>Garden Villas</option>
-              </select>
-              <select className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-white">
-                <option>All Status</option>
-                <option>Occupied</option>
-                <option>Vacant</option>
-                <option>Maintenance</option>
-              </select>
-              <select className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent dark:text-white">
-                <option>All Types</option>
-                <option>1-Bedroom</option>
-                <option>2-Bedroom</option>
-                <option>3-Bedroom</option>
-                <option>Studio</option>
-                <option>Office</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Units Grid/Table View */}
-        {viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {units.map((unit) => (
-              <div key={unit.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
-                {/* Unit Header */}
-                <div className={`p-4 ${unit.status === 'occupied' ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 
-                  unit.status === 'vacant' ? 'bg-gradient-to-r from-blue-500 to-cyan-500' : 
-                  'bg-gradient-to-r from-amber-500 to-orange-500'}`}>
-                  <div className="flex justify-between items-center">
+        {/* Table - Minimal spacing, exact match */}
+        <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded">
+          <table className="min-w-full text-xs">
+            <thead className="bg-gray-50 dark:bg-gray-200">
+              <tr>
+                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Code</th>
+                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Unit Details</th>
+                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Property</th>
+                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Status</th>
+                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Tenant & Rent</th>
+                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Maintenance</th>
+                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {units.map((unit, index) => (
+                <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-100">
+                  <td className="px-3 py-2 whitespace-nowrap font-medium">{unit.code}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
                     <div>
-                      <h3 className="text-xl font-bold text-white">Unit {unit.unitNumber}</h3>
-                      <p className="text-white/80 text-sm">{unit.property}</p>
+                      <div className="font-medium">Unit {unit.unitNumber}</div>
+                      <div className="text-gray-500 dark:text-gray-400 text-[11px]">
+                        {unit.type} • {unit.size}
+                      </div>
                     </div>
-                    <span className={`px-3 py-1 text-xs font-semibold rounded-full bg-white/20 text-white`}>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div className="font-medium">{unit.property}</div>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <span className={`px-2 py-1 text-[11px] rounded ${
+                      unit.status === 'Occupied' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-900'
+                        : unit.status === 'Vacant'
+                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-200 dark:text-blue-900'
+                        : 'bg-amber-100 text-amber-800 dark:bg-amber-200 dark:text-amber-900'
+                    }`}>
                       {unit.status}
                     </span>
-                  </div>
-                </div>
-
-                {/* Unit Details */}
-                <div className="p-6">
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
                     <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Type</p>
-                      <span className={`inline-block px-2 py-1 text-xs font-medium rounded ${typeColors[unit.type] || 'bg-gray-100 text-gray-800'}`}>
-                        {unit.type}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Size</p>
-                      <p className="font-medium dark:text-white">{unit.size}</p>
-                    </div>
-                  </div>
-
-                  <div className="mb-4">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Monthly Rent</p>
-                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{unit.rent}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Deposit: {unit.deposit}</p>
-                  </div>
-
-                  {unit.tenant ? (
-                    <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <div className="flex items-center mb-2">
-                        <div className="h-8 w-8 rounded-full bg-gradient-to-r from-emerald-500 to-green-500 flex items-center justify-center mr-2">
-                          <span className="text-white text-xs font-semibold">
-                            {unit.tenant.split(' ').map(n => n[0]).join('')}
-                          </span>
+                      {unit.tenant ? (
+                        <>
+                          <div className="flex items-center gap-1 mb-1">
+                            <FaUser className="text-gray-500 text-[11px]" />
+                            <span className="font-medium text-[11px]">{unit.tenant}</span>
+                          </div>
+                          <div className="text-emerald-600 dark:text-emerald-700 font-medium text-[11px]">
+                            {unit.rent}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <FaDoorOpen className="text-gray-500 text-[11px]" />
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400">Available</span>
                         </div>
-                        <div>
-                          <p className="font-medium dark:text-white">{unit.tenant}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">Current Tenant</p>
-                        </div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div className="grid grid-cols-2 gap-1 text-center text-[11px]">
+                      <div>
+                        <div className="font-medium">{unit.lastMaintenance}</div>
+                        <div className="text-gray-500 dark:text-gray-400">Last Maint.</div>
                       </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        <div className="flex justify-between">
-                          <span>Last Payment:</span>
-                          <span className="font-medium">{unit.lastPayment}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Next Payment:</span>
-                          <span className="font-medium text-emerald-600 dark:text-emerald-400">{unit.nextPayment}</span>
-                        </div>
+                      <div>
+                        <div className="font-medium text-emerald-600 dark:text-emerald-700">{unit.nextInspection}</div>
+                        <div className="text-gray-500 dark:text-gray-400">Next Inspect.</div>
                       </div>
                     </div>
-                  ) : (
-                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                      <p className="text-sm text-blue-600 dark:text-blue-400">This unit is available for rent</p>
-                    </div>
-                  )}
-
-                  {/* Amenities */}
-                  <div className="mb-4">
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Amenities</p>
-                    <div className="flex flex-wrap gap-2">
-                      {unit.amenities.map((amenity, index) => (
-                        <span key={index} className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded">
-                          {amenity}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex space-x-2">
-                    <Link to={`/units/${unit.id}`} className="flex-1">
-                      <button className="w-full px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg text-sm">
-                        View Details
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div className="flex gap-1">
+                      <button className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-100 rounded" title="View">
+                        <FaEye className="text-xs" />
                       </button>
-                    </Link>
-                    {unit.status === 'vacant' && (
-                      <Link to={`/tenants/add?unit=${unit.id}`} className="flex-1">
-                        <button className="w-full px-3 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-lg text-sm hover:shadow-lg">
-                          Add Tenant
-                        </button>
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          /* List View */
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Unit Details
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Property
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Tenant
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Rent
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {units.map((unit) => (
-                    <tr key={unit.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="font-medium dark:text-white">Unit {unit.unitNumber}</div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            {unit.type} • {unit.size}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm dark:text-white">{unit.property}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        {unit.tenant ? (
-                          <div>
-                            <div className="font-medium dark:text-white">{unit.tenant}</div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
-                              Next: {unit.nextPayment}
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-gray-500 dark:text-gray-400">No tenant</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="font-medium dark:text-white">{unit.rent}</div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">Monthly</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusColors[unit.status]}`}>
-                          {unit.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex space-x-2">
-                          <Link to={`/units/${unit.id}`}>
-                            <button className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg">
-                              <FaEye />
-                            </button>
-                          </Link>
-                          <Link to={`/units/${unit.id}/edit`}>
-                            <button className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg">
-                              <FaEdit />
-                            </button>
-                          </Link>
-                          {unit.status === 'vacant' && (
-                            <Link to={`/tenants/add?unit=${unit.id}`}>
-                              <button className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg">
-                                <FaUser />
-                              </button>
-                            </Link>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+                      <button className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-100 rounded" title="Edit">
+                        <FaEdit className="text-xs" />
+                      </button>
+                      <button className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-100 rounded" title="Delete">
+                        <FaTrash className="text-xs" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-        {/* Pagination */}
-        <div className="mt-8 flex items-center justify-between">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Showing 1 to 6 of 75 units
+        {/* Footer/Pagination - Minimal spacing */}
+        <div className="flex items-center justify-between mt-3 text-xs text-gray-600 dark:text-gray-400">
+          <div>
+            Displaying 1 - 50 of 248 Records Per Page: 50
           </div>
-          <div className="flex space-x-2">
-            <button className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg">
-              Previous
-            </button>
-            <button className="px-3 py-1 bg-emerald-500 text-white rounded-lg">1</button>
-            <button className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg">2</button>
-            <button className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg">3</button>
-            <button className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg">Next</button>
+          <div className="flex items-center gap-4">
+            <div>Page 1 of 5</div>
+            <div className="flex items-center gap-1">
+              <button className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded">
+                Previous
+              </button>
+              <button className="px-2 py-1 bg-emerald-500 text-white rounded">1</button>
+              <button className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded">2</button>
+              <button className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded">3</button>
+              <button className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded">Next</button>
+            </div>
           </div>
         </div>
       </div>

@@ -2,217 +2,256 @@
 import React, { useState } from 'react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import { 
-  FaUserPlus, FaFilter, FaDownload, FaSearch, FaEdit, FaTrash, FaEye,
-  FaEnvelope, FaPhone, FaMapMarkerAlt, FaCalendarAlt, FaMoneyBillWave,FaBuilding
+  FaPlus, FaFilter, FaDownload, FaSearch, FaEdit, FaTrash, FaEye,
+  FaEllipsisH, FaFileExport, FaEnvelope, FaPhone, FaBuilding
 } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
 
 const Landlords = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedLandlord, setSelectedLandlord] = useState(null);
 
-  // Sample landlord data
+  // Sample landlords data
   const landlords = [
     {
-      id: 1,
-      name: 'John Kamau',
-      email: 'john@example.com',
+      code: 'L001',
+      name: 'JOHN KAMAU',
+      status: 'Active',
+      email: 'john@example...',
       phone: '+254712345678',
       idNumber: '12345678',
-      address: 'Westlands, Nairobi',
-      propertiesCount: 5,
-      unitsCount: 25,
+      properties: '5',
+      units: '25',
       totalRevenue: 'KSh 850,000',
-      joinDate: '2023-01-15',
-      status: 'active'
+      joinDate: '2023-01-15'
     },
-    // Add more sample data
+    {
+      code: 'L002',
+      name: 'SARAH WAN...',
+      status: 'Active',
+      email: 'sarah@exam...',
+      phone: '+254723456789',
+      idNumber: '23456789',
+      properties: '3',
+      units: '12',
+      totalRevenue: 'KSh 450,000',
+      joinDate: '2023-03-20'
+    },
+    {
+      code: 'L003',
+      name: 'DAVID OCH...',
+      status: 'Active',
+      email: 'david@exa...',
+      phone: '+254734567890',
+      idNumber: '34567890',
+      properties: '8',
+      units: '18',
+      totalRevenue: 'KSh 1,200,000',
+      joinDate: '2023-05-10'
+    },
+    {
+      code: 'L004',
+      name: 'MARY ATI...',
+      status: 'Active',
+      email: 'mary@exam...',
+      phone: '+254745678901',
+      idNumber: '45678901',
+      properties: '6',
+      units: '16',
+      totalRevenue: 'KSh 950,000',
+      joinDate: '2023-02-28'
+    },
+    {
+      code: 'L005',
+      name: 'JAMES MU...',
+      status: 'Active',
+      email: 'james@exa...',
+      phone: '+254756789012',
+      idNumber: '56789012',
+      properties: '4',
+      units: '6',
+      totalRevenue: 'KSh 1,800,000',
+      joinDate: '2023-04-15'
+    },
+    {
+      code: 'L006',
+      name: 'FATMA ALI',
+      status: 'Active',
+      email: 'fatma@exa...',
+      phone: '+254767890123',
+      idNumber: '67890123',
+      properties: '2',
+      units: '10',
+      totalRevenue: 'KSh 320,000',
+      joinDate: '2023-06-22'
+    }
   ];
 
   return (
     <DashboardLayout>
-      <div className="p-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold dark:text-black">Landlords Management</h1>
-            <p className="text-gray-600 dark:text-gray-400">Manage all property owners</p>
+      <div className="p-0">
+        {/* Search and Filters Row - Exactly like Properties page */}
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          {/* Filter dropdowns */}
+          <select className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:bg-gray-200 dark:text-gray-800">
+            <option>Landlord Code</option>
+            <option>Name...</option>
+            <option>ID Number...</option>
+          </select>
+          
+          <select className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:bg-gray-200 dark:text-gray-800">
+            <option>Status</option>
+            <option>Active</option>
+            <option>Inactive</option>
+            <option>Suspended</option>
+          </select>
+          
+          <select className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:bg-gray-200 dark:text-gray-800">
+            <option>Properties Count</option>
+            <option>1-5 Properties</option>
+            <option>6-10 Properties</option>
+            <option>10+ Properties</option>
+          </select>
+          
+          <select className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:bg-gray-200 dark:text-gray-800">
+            <option>Join Date</option>
+            <option>Last 30 days</option>
+            <option>Last 90 days</option>
+            <option>Last Year</option>
+          </select>
+
+          {/* Search input */}
+          <div className="relative flex-1 min-w-[200px]">
+            <FaSearch className="absolute left-2 top-1.5 text-gray-500 text-xs" />
+            <input
+              type="text"
+              placeholder="Search"
+              className="w-full pl-7 pr-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:bg-gray-200 dark:text-gray-800"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-          <div className="flex space-x-3 mt-4 md:mt-0">
-            <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg flex items-center space-x-2">
-              <FaFilter />
-              <span>Filter</span>
-            </button>
-            <button className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg flex items-center space-x-2">
-              <FaDownload />
-              <span>Export</span>
-            </button>
-            <button className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-white rounded-lg flex items-center space-x-2">
-              <FaUserPlus />
-              <span>Add Landlord</span>
-            </button>
-          </div>
+
+          {/* Action buttons */}
+          <button className="px-2 py-1 text-xs bg-emerald-500 text-white rounded flex items-center gap-1">
+            <FaPlus className="text-xs" />
+            <span>Add Landlord</span>
+          </button>
+          
+          <button className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded flex items-center gap-1">
+            <FaEdit className="text-xs" />
+            <span>Edit Landlord</span>
+          </button>
+          
+          <button className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded flex items-center gap-1">
+            <FaEllipsisH className="text-xs" />
+            <span>More Actions</span>
+          </button>
+          
+          <button className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded flex items-center gap-1">
+            <FaFileExport className="text-xs" />
+            <span>Print & Export</span>
+          </button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-100 rounded-xl p-4 shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Landlords</p>
-                <p className="text-2xl font-bold dark:text-gray-600">120</p>
-              </div>
-              <div className="h-12 w-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                <FaUserPlus className="text-blue-600 dark:text-blue-400 text-xl" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-100 rounded-xl p-4 shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Active Landlords</p>
-                <p className="text-2xl font-bold dark:text-gray-600">112</p>
-              </div>
-              <div className="h-12 w-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                <FaUserPlus className="text-green-600 dark:text-green-400 text-xl" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-100 rounded-xl p-4 shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Properties</p>
-                <p className="text-2xl font-bold dark:text-gray-600">420</p>
-              </div>
-              <div className="h-12 w-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                <FaBuilding className="text-purple-600 dark:text-purple-400 text-xl" />
-              </div>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-100 rounded-xl p-4 shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Revenue</p>
-                <p className="text-2xl font-bold dark:text-gray-600">KSh 25.4M</p>
-              </div>
-              <div className="h-12 w-12 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center">
-                <FaMoneyBillWave className="text-amber-600 dark:text-amber-400 text-xl" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="bg-white dark:bg-gray-100 rounded-xl p-4 mb-6 shadow">
-          <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
-            <div className="relative flex-1">
-              <FaSearch className="absolute left-3 top-3 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search landlords by name, email, or phone..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="flex space-x-3">
-              <select className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent">
-                <option>All Status</option>
-                <option>Active</option>
-                <option>Inactive</option>
-              </select>
-              <select className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-transparent">
-                <option>Sort by: Recent</option>
-                <option>Sort by: Name</option>
-                <option>Sort by: Properties</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Landlords Table */}
-        <div className="bg-white dark:bg-gray-100 rounded-xl shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-500">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Landlord
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Contact Info
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Properties
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Revenue
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Actions
-                  </th>
+        {/* Table - Minimal spacing, exact match */}
+        <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded">
+          <table className="min-w-full text-xs">
+            <thead className="bg-gray-50 dark:bg-gray-200">
+              <tr>
+                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Code</th>
+                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Landlord</th>
+                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Status</th>
+                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Contact</th>
+                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Properties</th>
+                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Revenue</th>
+                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {landlords.map((landlord, index) => (
+                <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-100">
+                  <td className="px-3 py-2 whitespace-nowrap font-medium">{landlord.code}</td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div>
+                      <div className="font-medium">{landlord.name}</div>
+                      <div className="text-gray-500 dark:text-gray-400 text-[11px]">ID: {landlord.idNumber}</div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <span className={`px-2 py-1 text-[11px] rounded ${
+                      landlord.status === 'Active' 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-900'
+                        : 'bg-red-100 text-red-800 dark:bg-red-200 dark:text-red-900'
+                    }`}>
+                      {landlord.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div>
+                      <div className="flex items-center gap-1 mb-1">
+                        <FaEnvelope className="text-gray-500 text-[11px]" />
+                        <span className="text-[11px]">{landlord.email}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <FaPhone className="text-gray-500 text-[11px]" />
+                        <span className="text-[11px]">{landlord.phone}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div className="grid grid-cols-2 gap-1 text-center text-[11px]">
+                      <div>
+                        <div className="font-medium">{landlord.properties}</div>
+                        <div className="text-gray-500 dark:text-gray-400">Properties</div>
+                      </div>
+                      <div>
+                        <div className="font-medium">{landlord.units}</div>
+                        <div className="text-gray-500 dark:text-gray-400">Units</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div>
+                      <div className="font-medium text-emerald-600 dark:text-emerald-700 text-[11px]">{landlord.totalRevenue}</div>
+                      <div className="text-gray-500 dark:text-gray-400 text-[11px]">Monthly</div>
+                      <div className="text-gray-500 dark:text-gray-400 text-[10px]">Joined: {landlord.joinDate}</div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <div className="flex gap-1">
+                      <button className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-100 rounded" title="View">
+                        <FaEye className="text-xs" />
+                      </button>
+                      <button className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-100 rounded" title="Edit">
+                        <FaEdit className="text-xs" />
+                      </button>
+                      <button className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-100 rounded" title="Delete">
+                        <FaTrash className="text-xs" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {landlords.map((landlord) => (
-                  <tr key={landlord.id} className="hover:bg-gray-50 dark:hover:bg-gray-200">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 rounded-full bg-gradient-to-r from-emerald-500 to-green-500 flex items-center justify-center">
-                          <span className="text-white font-semibold">
-                            {landlord.name.split(' ').map(n => n[0]).join('')}
-                          </span>
-                        </div>
-                        <div className="ml-4">
-                          <div className="font-medium dark:text-black">{landlord.name}</div>
-                          <div className="text-sm text-gray-500 dark:text-gray-600">
-                            ID: {landlord.idNumber}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm dark:text-black">{landlord.email}</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">{landlord.phone}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm dark:text-black">{landlord.propertiesCount} Properties</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">{landlord.unitsCount} Units</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-                        {landlord.totalRevenue}
-                      </div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">Monthly</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        landlord.status === 'active' 
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                          : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                      }`}>
-                        {landlord.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex space-x-2">
-                        <button className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg">
-                          <FaEye />
-                        </button>
-                        <button className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg">
-                          <FaEdit />
-                        </button>
-                        <button className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg">
-                          <FaTrash />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer/Pagination - Minimal spacing */}
+        <div className="flex items-center justify-between mt-3 text-xs text-gray-600 dark:text-gray-400">
+          <div>
+            Displaying 1 - 50 of 120 Records Per Page: 50
+          </div>
+          <div className="flex items-center gap-4">
+            <div>Page 1 of 3</div>
+            <div className="flex items-center gap-1">
+              <button className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded">
+                Previous
+              </button>
+              <button className="px-2 py-1 bg-emerald-500 text-white rounded">1</button>
+              <button className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded">2</button>
+              <button className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded">3</button>
+              <button className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded">Next</button>
+            </div>
           </div>
         </div>
       </div>
