@@ -1,5 +1,6 @@
+// App.js
 import { useState } from 'react'
-import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import './App.css'
 import Home from './pages/Home/Home';
 import Login from './pages/Login/Login';
@@ -12,13 +13,10 @@ import Leases from './pages/Lease/Lease';
 import Vacants from './pages/Vacants/Vacants';
 import Maintenances from './pages/Maintenances/Maintenances';
 import Inspections from './pages/Inspections/Inspections';
-import { TabProvider } from './context/TabContext';
-function App() {
- 
 
+function App() {
   return (
     <BrowserRouter>
-    <TabProvider>
       <Routes>
         <Route path="/" element={<Navigate to="/home" />} />
         <Route path="/home" element={<Home />} />
@@ -32,7 +30,7 @@ function App() {
         <Route path="/vacants" element={<Vacants />} />
         <Route path="/maintenances" element={<Maintenances />} />
         <Route path="/inspections" element={<Inspections />} />
-      </Routes></TabProvider>
+      </Routes>
     </BrowserRouter>
   )
 }

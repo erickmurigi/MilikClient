@@ -221,7 +221,7 @@ function Login() {
           {/* Brand Section */}
           <div className="mb-8 lg:mb-0">
             <div className="flex items-center gap-3 mb-6">
-              <img src="/logo.png" alt="Milik Logo" className="h-15 w-25 mr-0" />
+              <img src="/logo.png" alt="Milik Logo" className="h-15 w-19 mr-0" />
             </div>
             
             <h2 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-4">
@@ -260,7 +260,7 @@ function Login() {
                 <p className="text-gray-500 text-sm">{testimonials[currentTestimonial].role}</p>
               </div>
             </div>
-            <p className="text-gray-700 italic mb-4 border-l-4 border-[#2b4450] pl-4 py-1">
+            <p className="text-gray-700 italic mb-4 border-l-4 border-[#286323] pl-4 py-1">
               "{testimonials[currentTestimonial].text}"
             </p>
             
@@ -293,7 +293,7 @@ function Login() {
           {/* Login Card */}
           <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-200">
             {/* Card Header */}
-            <div className="bg-gradient-to-r from-[#2b4450] to-[#2c786c] p-4 text-center relative overflow-hidden">
+            <div className="bg-gradient-to-r from-[#286323] to-[#2c786c] p-4 text-center relative overflow-hidden">
               <div className="absolute inset-0 bg-white/10"></div>
               <div className="relative z-10">
                 <div className="inline-flex items-center justify-center w-10 h-10 bg-white/20 rounded-full mb-4 backdrop-blur-sm border border-white/30">
@@ -453,7 +453,7 @@ function Login() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-[#2b4450] to-[#2b4450] text-white py-4 px-4 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none group relative overflow-hidden"
+                  className="w-full bg-gradient-to-r from-[#286323] to-[#286323] text-white py-4 px-4 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none group relative overflow-hidden"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                   {loading ? (

@@ -1,259 +1,631 @@
 // pages/Landlords.js
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import { 
   FaPlus, FaFilter, FaDownload, FaSearch, FaEdit, FaTrash, FaEye,
-  FaEllipsisH, FaFileExport, FaEnvelope, FaPhone, FaBuilding
+  FaEllipsisH, FaFileExport, FaChevronLeft, FaChevronRight, FaGripVertical
 } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
 
 const Landlords = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedLandlords, setSelectedLandlords] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isResizing, setIsResizing] = useState(false);
+  const [columnWidths, setColumnWidths] = useState({
+    id: 80,
+    code: 100,
+    name: 180,
+    pin: 120,
+    regId: 140,
+    address: 180,
+    location: 150,
+    email: 180,
+    phone: 140,
+    active: 100,
+    archived: 100,
+    portal: 120,
+  });
+  
+  const resizingRef = useRef(null);
+  const tableRef = useRef(null);
+  const itemsPerPage = 10;
 
-  // Sample landlords data
+  // Sample landlords data matching the provided structure
   const landlords = [
     {
-      code: 'L001',
-      name: 'JOHN KAMAU',
-      status: 'Active',
-      email: 'john@example...',
-      phone: '+254712345678',
-      idNumber: '12345678',
-      properties: '5',
-      units: '25',
-      totalRevenue: 'KSh 850,000',
-      joinDate: '2023-01-15'
+      id: 1,
+      code: 'LL001',
+      name: 'Anna Wangari',
+      pin: 'A123456789X',
+      regId: 'ID12345678',
+      address: '123 Moi Avenue, Nairobi',
+      location: 'Nairobi CBD',
+      email: 'anna.wangari@email.com',
+      phone: '+254 712 345 678',
+      activeProperties: '5',
+      archivedProperties: '2',
+      portalAccess: 'Enabled'
     },
     {
-      code: 'L002',
-      name: 'SARAH WAN...',
-      status: 'Active',
-      email: 'sarah@exam...',
-      phone: '+254723456789',
-      idNumber: '23456789',
-      properties: '3',
-      units: '12',
-      totalRevenue: 'KSh 450,000',
-      joinDate: '2023-03-20'
+      id: 2,
+      code: 'LL002',
+      name: 'ARDHI Holdings Ltd',
+      pin: 'B987654321Y',
+      regId: 'B123456789',
+      address: 'Mombasa Road, Nairobi',
+      location: 'Mombasa Road',
+      email: 'info@ardhiholdings.co.ke',
+      phone: '+254 720 987 654',
+      activeProperties: '12',
+      archivedProperties: '3',
+      portalAccess: 'Enabled'
     },
     {
-      code: 'L003',
-      name: 'DAVID OCH...',
-      status: 'Active',
-      email: 'david@exa...',
-      phone: '+254734567890',
-      idNumber: '34567890',
-      properties: '8',
-      units: '18',
-      totalRevenue: 'KSh 1,200,000',
-      joinDate: '2023-05-10'
+      id: 3,
+      code: 'LL003',
+      name: 'Stan Group Holdings',
+      pin: 'C456789123Z',
+      regId: 'PP45678912',
+      address: 'Kilimani Road, Nairobi',
+      location: 'Kilimani',
+      email: 'contact@stangroup.com',
+      phone: '+254 733 456 789',
+      activeProperties: '8',
+      archivedProperties: '1',
+      portalAccess: 'Disabled'
     },
     {
-      code: 'L004',
-      name: 'MARY ATI...',
-      status: 'Active',
-      email: 'mary@exam...',
-      phone: '+254745678901',
-      idNumber: '45678901',
-      properties: '6',
-      units: '16',
-      totalRevenue: 'KSh 950,000',
-      joinDate: '2023-02-28'
+      id: 4,
+      code: 'LL004',
+      name: 'Andrew Kamau Enterprises',
+      pin: 'D321654987W',
+      regId: 'ID98765432',
+      address: 'Kiambu Road, Thika',
+      location: 'Thika',
+      email: 'andrew@kamauenterprises.com',
+      phone: '+254 711 222 333',
+      activeProperties: '7',
+      archivedProperties: '0',
+      portalAccess: 'Enabled'
     },
     {
-      code: 'L005',
-      name: 'JAMES MU...',
-      status: 'Active',
-      email: 'james@exa...',
-      phone: '+254756789012',
-      idNumber: '56789012',
-      properties: '4',
-      units: '6',
-      totalRevenue: 'KSh 1,800,000',
-      joinDate: '2023-04-15'
+      id: 5,
+      code: 'LL005',
+      name: 'Allan Nyerere Properties',
+      pin: 'E555666777X',
+      regId: 'PP11223344',
+      address: 'Oginga Odinga Street, Kisumu',
+      location: 'Kisumu CBD',
+      email: 'allan@nyerereproperties.co.ke',
+      phone: '+254 722 333 444',
+      activeProperties: '4',
+      archivedProperties: '1',
+      portalAccess: 'Enabled'
     },
     {
-      code: 'L006',
-      name: 'FATMA ALI',
-      status: 'Active',
-      email: 'fatma@exa...',
-      phone: '+254767890123',
-      idNumber: '67890123',
-      properties: '2',
-      units: '10',
-      totalRevenue: 'KSh 320,000',
-      joinDate: '2023-06-22'
+      id: 6,
+      code: 'LL006',
+      name: 'Joe Huid Real Estate',
+      pin: 'F999888777Z',
+      regId: 'ID55667788',
+      address: 'Kenyatta Avenue, Nakuru',
+      location: 'Nakuru',
+      email: 'joe@huidrealestate.com',
+      phone: '+254 733 444 555',
+      activeProperties: '9',
+      archivedProperties: '2',
+      portalAccess: 'Enabled'
+    },
+    {
+      id: 7,
+      code: 'LL007',
+      name: 'CID Properties Ltd',
+      pin: 'G777888999A',
+      regId: 'CID123456',
+      address: 'Uganda Road, Eldoret',
+      location: 'Eldoret',
+      email: 'info@cidproperties.com',
+      phone: '+254 744 555 666',
+      activeProperties: '6',
+      archivedProperties: '1',
+      portalAccess: 'Disabled'
+    },
+    {
+      id: 8,
+      code: 'LL008',
+      name: 'Eddah Wanjiru Investments',
+      pin: 'H111222333B',
+      regId: 'ID33445566',
+      address: 'Upper Hill, Nairobi',
+      location: 'Upper Hill',
+      email: 'eddah@wanjiruinvestments.com',
+      phone: '+254 755 666 777',
+      activeProperties: '15',
+      archivedProperties: '4',
+      portalAccess: 'Enabled'
+    },
+    {
+      id: 9,
+      code: 'LL009',
+      name: 'Cal Investments Group',
+      pin: 'I444555666C',
+      regId: 'CAL001122',
+      address: 'Mwingi Road, Kitui',
+      location: 'Kitui',
+      email: 'contact@calinvestments.com',
+      phone: '+254 766 777 888',
+      activeProperties: '3',
+      archivedProperties: '0',
+      portalAccess: 'Enabled'
+    },
+    {
+      id: 10,
+      code: 'LL010',
+      name: 'Edwin Ruto Holdings',
+      pin: 'J777666555D',
+      regId: 'ID77889900',
+      address: 'Nairobi-Mombasa Highway, Machakos',
+      location: 'Machakos',
+      email: 'info@edwinrutoholdings.com',
+      phone: '+254 777 888 999',
+      activeProperties: '11',
+      archivedProperties: '2',
+      portalAccess: 'Enabled'
+    },
+    {
+      id: 11,
+      code: 'LL011',
+      name: 'Prime Real Estate Ltd',
+      pin: 'K222333444E',
+      regId: 'PRIME001',
+      address: 'Westlands, Nairobi',
+      location: 'Westlands',
+      email: 'sales@primerealestate.co.ke',
+      phone: '+254 788 999 000',
+      activeProperties: '18',
+      archivedProperties: '5',
+      portalAccess: 'Enabled'
+    },
+    {
+      id: 12,
+      code: 'LL012',
+      name: 'Heritage Properties',
+      pin: 'L888999000F',
+      regId: 'HER001122',
+      address: 'Karen Road, Nairobi',
+      location: 'Karen',
+      email: 'admin@heritageproperties.com',
+      phone: '+254 799 000 111',
+      activeProperties: '14',
+      archivedProperties: '3',
+      portalAccess: 'Disabled'
     }
   ];
+
+  const columns = [
+    { key: 'id', label: 'Id' },
+    { key: 'code', label: 'Landlord Code' },
+    { key: 'name', label: 'Landlord Name' },
+    { key: 'pin', label: 'PIN No.' },
+    { key: 'regId', label: 'Reg No./ID/PPT #' },
+    { key: 'address', label: 'Address' },
+    { key: 'location', label: 'Location' },
+    { key: 'email', label: 'Email' },
+    { key: 'phone', label: 'Phone Nos.' },
+    { key: 'active', label: 'Active Properties' },
+    { key: 'archived', label: 'Archived Properties' },
+    { key: 'portal', label: 'Portal Access' }
+  ];
+
+  const handleSelectLandlord = (id) => {
+    setSelectedLandlords(prev =>
+      prev.includes(id)
+        ? prev.filter(item => item !== id)
+        : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedLandlords([]);
+    } else {
+      setSelectedLandlords(landlords.map(l => l.id));
+    }
+    setSelectAll(!selectAll);
+  };
+
+  const handleCheckboxClick = (e) => {
+    e.stopPropagation();
+  };
+
+  // Fixed column resizing handlers
+  const startResizing = (columnKey, e) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizingRef.current = {
+      columnKey,
+      startX: e.clientX,
+      startWidth: columnWidths[columnKey]
+    };
+    
+    const handleMouseMove = (e) => {
+      if (!resizingRef.current) return;
+      
+      const { columnKey, startX, startWidth } = resizingRef.current;
+      const diff = e.clientX - startX;
+      const newWidth = Math.max(80, startWidth + diff);
+      
+      setColumnWidths(prev => ({
+        ...prev,
+        [columnKey]: newWidth
+      }));
+    };
+    
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      resizingRef.current = null;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Function to apply zebra striping pattern
+  const getRowClass = (index) => {
+    return index % 2 === 0 
+      ? 'bg-white hover:bg-gray-50' 
+      : 'bg-gray-50 hover:bg-gray-100';
+  };
+
+  // Pagination logic
+  const totalPages = Math.ceil(landlords.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentLandlords = landlords.slice(startIndex, endIndex);
+
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
 
   return (
     <DashboardLayout>
       <div className="p-0">
-        {/* Search and Filters Row - Exactly like Properties page */}
+        {/* Search and Filters Row */}
         <div className="flex flex-wrap items-center gap-2 mb-2">
           {/* Filter dropdowns */}
-          <select className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:bg-gray-200 dark:text-gray-800">
+          <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
             <option>Landlord Code</option>
-            <option>Name...</option>
-            <option>ID Number...</option>
+            <option>Landlord Name</option>
+            <option>PIN No.</option>
+            <option>Location</option>
           </select>
-          
-          <select className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:bg-gray-200 dark:text-gray-800">
-            <option>Status</option>
-            <option>Active</option>
-            <option>Inactive</option>
-            <option>Suspended</option>
+
+          <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+            <option>Portal Access</option>
+            <option>Enabled</option>
+            <option>Disabled</option>
           </select>
-          
-          <select className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:bg-gray-200 dark:text-gray-800">
+
+          <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
             <option>Properties Count</option>
             <option>1-5 Properties</option>
             <option>6-10 Properties</option>
             <option>10+ Properties</option>
           </select>
-          
-          <select className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:bg-gray-200 dark:text-gray-800">
-            <option>Join Date</option>
-            <option>Last 30 days</option>
-            <option>Last 90 days</option>
-            <option>Last Year</option>
+
+          <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+            <option>Location</option>
+            <option>Nairobi CBD</option>
+            <option>Mombasa Road</option>
+            <option>Kilimani</option>
+            <option>Westlands</option>
+            <option>Karen</option>
           </select>
 
           {/* Search input */}
           <div className="relative flex-1 min-w-[200px]">
-            <FaSearch className="absolute left-2 top-1.5 text-gray-500 text-xs" />
+            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
             <input
               type="text"
-              placeholder="Search"
-              className="w-full pl-7 pr-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-transparent dark:bg-gray-200 dark:text-gray-800"
+              placeholder="Search landlords..."
+              className="w-full pl-10 pr-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
           {/* Action buttons */}
-          <button className="px-2 py-1 text-xs bg-emerald-500 text-white rounded flex items-center gap-1">
+          <button className="px-4 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm">
             <FaPlus className="text-xs" />
             <span>Add Landlord</span>
           </button>
           
-          <button className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded flex items-center gap-1">
-            <FaEdit className="text-xs" />
-            <span>Edit Landlord</span>
-          </button>
-          
-          <button className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded flex items-center gap-1">
-            <FaEllipsisH className="text-xs" />
-            <span>More Actions</span>
-          </button>
-          
-          <button className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded flex items-center gap-1">
+          <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
             <FaFileExport className="text-xs" />
-            <span>Print & Export</span>
+            <span>Export</span>
+          </button>
+          
+          <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
+            <FaEllipsisH className="text-xs" />
+            <span>More</span>
           </button>
         </div>
 
-        {/* Table - Minimal spacing, exact match */}
-        <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded">
-          <table className="min-w-full text-xs">
-            <thead className="bg-gray-50 dark:bg-gray-200">
-              <tr>
-                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Code</th>
-                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Landlord</th>
-                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Status</th>
-                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Contact</th>
-                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Properties</th>
-                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Revenue</th>
-                <th className="px-3 py-2 text-left border-b dark:border-gray-700">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {landlords.map((landlord, index) => (
-                <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-100">
-                  <td className="px-3 py-2 whitespace-nowrap font-medium">{landlord.code}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <div>
-                      <div className="font-medium">{landlord.name}</div>
-                      <div className="text-gray-500 dark:text-gray-400 text-[11px]">ID: {landlord.idNumber}</div>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-[11px] rounded ${
-                      landlord.status === 'Active' 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-200 dark:text-green-900'
-                        : 'bg-red-100 text-red-800 dark:bg-red-200 dark:text-red-900'
-                    }`}>
-                      {landlord.status}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <div>
-                      <div className="flex items-center gap-1 mb-1">
-                        <FaEnvelope className="text-gray-500 text-[11px]" />
-                        <span className="text-[11px]">{landlord.email}</span>
+        {/* Boxed Table Design with adjustable columns */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table 
+              className="min-w-full text-xs border-collapse border border-gray-200"
+              ref={tableRef}
+              style={{ tableLayout: 'fixed' }}
+            >
+              <thead>
+                <tr className="bg-[#f1f9fa]">
+                  {/* Checkbox column */}
+                  <th className="px-3 py-1 text-left font-semibold text-gray-700 border border-gray-200"
+                      style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectAll}
+                      onChange={handleSelectAll}
+                      onClick={handleCheckboxClick}
+                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                  </th>
+                  
+                  {/* Adjustable columns with resizers */}
+                  {columns.map((column) => (
+                    <th 
+                      key={column.key}
+                      className="relative px-3 py-1 text-left font-semibold text-gray-700 border border-gray-200"
+                      style={{ 
+                        width: `${columnWidths[column.key]}px`,
+                        minWidth: '80px',
+                        position: 'relative'
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="truncate">{column.label}</span>
+                        <div 
+                          className="w-2 h-4 ml-1 cursor-col-resize hover:bg-gray-300 flex items-center justify-center"
+                          onMouseDown={(e) => startResizing(column.key, e)}
+                          title="Drag to resize"
+                        >
+                          <FaGripVertical className="text-gray-400 text-xs" />
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <FaPhone className="text-gray-500 text-[11px]" />
-                        <span className="text-[11px]">{landlord.phone}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <div className="grid grid-cols-2 gap-1 text-center text-[11px]">
-                      <div>
-                        <div className="font-medium">{landlord.properties}</div>
-                        <div className="text-gray-500 dark:text-gray-400">Properties</div>
-                      </div>
-                      <div>
-                        <div className="font-medium">{landlord.units}</div>
-                        <div className="text-gray-500 dark:text-gray-400">Units</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <div>
-                      <div className="font-medium text-emerald-600 dark:text-emerald-700 text-[11px]">{landlord.totalRevenue}</div>
-                      <div className="text-gray-500 dark:text-gray-400 text-[11px]">Monthly</div>
-                      <div className="text-gray-500 dark:text-gray-400 text-[10px]">Joined: {landlord.joinDate}</div>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    <div className="flex gap-1">
-                      <button className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-100 rounded" title="View">
-                        <FaEye className="text-xs" />
-                      </button>
-                      <button className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-100 rounded" title="Edit">
-                        <FaEdit className="text-xs" />
-                      </button>
-                      <button className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-100 rounded" title="Delete">
-                        <FaTrash className="text-xs" />
-                      </button>
-                    </div>
-                  </td>
+                      
+                      {/* Resizer line */}
+                      <div 
+                        className={`absolute top-0 right-0 w-[3px] h-full cursor-col-resize z-10 ${
+                          isResizing && resizingRef.current?.columnKey === column.key 
+                            ? 'bg-blue-500' 
+                            : 'hover:bg-blue-400 bg-transparent'
+                        }`}
+                        onMouseDown={(e) => startResizing(column.key, e)}
+                      />
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {currentLandlords.map((landlord, index) => (
+                  <tr 
+                    key={landlord.id}
+                    className={`hover:bg-gray-50 hover:text-black cursor-pointer transition-colors duration-150 ${getRowClass(index)}`}
+                  >
+                    {/* Checkbox */}
+                    <td 
+                      className="px-3 py-1 border border-gray-200 align-top" 
+                      style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}
+                      onClick={handleCheckboxClick}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedLandlords.includes(landlord.id)}
+                        onChange={() => handleSelectLandlord(landlord.id)}
+                        onClick={handleCheckboxClick}
+                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                    </td>
+                    
+                    {/* Id */}
+                    <td 
+                      className="px-3 py-1 font-medium text-gray-900 border border-gray-200 align-top text-center"
+                      style={{ width: `${columnWidths.id}px` }}
+                    >
+                      {landlord.id}
+                    </td>
+                    
+                    {/* Landlord Code */}
+                    <td 
+                      className="px-3 py-1 font-medium text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
+                      style={{ width: `${columnWidths.code}px` }}
+                      title={landlord.code}
+                    >
+                      {landlord.code}
+                    </td>
+                    
+                    {/* Landlord Name */}
+                    <td 
+                      className="px-3 py-1 text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
+                      style={{ width: `${columnWidths.name}px` }}
+                      title={landlord.name}
+                    >
+                      {landlord.name}
+                    </td>
+                    
+                    {/* PIN No. */}
+                    <td 
+                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
+                      style={{ width: `${columnWidths.pin}px` }}
+                      title={landlord.pin}
+                    >
+                      {landlord.pin}
+                    </td>
+                    
+                    {/* Reg No./ID/PPT # */}
+                    <td 
+                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
+                      style={{ width: `${columnWidths.regId}px` }}
+                      title={landlord.regId}
+                    >
+                      {landlord.regId}
+                    </td>
+                    
+                    {/* Address */}
+                    <td 
+                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
+                      style={{ width: `${columnWidths.address}px` }}
+                      title={landlord.address}
+                    >
+                      {landlord.address}
+                    </td>
+                    
+                    {/* Location */}
+                    <td 
+                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
+                      style={{ width: `${columnWidths.location}px` }}
+                      title={landlord.location}
+                    >
+                      {landlord.location}
+                    </td>
+                    
+                    {/* Email */}
+                    <td 
+                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
+                      style={{ width: `${columnWidths.email}px` }}
+                      title={landlord.email}
+                    >
+                      {landlord.email}
+                    </td>
+                    
+                    {/* Phone Nos. */}
+                    <td 
+                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
+                      style={{ width: `${columnWidths.phone}px` }}
+                      title={landlord.phone}
+                    >
+                      {landlord.phone}
+                    </td>
+                    
+                    {/* Active Properties */}
+                    <td 
+                      className="px-3 py-1 text-center font-medium text-gray-900 border border-gray-200 align-top"
+                      style={{ width: `${columnWidths.active}px` }}
+                    >
+                      <span className="bg-green-50 text-green-700 px-2 py-0.5 rounded-full text-xs font-medium border border-green-200">
+                        {landlord.activeProperties}
+                      </span>
+                    </td>
+                    
+                    {/* Archived Properties */}
+                    <td 
+                      className="px-3 py-1 text-center font-medium text-gray-900 border border-gray-200 align-top"
+                      style={{ width: `${columnWidths.archived}px` }}
+                    >
+                      <span className="bg-gray-50 text-gray-700 px-2 py-0.5 rounded-full text-xs font-medium border border-gray-200">
+                        {landlord.archivedProperties}
+                      </span>
+                    </td>
+                    
+                    {/* Portal Access */}
+                    <td 
+                      className="px-3 py-1 border border-gray-200 align-top"
+                      style={{ width: `${columnWidths.portal}px` }}
+                    >
+                      <span className={`inline-flex items-center px-2 py-0 rounded text-xs font-medium whitespace-nowrap ${
+                        landlord.portalAccess === 'Enabled'
+                          ? 'bg-green-50 text-green-700 border border-green-200'
+                          : 'bg-gray-50 text-gray-700 border border-gray-200'
+                      }`}>
+                        {landlord.portalAccess}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        {/* Footer/Pagination - Minimal spacing */}
-        <div className="flex items-center justify-between mt-3 text-xs text-gray-600 dark:text-gray-400">
-          <div>
-            Displaying 1 - 50 of 120 Records Per Page: 50
-          </div>
-          <div className="flex items-center gap-4">
-            <div>Page 1 of 3</div>
-            <div className="flex items-center gap-1">
-              <button className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded">
-                Previous
-              </button>
-              <button className="px-2 py-1 bg-emerald-500 text-white rounded">1</button>
-              <button className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded">2</button>
-              <button className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded">3</button>
-              <button className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded">Next</button>
+        {/* Footer with pagination */}
+        <div className="flex items-center justify-between mt-2 px-1">
+          <div className="text-xs text-gray-600">
+            <div className="flex items-center gap-4">
+              <span>
+                Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(endIndex, landlords.length)}</span> of <span className="font-medium">{landlords.length}</span> landlords
+              </span>
+              {selectedLandlords.length > 0 && (
+                <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium border border-blue-200">
+                  {selectedLandlords.length} selected
+                </span>
+              )}
             </div>
           </div>
+          
+          {/* Pagination */}
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="px-2 py-0.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <FaChevronLeft size={10} />
+              Previous
+            </button>
+            
+            <div className="flex items-center gap-1">
+              {[...Array(totalPages)].map((_, i) => {
+                const page = i + 1;
+                if (
+                  page === 1 ||
+                  page === totalPages ||
+                  (page >= currentPage - 1 && page <= currentPage + 1)
+                ) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => goToPage(page)}
+                      className={`px-2 py-0.5 min-w-[32px] text-xs rounded-lg border transition-colors ${
+                        currentPage === page
+                          ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                          : 'border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                } else if (
+                  page === currentPage - 2 ||
+                  page === currentPage + 2
+                ) {
+                  return <span key={page} className="px-1 text-gray-400 text-xs">...</span>;
+                }
+                return null;
+              })}
+            </div>
+            
+            <button 
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="px-2 py-0.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+              <FaChevronRight size={10} />
+            </button>
+          </div>
         </div>
+
+        {/* Resizing overlay */}
+        {isResizing && (
+          <div className="fixed inset-0 z-50 cursor-col-resize" style={{ cursor: 'col-resize' }} />
+        )}
       </div>
     </DashboardLayout>
   );

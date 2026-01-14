@@ -1,11 +1,10 @@
 // DashboardLayout.js
 import React, { useState } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import './dashboard.css';
 import Navbar from '../../components/Dashboard/Navbar';
 import TabManager from '../../components/Layout/TabManager';
-import { useTabContext } from '../../context/TabContext';
 
 const DashboardLayout = ({ children }) => {
   const [darkMode, setDarkMode] = useState(false);
@@ -51,33 +50,28 @@ const DashboardLayout = ({ children }) => {
 const TopToolbar = ({ darkMode }) => {
   const [activeMenu, setActiveMenu] = useState(null);
   const [activeSubMenu, setActiveSubMenu] = useState(null);
-  const { addNewTab } = useTabContext();
+  const navigate = useNavigate();
 
-  // Route configurations
+  // Route configurations - same as before
   const routeConfig = {
-    // File menu routes
     'new-property': '/properties/new',
     'open': '/files/open',
     'save': '/files/save',
     'export': '/reports/export',
     'print': '/print',
     'exit': '/logout',
-    
-    // Properties menu routes
+    'landlord-list': '/landlords',
+    'add-landlord': '/landlords/new',
     'properties-list': '/properties',
     'add-property': '/properties/new',
     'property-details': '/properties/details',
     'units-spaces': '/units',
     'availability': '/availability',
     'property-status': '/properties/status',
-    
-    // Units menu routes
     'units-list': '/units',
     'add-unit': '/units/new',
     'space-types': '/units/space-types',
     'unit-status': '/units/status',
-    
-    // Tenants menu routes
     'tenants-list': '/tenants',
     'add-tenant': '/tenants/new',
     'tenant-agreements': '/agreements',
@@ -85,16 +79,12 @@ const TopToolbar = ({ darkMode }) => {
     'tenant-ledger': '/tenants/ledger',
     'tenant-financing': '/tenants/financing',
     'tenant-journals': '/tenants/journals',
-    
-    // Financial menu routes
     'payment-vouchers': '/financial/payment-vouchers',
     'consolidate-pvs': '/financial/consolidate-pvs',
     'service-providers': '/financial/service-providers',
     'accounts': '/financial/accounts',
     'transactions': '/financial/transactions',
     'ledger-entries': '/financial/ledger-entries',
-    
-    // Rental Invoicing submenu routes
     'new-invoice': '/invoices/new',
     'increase-bill': '/invoices/increase',
     'reduce-bill': '/invoices/reduce',
@@ -104,29 +94,21 @@ const TopToolbar = ({ darkMode }) => {
     'withholding-tax': '/invoices/withholding-tax',
     'rental-aged-analysis': '/reports/rental-aged-analysis',
     'landlord-invoices': '/invoices/landlord',
-    
-    // Rental Receipting submenu routes
     'rental-receipts': '/receipts',
     'slip-collection': '/receipts/slips',
     'mpesa-import': '/receipts/mpesa-import',
     'tenant-prepayments': '/receipts/prepayments',
     'instant-receipts': '/receipts/instant',
     'landlord-receipt': '/receipts/landlord',
-    
-    // Expenses submenu routes
     'expense-requisition': '/expenses/requisition',
     'notes-payable': '/expenses/notes-payable',
     'payment-vouchers-list': '/expenses/payment-vouchers',
     'consolidate-pvs-list': '/expenses/consolidate-pvs',
     'notes-payment-vouchers': '/expenses/notes-payment-vouchers',
-    
-    // Landlord Payments submenu routes
     'landlord-standing-orders': '/landlords/standing-orders',
     'landlord-advancement': '/landlords/advancement',
     'landlord-jvs': '/landlords/journals',
     'batch-landlord-jvs': '/landlords/batch-journals',
-    
-    // Reports menu routes
     'rental-collection': '/reports/rental-collection',
     'paid-balance': '/reports/paid-balance',
     'aged-analysis': '/reports/aged-analysis',
@@ -134,8 +116,6 @@ const TopToolbar = ({ darkMode }) => {
     'commission-reports': '/reports/commissions',
     'tax-reports': '/reports/tax',
     'tenant-summary': '/reports/tenant-summary',
-    
-    // Tools menu routes
     'settings': '/settings',
     'users': '/users',
     'backup': '/tools/backup',
@@ -143,8 +123,6 @@ const TopToolbar = ({ darkMode }) => {
     'meter-readings': '/meter-readings',
     'maintenance': '/maintenance',
     'inspections': '/inspections',
-    
-    // Help menu routes
     'documentation': '/help/documentation',
     'support': '/help/support',
     'about': '/help/about',
@@ -154,7 +132,6 @@ const TopToolbar = ({ darkMode }) => {
     {
       id: 'file',
       label: 'File',
-      icon: null,
       submenu: [
         { id: 'new-property', label: 'New Property', shortcut: 'Ctrl+N' },
         { id: 'open', label: 'Open', shortcut: 'Ctrl+O' },
@@ -169,7 +146,6 @@ const TopToolbar = ({ darkMode }) => {
     {
       id: 'properties',
       label: 'Properties',
-      icon: null,
       submenu: [
         { id: 'properties-list', label: 'Properties Listing' },
         { id: 'add-property', label: 'Add New Property' },
@@ -180,10 +156,19 @@ const TopToolbar = ({ darkMode }) => {
         { id: 'property-status', label: 'Property Specific Status' }
       ]
     },
+     {
+      id: 'landlord',
+      label: 'landlord',
+      submenu: [
+        { id: 'landlord-list', label: 'Landlord Listing' },
+        { id: 'add-landlord', label: 'Add New Landlord' },
+        { id: 'landlord-details', label: 'Landlord Details' },
+        
+      ]
+    },
     {
       id: 'units',
       label: 'Units',
-      icon: null,
       submenu: [
         { id: 'units-list', label: 'Units Listing' },
         { id: 'add-unit', label: 'Add New Unit' },
@@ -194,7 +179,6 @@ const TopToolbar = ({ darkMode }) => {
     {
       id: 'tenants',
       label: 'Tenants',
-      icon: null,
       submenu: [
         { id: 'tenants-list', label: 'Tenants Listing' },
         { id: 'add-tenant', label: 'Add New Tenant' },
@@ -210,7 +194,6 @@ const TopToolbar = ({ darkMode }) => {
     {
       id: 'financial',
       label: 'Financial',
-      icon: null,
       submenu: [
         { id: 'rental-invoicing', label: 'Rental Invoicing', hasSubmenu: true },
         { id: 'rental-receipting', label: 'Rental Receipting', hasSubmenu: true },
@@ -230,7 +213,6 @@ const TopToolbar = ({ darkMode }) => {
     {
       id: 'reports',
       label: 'Reports',
-      icon: null,
       submenu: [
         { id: 'rental-collection', label: 'Rental Collection Report' },
         { id: 'paid-balance', label: 'Paid & Balance Report' },
@@ -245,7 +227,6 @@ const TopToolbar = ({ darkMode }) => {
     {
       id: 'tools',
       label: 'Tools',
-      icon: null,
       submenu: [
         { id: 'settings', label: 'Settings' },
         { id: 'users', label: 'Users' },
@@ -260,7 +241,6 @@ const TopToolbar = ({ darkMode }) => {
     {
       id: 'help',
       label: 'Help',
-      icon: null,
       submenu: [
         { id: 'documentation', label: 'Documentation' },
         { id: 'support', label: 'Support' },
@@ -308,13 +288,13 @@ const TopToolbar = ({ darkMode }) => {
   const handleMenuItemClick = (menuId, label) => {
     const route = routeConfig[menuId];
     if (route) {
-      addNewTab(route, label);
+      navigate(route); // This will trigger TabManager to add a tab
       setActiveMenu(null);
       setActiveSubMenu(null);
     }
   };
 
-  const renderMenuItem = (item, isNested = false) => {
+  const renderMenuItem = (item) => {
     if (item.type === 'separator') {
       return <div key={`sep-${Math.random()}`} className={`h-px ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} my-1`} />;
     }
@@ -341,7 +321,6 @@ const TopToolbar = ({ darkMode }) => {
       );
     }
 
-    // Regular menu item with route
     return (
       <button
         key={item.id}
@@ -362,7 +341,7 @@ const TopToolbar = ({ darkMode }) => {
     );
   };
 
-  const renderNestedMenuItem = (item, isNested = false) => {
+  const renderNestedMenuItem = (item) => {
     if (item.type === 'separator') {
       return <div key={`sep-${Math.random()}`} className={`h-px ${darkMode ? 'bg-gray-700' : 'bg-gray-200'} my-1`} />;
     }
@@ -389,7 +368,7 @@ const TopToolbar = ({ darkMode }) => {
         {/* Application Logo/Title */}
         <div className={`px-4 py-2 ${darkMode ? 'bg-gray-900' : 'bg-gray-100'} border-r ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
           <Link to="/dashboard" className="flex items-center space-x-2 no-underline">
-            <img src="/logo.png" alt="Milik Logo" className="h-6 w-12 mr-0" />
+            <img src="/logo.png" alt="Milik Logo" className="h-6 w-10 mr-0" />
           </Link>
         </div>
 
@@ -456,21 +435,21 @@ const TopToolbar = ({ darkMode }) => {
         {/* Quick Actions Toolbar */}
         <div className="flex items-center space-x-1 px-4 py-1 text-xs">
           <button 
-            onClick={() => addNewTab('/tenants/new', 'Add Tenant')}
+            onClick={() => navigate('/tenants/new')}
             className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} 
             title="Add Tenant"
           >
             + Tenant
           </button>
           <button 
-            onClick={() => addNewTab('/invoices/new', 'New Invoice')}
+            onClick={() => navigate('/invoices/new')}
             className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} 
             title="New Invoice"
           >
             + Invoice
           </button>
           <button 
-            onClick={() => addNewTab('/receipts', 'Receive Payment')}
+            onClick={() => navigate('/receipts')}
             className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} 
             title="Receive Payment"
           >
@@ -485,7 +464,7 @@ const TopToolbar = ({ darkMode }) => {
             ↻
           </button>
           <button 
-            onClick={() => addNewTab('/settings', 'Settings')}
+            onClick={() => navigate('/settings')}
             className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} 
             title="Settings"
           >

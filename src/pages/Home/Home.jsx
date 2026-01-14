@@ -162,7 +162,7 @@ function Home() {
           <div className="flex items-center  justify-between">
             {/* Logo */}
             <div className="flex items-center">
-              <img src="/logo.png" alt="Milik Logo" className="h-11 w-20 mr-0" />
+              <img src="/logo.png" alt="Milik Logo" className="h-11 w-15 mr-0" />
               
             </div>
 
@@ -222,7 +222,7 @@ function Home() {
               
               {/* CTA Buttons */}
               <div className="flex flex-wrap gap-4 justify-center lg:justify-start mb-8">
-                <button className="inline-flex items-center justify-center bg-[#2b4450] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#026227] transition-all">
+                <button className="inline-flex items-center justify-center bg-[#286323] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#026227] transition-all">
                   Start Free
                 </button>
                 <button className="inline-flex items-center justify-center border border-gray-300 bg-white text-gray-700 font-semibold px-8 py-3.5 rounded-lg hover:bg-gray-50 transition-colors">
@@ -250,7 +250,7 @@ function Home() {
             {/* Right Content - Dashboard Preview */}
             <div className="relative">
               <div className="bg-white/80 backdrop-blur-lg border border-white/40 rounded-2xl shadow-2xl p-4">
-                <div className="bg-gradient-to-br from-[#2b4450] to-[#2b4450] rounded-xl p-6">
+                <div className="bg-gradient-to-br from-[#286323] to-[#2b4450] rounded-xl p-6">
                   {/* Mock Dashboard UI */}
                   <div className="bg-white/95 rounded-lg p-5">
                     <div className="flex items-center justify-between mb-5">
@@ -381,7 +381,7 @@ function Home() {
           </div>
           
           <div className="text-center mt-12">
-            <button className="inline-flex items-center justify-center bg-[#f78536] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#2b4450] transition-all">
+            <button className="inline-flex items-center justify-center bg-[#286323] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#2b4450] transition-all">
               View All Features
             </button>
           </div>
@@ -415,7 +415,7 @@ function Home() {
           </div>
           
           <div className="text-center mt-12">
-            <button className="inline-flex items-center justify-center bg-[#f78536] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#2b4450] transition-all">
+            <button className="inline-flex items-center justify-center bg-[#286323] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#2b4450] transition-all">
               Get Started Now
             </button>
           </div>
@@ -445,7 +445,7 @@ function Home() {
           </div>
           
           <div className="text-center mt-12">
-            <button className="inline-flex items-center justify-center bg-[#f78536] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#2b4450] transition-all">
+            <button className="inline-flex items-center justify-center bg-[#286323] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#2b4450] transition-all">
               Get Started Today
             </button>
           </div>
@@ -492,7 +492,7 @@ function Home() {
       </section>
 
       {/* Final CTA with better spacing */}
-      <section className="py-20 text-white text-center bg-gradient-to-br from-[#2b4450] to-[#2c786c]">
+      <section className="py-20 text-white text-center bg-gradient-to-br from-[#286323] to-[#2c786c]">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-bold mb-6">
             You didn't become a landlord to be a bookkeeper.
@@ -514,7 +514,7 @@ function Home() {
             <div>
               <div className="flex items-center mb-6">
                 <div className="flex items-center">
-              <img src="/logo.png" alt="Milik Logo" className="h-15 w-25 mr-0" />
+              <img src="/logo.png" alt="Milik Logo" className="h-11 w-15 mr-0" />
               
             </div>
               </div>
@@ -588,7 +588,7 @@ function Home() {
           href="https://wa.me/254791483607"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center h-16 w-16 rounded-full bg-[#2c786c] text-white shadow-xl hover:shadow-2xl hover:scale-110 transition-all"
+          className="flex items-center justify-center h-16 w-16 rounded-full bg-[#286323] text-white shadow-xl hover:shadow-2xl hover:scale-110 transition-all"
           aria-label="Chat on WhatsApp"
         >
           <FaWhatsapp className="text-2xl" />
