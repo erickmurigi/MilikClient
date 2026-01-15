@@ -13,6 +13,7 @@ import Leases from './pages/Lease/Lease';
 import Vacants from './pages/Vacants/Vacants';
 import Maintenances from './pages/Maintenances/Maintenances';
 import Inspections from './pages/Inspections/Inspections';
+import AddProperty from './components/Properties/AddProperties';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
         <Route path="/vacants" element={<Vacants />} />
         <Route path="/maintenances" element={<Maintenances />} />
         <Route path="/inspections" element={<Inspections />} />
+        <Route path="/properties/new" element={<AddProperty />} />
       </Routes>
     </BrowserRouter>
   )

@@ -5,6 +5,8 @@ import {
   FaPlus, FaFilter, FaDownload, FaSearch, FaEdit, FaTrash, FaEye,
   FaEllipsisH, FaFileExport, FaChevronLeft, FaChevronRight, FaGripVertical
 } from 'react-icons/fa';
+import AddProperty from '../../components/Properties/AddProperties';
+import { Link } from 'react-router-dom';
 
 const Properties = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -283,6 +285,148 @@ const Properties = () => {
     setSelectAll(!selectAll);
   };
 
+  const AddPropertyModule = ({ isOpen, onClose, onSave }) => {
+  const [formData, setFormData] = useState({
+    propertyCode: '',
+    propertyName: '',
+    propertyType: '',
+    zone: '',
+    category: '',
+    location: '',
+    landlord: ''
+  });
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave(formData);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <div className="p-4 border-b">
+          <h2 className="text-lg font-semibold text-gray-800">Add New Property</h2>
+          <p className="text-xs text-gray-600">Quick add property details</p>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-4 space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Property Code *
+            </label>
+            <input
+              type="text"
+              name="propertyCode"
+              value={formData.propertyCode}
+              onChange={handleChange}
+              className="w-full px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Property Name *
+            </label>
+            <input
+              type="text"
+              name="propertyName"
+              value={formData.propertyName}
+              onChange={handleChange}
+              className="w-full px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              required
+            />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Property Type
+              </label>
+              <select
+                name="propertyType"
+                value={formData.propertyType}
+                onChange={handleChange}
+                className="w-full px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              >
+                <option value="">Select</option>
+                <option value="Residential">Residential</option>
+                <option value="Commercial">Commercial</option>
+                <option value="Mixed Use">Mixed Use</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Zone
+              </label>
+              <select
+                name="zone"
+                value={formData.zone}
+                onChange={handleChange}
+                className="w-full px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              >
+                <option value="">Select</option>
+                <option value="Westlands">Westlands</option>
+                <option value="CBD">CBD</option>
+                <option value="Kilimani">Kilimani</option>
+              </select>
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Landlord Name
+            </label>
+            <input
+              type="text"
+              name="landlord"
+              value={formData.landlord}
+              onChange={handleChange}
+              className="w-full px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+          </div>
+          
+          <div className="flex justify-end gap-2 pt-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <Link to="/properties/new">
+            <button 
+  onClick={() => setShowAddProperty(true)}
+  className="px-4 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
+>
+  <FaPlus className="text-xs" />
+  <span>Add Property</span>
+</button></Link>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Then add this state and handler to your Properties component:
+const [showAddProperty, setShowAddProperty] = useState(false);
+
+const handleAddProperty = (propertyData) => {
+  // Add to your properties array
+  console.log('Adding property:', propertyData);
+  // You can add the property to your state or make an API call
+};
+
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
   };
@@ -343,6 +487,7 @@ const Properties = () => {
 
   return (
     <DashboardLayout>
+      
       <div className="p-0">
         {/* Search and Filters Row */}
         <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -389,11 +534,13 @@ const Properties = () => {
           </div>
 
           {/* Action buttons */}
+          <Link to="/properties/new">
           <button className="px-4 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm">
             <FaPlus className="text-xs" />
             <span>Add Property</span>
           </button>
-          
+          </Link>
+         
           <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
             <FaFileExport className="text-xs" />
             <span>Export</span>

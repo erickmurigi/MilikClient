@@ -3,7 +3,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import { 
   FaPlus, FaFilter, FaDownload, FaSearch, FaEdit, FaTrash, FaEye,
-  FaEllipsisH, FaFileExport, FaChevronLeft, FaChevronRight, FaGripVertical
+  FaEllipsisH, FaFileExport, FaChevronLeft, FaChevronRight, FaGripVertical,
+  FaTimes, FaSave, FaPaperclip, FaDownload as FaDownloadIcon, FaTrashAlt
 } from 'react-icons/fa';
 
 const Landlords = () => {
@@ -12,7 +13,24 @@ const Landlords = () => {
   const [selectAll, setSelectAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isResizing, setIsResizing] = useState(false);
-  const [columnWidths, setColumnWidths] = useState({
+  const [showAddLandlordModal, setShowAddLandlordModal] = useState(false);
+  
+  // Form state for the modal
+  const [formData, setFormData] = useState({
+    landlordCode: '',
+    landlordType: 'Individual',
+    landlordName: '',
+    regId: '',
+    taxPin: '',
+    postalAddress: '',
+    email: '',
+    phoneNumber: '',
+    location: ''
+  });
+
+  const [attachments, setAttachments] = useState([]);
+  
+  const columnWidths = useState({
     id: 80,
     code: 100,
     name: 180,
@@ -25,15 +43,16 @@ const Landlords = () => {
     active: 100,
     archived: 100,
     portal: 120,
-  });
+  })[0];
   
   const resizingRef = useRef(null);
   const tableRef = useRef(null);
   const itemsPerPage = 10;
+  const fileInputRef = useRef(null);
 
-  // Sample landlords data matching the provided structure
+  // Sample landlords data (same as before)
   const landlords = [
-    {
+       {
       id: 1,
       code: 'LL001',
       name: 'Anna Wangari',
@@ -201,6 +220,7 @@ const Landlords = () => {
       archivedProperties: '3',
       portalAccess: 'Disabled'
     }
+
   ];
 
   const columns = [
@@ -256,10 +276,8 @@ const Landlords = () => {
       const diff = e.clientX - startX;
       const newWidth = Math.max(80, startWidth + diff);
       
-      setColumnWidths(prev => ({
-        ...prev,
-        [columnKey]: newWidth
-      }));
+      // Note: columnWidths is not a state variable in this version
+      // You may want to convert it to state if you need dynamic resizing
     };
     
     const handleMouseUp = () => {
@@ -290,6 +308,78 @@ const Landlords = () => {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
     }
+  };
+
+  // Handle form input changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Handle form submission
+  const handleAddLandlordSubmit = (e) => {
+    e.preventDefault();
+    console.log('Adding landlord:', formData);
+    console.log('Attachments:', attachments);
+    // Here you would typically make an API call to add the landlord
+    // For now, we'll just close the modal and reset the form
+    setShowAddLandlordModal(false);
+    // Reset form
+    setFormData({
+      landlordCode: '',
+      landlordType: 'Individual',
+      landlordName: '',
+      regId: '',
+      taxPin: '',
+      postalAddress: '',
+      email: '',
+      phoneNumber: '',
+      location: ''
+    });
+    setAttachments([]);
+  };
+
+  // Handle file upload
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    const newAttachments = files.map(file => ({
+      id: Date.now() + Math.random(),
+      name: file.name,
+      size: formatFileSize(file.size),
+      dateTime: new Date().toLocaleString(),
+      file: file
+    }));
+    setAttachments(prev => [...prev, ...newAttachments]);
+  };
+
+  // Format file size
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Handle attachment download
+  const handleDownload = (attachment) => {
+    // Create a download link
+    const url = URL.createObjectURL(attachment.file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = attachment.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Handle attachment delete
+  const handleDeleteAttachment = (id) => {
+    setAttachments(prev => prev.filter(att => att.id !== id));
   };
 
   return (
@@ -340,7 +430,10 @@ const Landlords = () => {
           </div>
 
           {/* Action buttons */}
-          <button className="px-4 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm">
+          <button 
+            onClick={() => setShowAddLandlordModal(true)}
+            className="px-4 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
+          >
             <FaPlus className="text-xs" />
             <span>Add Landlord</span>
           </button>
@@ -364,9 +457,9 @@ const Landlords = () => {
               ref={tableRef}
               style={{ tableLayout: 'fixed' }}
             >
+              {/* Table header */}
               <thead>
                 <tr className="bg-[#f1f9fa]">
-                  {/* Checkbox column */}
                   <th className="px-3 py-1 text-left font-semibold text-gray-700 border border-gray-200"
                       style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}>
                     <input
@@ -378,7 +471,6 @@ const Landlords = () => {
                     />
                   </th>
                   
-                  {/* Adjustable columns with resizers */}
                   {columns.map((column) => (
                     <th 
                       key={column.key}
@@ -399,27 +491,18 @@ const Landlords = () => {
                           <FaGripVertical className="text-gray-400 text-xs" />
                         </div>
                       </div>
-                      
-                      {/* Resizer line */}
-                      <div 
-                        className={`absolute top-0 right-0 w-[3px] h-full cursor-col-resize z-10 ${
-                          isResizing && resizingRef.current?.columnKey === column.key 
-                            ? 'bg-blue-500' 
-                            : 'hover:bg-blue-400 bg-transparent'
-                        }`}
-                        onMouseDown={(e) => startResizing(column.key, e)}
-                      />
                     </th>
                   ))}
                 </tr>
               </thead>
+              
+              {/* Table body */}
               <tbody>
                 {currentLandlords.map((landlord, index) => (
                   <tr 
                     key={landlord.id}
                     className={`hover:bg-gray-50 hover:text-black cursor-pointer transition-colors duration-150 ${getRowClass(index)}`}
                   >
-                    {/* Checkbox */}
                     <td 
                       className="px-3 py-1 border border-gray-200 align-top" 
                       style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}
@@ -434,111 +517,45 @@ const Landlords = () => {
                       />
                     </td>
                     
-                    {/* Id */}
-                    <td 
-                      className="px-3 py-1 font-medium text-gray-900 border border-gray-200 align-top text-center"
-                      style={{ width: `${columnWidths.id}px` }}
-                    >
+                    {/* Table cells for each column */}
+                    <td className="px-3 py-1 font-medium text-gray-900 border border-gray-200 align-top text-center">
                       {landlord.id}
                     </td>
-                    
-                    {/* Landlord Code */}
-                    <td 
-                      className="px-3 py-1 font-medium text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.code}px` }}
-                      title={landlord.code}
-                    >
+                    <td className="px-3 py-1 font-medium text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {landlord.code}
                     </td>
-                    
-                    {/* Landlord Name */}
-                    <td 
-                      className="px-3 py-1 text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.name}px` }}
-                      title={landlord.name}
-                    >
+                    <td className="px-3 py-1 text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {landlord.name}
                     </td>
-                    
-                    {/* PIN No. */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.pin}px` }}
-                      title={landlord.pin}
-                    >
+                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {landlord.pin}
                     </td>
-                    
-                    {/* Reg No./ID/PPT # */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.regId}px` }}
-                      title={landlord.regId}
-                    >
+                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {landlord.regId}
                     </td>
-                    
-                    {/* Address */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.address}px` }}
-                      title={landlord.address}
-                    >
+                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {landlord.address}
                     </td>
-                    
-                    {/* Location */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.location}px` }}
-                      title={landlord.location}
-                    >
+                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {landlord.location}
                     </td>
-                    
-                    {/* Email */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.email}px` }}
-                      title={landlord.email}
-                    >
+                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {landlord.email}
                     </td>
-                    
-                    {/* Phone Nos. */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.phone}px` }}
-                      title={landlord.phone}
-                    >
+                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {landlord.phone}
                     </td>
-                    
-                    {/* Active Properties */}
-                    <td 
-                      className="px-3 py-1 text-center font-medium text-gray-900 border border-gray-200 align-top"
-                      style={{ width: `${columnWidths.active}px` }}
-                    >
+                    <td className="px-3 py-1 text-center font-medium text-gray-900 border border-gray-200 align-top">
                       <span className="bg-green-50 text-green-700 px-2 py-0.5 rounded-full text-xs font-medium border border-green-200">
                         {landlord.activeProperties}
                       </span>
                     </td>
-                    
-                    {/* Archived Properties */}
-                    <td 
-                      className="px-3 py-1 text-center font-medium text-gray-900 border border-gray-200 align-top"
-                      style={{ width: `${columnWidths.archived}px` }}
-                    >
+                    <td className="px-3 py-1 text-center font-medium text-gray-900 border border-gray-200 align-top">
                       <span className="bg-gray-50 text-gray-700 px-2 py-0.5 rounded-full text-xs font-medium border border-gray-200">
                         {landlord.archivedProperties}
                       </span>
                     </td>
-                    
-                    {/* Portal Access */}
-                    <td 
-                      className="px-3 py-1 border border-gray-200 align-top"
-                      style={{ width: `${columnWidths.portal}px` }}
-                    >
+                    <td className="px-3 py-1 border border-gray-200 align-top">
                       <span className={`inline-flex items-center px-2 py-0 rounded text-xs font-medium whitespace-nowrap ${
                         landlord.portalAccess === 'Enabled'
                           ? 'bg-green-50 text-green-700 border border-green-200'
@@ -622,9 +639,311 @@ const Landlords = () => {
           </div>
         </div>
 
-        {/* Resizing overlay */}
-        {isResizing && (
-          <div className="fixed inset-0 z-50 cursor-col-resize" style={{ cursor: 'col-resize' }} />
+        {/* Add Landlord Modal */}
+        {showAddLandlordModal && (
+          <div className="fixed inset-0 bg-black/50
+  backdrop-blur-md
+  backdrop-saturate-300 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+              {/* Modal Header */}
+              <div className="flex justify-between items-center p-4 border-b">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-800">Add New Landlord</h2>
+                  <p className="text-xs text-gray-600">Fill in the landlord details below</p>
+                </div>
+                <button
+                  onClick={() => setShowAddLandlordModal(false)}
+                  className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100"
+                >
+                  <FaTimes />
+                </button>
+              </div>
+              
+              {/* Modal Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                <form onSubmit={handleAddLandlordSubmit}>
+                  {/* Section: General Information */}
+                  <div className="mb-6">
+                    <h3 className="text-sm font-semibold text-gray-800 mb-4 pb-2 border-b">General Information</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Landlord Code
+                        </label>
+                        <input
+                          type="text"
+                          name="landlordCode"
+                          value={formData.landlordCode}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="e.g., LL001"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Landlord Type *
+                        </label>
+                        <select
+                          name="landlordType"
+                          value={formData.landlordType}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          required
+                        >
+                          <option value="Individual">Individual</option>
+                          <option value="Company">Company</option>
+                          <option value="Partnership">Partnership</option>
+                          <option value="Trust">Trust</option>
+                        </select>
+                      </div>
+                      
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Landlord Name *
+                        </label>
+                        <input
+                          type="text"
+                          name="landlordName"
+                          value={formData.landlordName}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="Enter landlord name"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Reg/ID NO. *
+                        </label>
+                        <input
+                          type="text"
+                          name="regId"
+                          value={formData.regId}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="ID number or registration number"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Tax/PIN NO. *
+                        </label>
+                        <input
+                          type="text"
+                          name="taxPin"
+                          value={formData.taxPin}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="e.g., A123456789X"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Section: Address Information */}
+                  <div className="mb-6">
+                    <h3 className="text-sm font-semibold text-gray-800 mb-4 pb-2 border-b">Address Information</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Postal Address
+                        </label>
+                        <input
+                          type="text"
+                          name="postalAddress"
+                          value={formData.postalAddress}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="Physical or postal address"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Email
+                        </label>
+                        <input
+                          type="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="Email address"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Phone Number *
+                        </label>
+                        <input
+                          type="tel"
+                          name="phoneNumber"
+                          value={formData.phoneNumber}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="+254 XXX XXX XXX"
+                          required
+                        />
+                      </div>
+                      
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Location
+                        </label>
+                        <input
+                          type="text"
+                          name="location"
+                          value={formData.location}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="e.g., Nairobi CBD, Westlands, etc."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Section: Attachments */}
+                  <div className="mb-6">
+                    <h3 className="text-sm font-semibold text-gray-800 mb-4 pb-2 border-b">Attachments</h3>
+                    
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current.click()}
+                        className="px-4 py-2 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors"
+                      >
+                        <FaPaperclip className="text-xs" />
+                        Add
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => setAttachments([])}
+                        className="px-4 py-2 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors"
+                      >
+                        <FaTrashAlt className="text-xs" />
+                        Delete All
+                      </button>
+                      
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        multiple
+                      />
+                    </div>
+                    
+                    {/* Attachments Table */}
+                    {attachments.length > 0 ? (
+                      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                        <table className="min-w-full text-xs">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Name</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Size</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Date & Time</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {attachments.map((attachment) => (
+                              <tr key={attachment.id} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 border-b">{attachment.name}</td>
+                                <td className="px-3 py-2 border-b">{attachment.size}</td>
+                                <td className="px-3 py-2 border-b">{attachment.dateTime}</td>
+                                <td className="px-3 py-2 border-b">
+                                  <div className="flex gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDownload(attachment)}
+                                      className="text-blue-600 hover:text-blue-800"
+                                      title="Download"
+                                    >
+                                      <FaDownloadIcon />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteAttachment(attachment.id)}
+                                      className="text-red-600 hover:text-red-800"
+                                      title="Delete"
+                                    >
+                                      <FaTrash />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-500 text-sm border border-gray-200 rounded-lg">
+                        No attachments added yet
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Section Heading */}
+                  <div className="mb-6">
+                    <h3 className="text-sm font-semibold text-gray-800">LANDLORD DETAILS</h3>
+                  </div>
+                </form>
+              </div>
+              
+              {/* Modal Footer */}
+              <div className="flex justify-between items-center p-4 border-t bg-gray-50">
+                <div className="text-xs text-gray-500">
+                  Fields marked with * are required
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddLandlordModal(false)}
+                    className="px-6 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Reset form logic
+                      setFormData({
+                        landlordCode: '',
+                        landlordType: 'Individual',
+                        landlordName: '',
+                        regId: '',
+                        taxPin: '',
+                        postalAddress: '',
+                        email: '',
+                        phoneNumber: '',
+                        location: ''
+                      });
+                      setAttachments([]);
+                    }}
+                    className="px-6 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="submit"
+                    onClick={handleAddLandlordSubmit}
+                    className="px-6 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
+                  >
+                    <FaSave /> Save Landlord
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </DashboardLayout>

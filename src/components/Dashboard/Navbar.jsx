@@ -11,7 +11,7 @@ import { Link } from 'react-router-dom';
 
 const Navbar = ({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode }) => {
   return (
-    <nav className={`sticky top-0 z-20 ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'} shadow-sm`}>
+    <nav className={`sticky top-0 z-20 ${darkMode ? 'bg-[#dfebed] text-white' : 'bg-[#dfebed] text-gray-900'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'} shadow-sm`}>
       <div className="px-5 py-1">
         <div className="flex items-center justify-between">
           {/* Left Section */}
@@ -25,7 +25,7 @@ const Navbar = ({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode }) => {
             
             <div>
               <h1 className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                Dashboard Overview
+                Bosco Property Management
               </h1>
               <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                 Welcome back, Erick
@@ -68,7 +68,7 @@ const Navbar = ({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode }) => {
 
             {/* User Profile */}
             <div className="flex items-center space-x-3">
-              <div className="h-6 w-6 rounded-full bg-gradient-to-r from-[#f78536] to-[#dcdddc] flex items-center justify-center">
+              <div className="h-6 w-6 rounded-full bg-gradient-to-r from-[#369519] to-[#0b570b] flex items-center justify-center">
                 <span className="text-white text-xs font-semibold">EM</span>
               </div>
               <div className="hidden md:block text-right">

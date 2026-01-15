@@ -4,7 +4,7 @@ import DashboardLayout from '../../components/Layout/DashboardLayout';
 import { 
   FaPlus, FaSearch, FaEllipsisH, FaFileExport, 
   FaChevronLeft, FaChevronRight, FaGripVertical,
-  FaFile, FaPaperclip
+  FaFile, FaPaperclip, FaTimes, FaSave
 } from 'react-icons/fa';
 
 const Tenants = () => {
@@ -13,8 +13,35 @@ const Tenants = () => {
   const [selectAll, setSelectAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isResizing, setIsResizing] = useState(false);
-  const [columnWidths, setColumnWidths] = useState({
-    id: 60,
+  const [showAddTenantModal, setShowAddTenantModal] = useState(false);
+  
+  // Form state for the modal
+  const [formData, setFormData] = useState({
+    accountNumber: '',
+    tenantType: 'Individual',
+    surname: '',
+    otherNames: '',
+    gender: '',
+    idNo: '',
+    taxPin: '',
+    postalAddress: '',
+    email: '',
+    postalCode: '',
+    town: 'NAIROBI',
+    mobileNumber: '',
+    verifyMobileNumber: '',
+    country: 'Kenya',
+    emergencyContactName1: '',
+    emergencyPhone1: '',
+    emergencyRelationship1: '',
+    emergencyEmail1: '',
+    emergencyContactName2: '',
+    emergencyPhone2: '',
+    emergencyRelationship2: '',
+    emergencyEmail2: ''
+  });
+  
+  const columnWidths = useState({
     tntId: 100,
     lseId: 100,
     unitNo: 90,
@@ -32,16 +59,16 @@ const Tenants = () => {
     property: 150,
     email: 180,
     attachedFiles: 120,
-  });
+  })[0];
   
   const resizingRef = useRef(null);
   const tableRef = useRef(null);
   const itemsPerPage = 10;
 
-  // Sample tenants data matching the provided structure
+  // Sample tenants data (same as before)
   const tenants = [
-    {
-      id: 1,
+        {
+      
       tntId: 'TNT001',
       lseId: 'LSE001',
       unitNo: 'A-101',
@@ -61,7 +88,7 @@ const Tenants = () => {
       attachedFiles: 3
     },
     {
-      id: 2,
+     
       tntId: 'TNT002',
       lseId: 'LSE002',
       unitNo: 'B-205',
@@ -81,7 +108,7 @@ const Tenants = () => {
       attachedFiles: 5
     },
     {
-      id: 3,
+    
       tntId: 'TNT003',
       lseId: 'LSE003',
       unitNo: 'C-301',
@@ -101,7 +128,7 @@ const Tenants = () => {
       attachedFiles: 2
     },
     {
-      id: 4,
+   
       tntId: 'TNT004',
       lseId: 'LSE004',
       unitNo: 'SH-012',
@@ -121,7 +148,7 @@ const Tenants = () => {
       attachedFiles: 8
     },
     {
-      id: 5,
+     
       tntId: 'TNT005',
       lseId: 'LSE005',
       unitNo: 'OF-501',
@@ -141,7 +168,7 @@ const Tenants = () => {
       attachedFiles: 4
     },
     {
-      id: 6,
+     
       tntId: 'TNT006',
       lseId: 'LSE006',
       unitNo: 'APT-306',
@@ -161,7 +188,7 @@ const Tenants = () => {
       attachedFiles: 1
     },
     {
-      id: 7,
+     
       tntId: 'TNT007',
       lseId: 'LSE007',
       unitNo: 'B-107',
@@ -181,7 +208,7 @@ const Tenants = () => {
       attachedFiles: 2
     },
     {
-      id: 8,
+     
       tntId: 'TNT008',
       lseId: 'LSE008',
       unitNo: 'SUITE-800',
@@ -201,7 +228,7 @@ const Tenants = () => {
       attachedFiles: 12
     },
     {
-      id: 9,
+     
       tntId: 'TNT009',
       lseId: 'LSE009',
       unitNo: 'M-209',
@@ -221,7 +248,7 @@ const Tenants = () => {
       attachedFiles: 6
     },
     {
-      id: 10,
+     
       tntId: 'TNT010',
       lseId: 'LSE010',
       unitNo: 'A-503',
@@ -241,7 +268,7 @@ const Tenants = () => {
       attachedFiles: 3
     },
     {
-      id: 11,
+     
       tntId: 'TNT011',
       lseId: 'LSE011',
       unitNo: 'SH-115',
@@ -261,7 +288,7 @@ const Tenants = () => {
       attachedFiles: 4
     },
     {
-      id: 12,
+     
       tntId: 'TNT012',
       lseId: 'LSE012',
       unitNo: 'APT-412',
@@ -280,10 +307,10 @@ const Tenants = () => {
       email: 'robert.kiprono@email.com',
       attachedFiles: 2
     }
+
   ];
 
   const columns = [
-    { key: 'id', label: 'Id' },
     { key: 'tntId', label: 'Tnt Id' },
     { key: 'lseId', label: 'Lse Id' },
     { key: 'unitNo', label: 'Unit No.' },
@@ -291,7 +318,7 @@ const Tenants = () => {
     { key: 'tenantName', label: 'Tenant Name' },
     { key: 'acBal', label: 'A/c Bal. (Kshs)' },
     { key: 'phone', label: 'Phone Number' },
-    { key: 'rent', label: 'Rent' },
+    { key: 'rent.', label: 'Rent     .Ksh' },
     { key: 'leaseType', label: 'Lease Variation Type' },
     { key: 'paymentFreq', label: 'Payment Frequency' },
     { key: 'leaseStart', label: 'Lease Start' },
@@ -341,10 +368,7 @@ const Tenants = () => {
       const diff = e.clientX - startX;
       const newWidth = Math.max(80, startWidth + diff);
       
-      setColumnWidths(prev => ({
-        ...prev,
-        [columnKey]: newWidth
-      }));
+      // Note: columnWidths is not a state variable in this version
     };
     
     const handleMouseUp = () => {
@@ -396,6 +420,91 @@ const Tenants = () => {
       setCurrentPage(page);
     }
   };
+
+  // Handle form input changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  // Handle form submission
+  const handleAddTenantSubmit = (e) => {
+    e.preventDefault();
+    
+    // Check for required fields
+    const requiredFields = ['tenantType', 'surname', 'otherNames', 'idNo', 'taxPin', 'town', 'mobileNumber', 'country'];
+    const missingFields = requiredFields.filter(field => !formData[field]);
+    
+    if (missingFields.length > 0) {
+      console.log('Missing required fields:', missingFields);
+      // You can show an error message here
+      return;
+    }
+    
+    console.log('Adding tenant:', formData);
+    
+    // Here you would typically make an API call to add the tenant
+    // For now, we'll just close the modal and reset the form
+    setShowAddTenantModal(false);
+    
+    // Reset form
+    setFormData({
+      accountNumber: '',
+      tenantType: 'Individual',
+      surname: '',
+      otherNames: '',
+      gender: '',
+      idNo: '',
+      taxPin: '',
+      postalAddress: '',
+      email: '',
+      postalCode: '',
+      town: 'NAIROBI',
+      mobileNumber: '',
+      verifyMobileNumber: '',
+      country: 'Kenya',
+      emergencyContactName1: '',
+      emergencyPhone1: '',
+      emergencyRelationship1: '',
+      emergencyEmail1: '',
+      emergencyContactName2: '',
+      emergencyPhone2: '',
+      emergencyRelationship2: '',
+      emergencyEmail2: ''
+    });
+  };
+
+  // Gender options
+  const genderOptions = ['Male', 'Female', 'Other'];
+
+  // Town options
+  const townOptions = [
+    'NAIROBI',
+    'MOMBASA',
+    'KISUMU',
+    'NAKURU',
+    'ELDORET',
+    'THIKA',
+    'MALINDI',
+    'KITALE',
+    'GARISSA',
+    'KAKAMEGA'
+  ];
+
+  // Relationship options
+  const relationshipOptions = [
+    'Spouse',
+    'Parent',
+    'Sibling',
+    'Child',
+    'Relative',
+    'Friend',
+    'Colleague',
+    'Other'
+  ];
 
   return (
     <DashboardLayout>
@@ -451,7 +560,10 @@ const Tenants = () => {
           </div>
 
           {/* Action buttons */}
-          <button className="px-4 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm">
+          <button 
+            onClick={() => setShowAddTenantModal(true)}
+            className="px-4 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
+          >
             <FaPlus className="text-xs" />
             <span>Add Tenant</span>
           </button>
@@ -489,7 +601,7 @@ const Tenants = () => {
                     />
                   </th>
                   
-                  {/* Adjustable columns with resizers */}
+                  {/* Columns */}
                   {columns.map((column) => (
                     <th 
                       key={column.key}
@@ -510,16 +622,6 @@ const Tenants = () => {
                           <FaGripVertical className="text-gray-400 text-xs" />
                         </div>
                       </div>
-                      
-                      {/* Resizer line */}
-                      <div 
-                        className={`absolute top-0 right-0 w-[3px] h-full cursor-col-resize z-10 ${
-                          isResizing && resizingRef.current?.columnKey === column.key 
-                            ? 'bg-blue-500' 
-                            : 'hover:bg-blue-400 bg-transparent'
-                        }`}
-                        onMouseDown={(e) => startResizing(column.key, e)}
-                      />
                     </th>
                   ))}
                 </tr>
@@ -545,92 +647,36 @@ const Tenants = () => {
                       />
                     </td>
                     
-                    {/* Id */}
-                    <td 
-                      className="px-3 py-1 font-medium text-gray-900 border border-gray-200 align-top text-center"
-                      style={{ width: `${columnWidths.id}px` }}
-                    >
-                      {tenant.id}
-                    </td>
-                    
-                    {/* Tnt Id */}
-                    <td 
-                      className="px-3 py-1 font-medium text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.tntId}px` }}
-                      title={tenant.tntId}
-                    >
+                    {/* Render tenant cells */}
+                    <td className="px-3 py-1 font-medium text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {tenant.tntId}
                     </td>
-                    
-                    {/* Lse Id */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.lseId}px` }}
-                      title={tenant.lseId}
-                    >
+                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {tenant.lseId}
                     </td>
-                    
-                    {/* Unit No. */}
-                    <td 
-                      className="px-3 py-1 text-center font-medium text-gray-900 border border-gray-200 align-top"
-                      style={{ width: `${columnWidths.unitNo}px` }}
-                    >
+                    <td className="px-3 py-1 text-center font-medium text-gray-900 border border-gray-200 align-top">
                       {tenant.unitNo}
                     </td>
-                    
-                    {/* Ac/No./Code */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.acNo}px` }}
-                      title={tenant.acNo}
-                    >
+                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {tenant.acNo}
                     </td>
-                    
-                    {/* Tenant Name */}
-                    <td 
-                      className="px-3 py-1 font-medium text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.tenantName}px` }}
-                      title={tenant.tenantName}
-                    >
+                    <td className="px-3 py-1 font-medium text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {tenant.tenantName}
                     </td>
-                    
-                    {/* A/c Bal. (Kshs) */}
-                    <td 
-                      className="px-3 py-1 text-right font-medium border border-gray-200 align-top"
-                      style={{ width: `${columnWidths.acBal}px` }}
-                    >
+                    <td className="px-3 py-1 text-right font-medium border border-gray-200 align-top">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${getBalanceColor(tenant.acBal)}`}>
                         Ksh {tenant.acBal}
                       </span>
                     </td>
-                    
-                    {/* Phone Number */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.phone}px` }}
-                      title={tenant.phone}
-                    >
+                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {tenant.phone}
                     </td>
-                    
-                    {/* Rent */}
-                    <td 
-                      className="px-3 py-1 text-right font-medium text-gray-900 border border-gray-200 align-top"
-                      style={{ width: `${columnWidths.rent}px` }}
-                    >
+                    <td className="px-3 py-1 text-right font-medium text-gray-900 border border-gray-200 align-top">
                       <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs border border-blue-200">
-                        Ksh {tenant.rent}
+                        {tenant.rent}
                       </span>
                     </td>
-                    
-                    {/* Lease Variation Type */}
-                    <td 
-                      className="px-3 py-1 border border-gray-200 align-top"
-                      style={{ width: `${columnWidths.leaseType}px` }}
-                    >
+                    <td className="px-3 py-1 border border-gray-200 align-top">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${
                         tenant.leaseType === 'Residential'
                           ? 'bg-blue-50 text-blue-700 border border-blue-200'
@@ -641,72 +687,30 @@ const Tenants = () => {
                         {tenant.leaseType}
                       </span>
                     </td>
-                    
-                    {/* Payment Frequency */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top text-center"
-                      style={{ width: `${columnWidths.paymentFreq}px` }}
-                    >
+                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top text-center">
                       {tenant.paymentFreq}
                     </td>
-                    
-                    {/* Lease Start */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap"
-                      style={{ width: `${columnWidths.leaseStart}px` }}
-                    >
+                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap">
                       {tenant.leaseStart}
                     </td>
-                    
-                    {/* Lease End */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap"
-                      style={{ width: `${columnWidths.leaseEnd}px` }}
-                    >
+                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap">
                       {tenant.leaseEnd}
                     </td>
-                    
-                    {/* Lease Term */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top text-center"
-                      style={{ width: `${columnWidths.leaseTerm}px` }}
-                    >
+                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top text-center">
                       {tenant.leaseTerm}
                     </td>
-                    
-                    {/* Days To Expire */}
-                    <td 
-                      className="px-3 py-1 text-center font-medium border border-gray-200 align-top"
-                      style={{ width: `${columnWidths.daysToExpire}px` }}
-                    >
+                    <td className="px-3 py-1 text-center font-medium border border-gray-200 align-top">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${getDaysToExpireColor(tenant.daysToExpire)}`}>
                         {tenant.daysToExpire} days
                       </span>
                     </td>
-                    
-                    {/* Property */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.property}px` }}
-                      title={tenant.property}
-                    >
+                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {tenant.property}
                     </td>
-                    
-                    {/* Email */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.email}px` }}
-                      title={tenant.email}
-                    >
+                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {tenant.email}
                     </td>
-                    
-                    {/* Attached Files */}
-                    <td 
-                      className="px-3 py-1 text-center border border-gray-200 align-top"
-                      style={{ width: `${columnWidths.attachedFiles}px` }}
-                    >
+                    <td className="px-3 py-1 text-center border border-gray-200 align-top">
                       <div className="flex items-center justify-center gap-1">
                         <FaPaperclip className="text-gray-500 text-xs" />
                         <span className="bg-gray-50 text-gray-700 px-2 py-0.5 rounded text-xs border border-gray-200">
@@ -789,9 +793,470 @@ const Tenants = () => {
           </div>
         </div>
 
-        {/* Resizing overlay */}
-        {isResizing && (
-          <div className="fixed inset-0 z-50 cursor-col-resize" style={{ cursor: 'col-resize' }} />
+        {/* Add Tenant Modal */}
+        {showAddTenantModal && (
+          <div className="fixed inset-0  bg-black/20
+  backdrop-blur-md
+  backdrop-saturate-150 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+              {/* Modal Header */}
+              <div className="flex justify-between items-center p-4 border-b">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-800">Add New Tenant</h2>
+                  <p className="text-xs text-gray-600">Fill in the tenant details below</p>
+                </div>
+                <button
+                  onClick={() => setShowAddTenantModal(false)}
+                  className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100"
+                >
+                  <FaTimes />
+                </button>
+              </div>
+              
+              {/* Modal Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                <form onSubmit={handleAddTenantSubmit}>
+                  {/* Top Section */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Account Number
+                      </label>
+                      <input
+                        type="text"
+                        name="accountNumber"
+                        value={formData.accountNumber}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        placeholder="Auto-generated or manual"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Tenant Type *
+                      </label>
+                      <select
+                        name="tenantType"
+                        value={formData.tenantType}
+                        onChange={handleInputChange}
+                        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        required
+                      >
+                        <option value="Individual">Individual</option>
+                        <option value="Company">Company</option>
+                        <option value="Partnership">Partnership</option>
+                        <option value="Trust">Trust</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  {/* Personal Information */}
+                  <div className="mb-6 border-t pt-4">
+                    <h3 className="text-sm font-semibold text-gray-800 mb-4">Personal Information</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Surname *
+                        </label>
+                        <input
+                          type="text"
+                          name="surname"
+                          value={formData.surname}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="Last name"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Other Name(s) *
+                        </label>
+                        <input
+                          type="text"
+                          name="otherNames"
+                          value={formData.otherNames}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="First and middle names"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Gender
+                        </label>
+                        <select
+                          name="gender"
+                          value={formData.gender}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        >
+                          <option value="">Select Gender</option>
+                          {genderOptions.map(gender => (
+                            <option key={gender} value={gender}>{gender}</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          ID No./REG No. *
+                        </label>
+                        <input
+                          type="text"
+                          name="idNo"
+                          value={formData.idNo}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="National ID or Registration number"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Tax PIN *
+                        </label>
+                        <input
+                          type="text"
+                          name="taxPin"
+                          value={formData.taxPin}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="e.g., A123456789X"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Addresses Section */}
+                  <div className="mb-6 border-t pt-4">
+                    <h3 className="text-sm font-semibold text-gray-800 mb-4">Addresses</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Postal Address
+                        </label>
+                        <input
+                          type="text"
+                          name="postalAddress"
+                          value={formData.postalAddress}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="Physical or postal address"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Email
+                        </label>
+                        <input
+                          type="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="Email address"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Postal Code
+                        </label>
+                        <input
+                          type="text"
+                          name="postalCode"
+                          value={formData.postalCode}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="Postal code"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Town *
+                        </label>
+                        <select
+                          name="town"
+                          value={formData.town}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          required
+                        >
+                          <option value="">Select Town</option>
+                          {townOptions.map(town => (
+                            <option key={town} value={town}>{town}</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Mobile Number *
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500">
+                            +254
+                          </span>
+                          <input
+                            type="tel"
+                            name="mobileNumber"
+                            value={formData.mobileNumber}
+                            onChange={handleInputChange}
+                            className="w-full pl-12 pr-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            placeholder="712 345 678"
+                            required
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Verify Mobile Number
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500">
+                            +254
+                          </span>
+                          <input
+                            type="tel"
+                            name="verifyMobileNumber"
+                            value={formData.verifyMobileNumber}
+                            onChange={handleInputChange}
+                            className="w-full pl-12 pr-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            placeholder="Re-enter mobile number"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Country *
+                        </label>
+                        <input
+                          type="text"
+                          name="country"
+                          value={formData.country}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          required
+                          readOnly
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Emergency Contact 1 */}
+                  <div className="mb-6 border-t pt-4">
+                    <h3 className="text-sm font-semibold text-gray-800 mb-4">Emergency Contact/Contact Person</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Contact Name
+                        </label>
+                        <input
+                          type="text"
+                          name="emergencyContactName1"
+                          value={formData.emergencyContactName1}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="Emergency contact name"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Phone
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500">
+                            +254
+                          </span>
+                          <input
+                            type="tel"
+                            name="emergencyPhone1"
+                            value={formData.emergencyPhone1}
+                            onChange={handleInputChange}
+                            className="w-full pl-12 pr-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            placeholder="Emergency phone number"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Relationship
+                        </label>
+                        <select
+                          name="emergencyRelationship1"
+                          value={formData.emergencyRelationship1}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        >
+                          <option value="">Select Relationship</option>
+                          {relationshipOptions.map(relation => (
+                            <option key={relation} value={relation}>{relation}</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Email
+                        </label>
+                        <input
+                          type="email"
+                          name="emergencyEmail1"
+                          value={formData.emergencyEmail1}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="Emergency email address"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Emergency Contact 2 */}
+                  <div className="mb-6 border-t pt-4">
+                    <h3 className="text-sm font-semibold text-gray-800 mb-4">Emergency Contact/Contact Person 2</h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Contact Name
+                        </label>
+                        <input
+                          type="text"
+                          name="emergencyContactName2"
+                          value={formData.emergencyContactName2}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="Secondary emergency contact"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Phone
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500">
+                            +254
+                          </span>
+                          <input
+                            type="tel"
+                            name="emergencyPhone2"
+                            value={formData.emergencyPhone2}
+                            onChange={handleInputChange}
+                            className="w-full pl-12 pr-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            placeholder="Secondary emergency phone"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Relationship
+                        </label>
+                        <select
+                          name="emergencyRelationship2"
+                          value={formData.emergencyRelationship2}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        >
+                          <option value="">Select Relationship</option>
+                          {relationshipOptions.map(relation => (
+                            <option key={relation} value={relation}>{relation}</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Email
+                        </label>
+                        <input
+                          type="email"
+                          name="emergencyEmail2"
+                          value={formData.emergencyEmail2}
+                          onChange={handleInputChange}
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          placeholder="Secondary emergency email"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              </div>
+              
+              {/* Modal Footer */}
+              <div className="flex justify-between items-center p-4 border-t bg-gray-50">
+                <div className="text-xs text-gray-500">
+                  Fields marked with * are required
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddTenantModal(false)}
+                    className="px-6 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Reset form logic
+                      setFormData({
+                        accountNumber: '',
+                        tenantType: 'Individual',
+                        surname: '',
+                        otherNames: '',
+                        gender: '',
+                        idNo: '',
+                        taxPin: '',
+                        postalAddress: '',
+                        email: '',
+                        postalCode: '',
+                        town: 'NAIROBI',
+                        mobileNumber: '',
+                        verifyMobileNumber: '',
+                        country: 'Kenya',
+                        emergencyContactName1: '',
+                        emergencyPhone1: '',
+                        emergencyRelationship1: '',
+                        emergencyEmail1: '',
+                        emergencyContactName2: '',
+                        emergencyPhone2: '',
+                        emergencyRelationship2: '',
+                        emergencyEmail2: ''
+                      });
+                    }}
+                    className="px-6 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="submit"
+                    onClick={handleAddTenantSubmit}
+                    className="px-6 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
+                  >
+                    <FaSave /> Save Tenant
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </DashboardLayout>
