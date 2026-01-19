@@ -170,7 +170,7 @@ const TabManager = ({ darkMode }) => {
   // Sort tabs by timestamp (oldest first)
   const sortedTabs = [...tabs].sort((a, b) => a.timestamp - b.timestamp);
  return (
-    <div className={`flex items-center ${darkMode ? 'bg-gray-800' : 'bg-[#ffffff]'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'} overflow-x-auto`}>
+    <div className={`flex items-center ${darkMode ? 'bg-gray-800' : 'bg-emerald-600'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'} overflow-x-auto`}>
       <div className="flex items-center px-2 py-1 space-x-1 min-w-max">
         {sortedTabs.map((tab) => (
           <div
@@ -179,7 +179,7 @@ const TabManager = ({ darkMode }) => {
               activeTab === tab.id
                 ? darkMode
                   ? 'bg-gray-900 text-white border-gray-600'
-                  : 'bg-white text-gray-900 border-gray-300 shadow-sm'
+                  : 'bg-[#E85C0D] text-white border-gray-300 shadow-sm font-semibold'
                 : darkMode
                 ? 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'
                 : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'

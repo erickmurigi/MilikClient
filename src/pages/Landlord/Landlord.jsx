@@ -224,10 +224,10 @@ const Landlords = () => {
   ];
 
   const columns = [
-    { key: 'id', label: 'Id' },
+  
     { key: 'code', label: 'Landlord Code' },
     { key: 'name', label: 'Landlord Name' },
-    { key: 'pin', label: 'PIN No.' },
+   
     { key: 'regId', label: 'Reg No./ID/PPT #' },
     { key: 'address', label: 'Address' },
     { key: 'location', label: 'Location' },
@@ -384,11 +384,11 @@ const Landlords = () => {
 
   return (
     <DashboardLayout>
-      <div className="p-0">
+      <div className="p-0 bg-[#a5c9b7]">
         {/* Search and Filters Row */}
         <div className="flex flex-wrap items-center gap-2 mb-2">
           {/* Filter dropdowns */}
-          <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+          <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-[#a1e6c3] shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
             <option>Landlord Code</option>
             <option>Landlord Name</option>
             <option>PIN No.</option>
@@ -450,16 +450,16 @@ const Landlords = () => {
         </div>
 
         {/* Boxed Table Design with adjustable columns */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+        <div className="bg-[#a5c9b7] border border-gray-200 rounded-lg shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table 
-              className="min-w-full text-xs border-collapse border border-gray-200"
+              className="min-w-full text-xs border-collapse bg-[#a5c9b7] border border-gray-200"
               ref={tableRef}
               style={{ tableLayout: 'fixed' }}
             >
               {/* Table header */}
               <thead>
-                <tr className="bg-[#f1f9fa]">
+                <tr className="bg-[#a5c9b7]">
                   <th className="px-3 py-1 text-left font-semibold text-gray-700 border border-gray-200"
                       style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}>
                     <input
@@ -501,10 +501,10 @@ const Landlords = () => {
                 {currentLandlords.map((landlord, index) => (
                   <tr 
                     key={landlord.id}
-                    className={`hover:bg-gray-50 hover:text-black cursor-pointer transition-colors duration-150 ${getRowClass(index)}`}
+                    className={`hover:bg-white-100 hover:text-black bg-[#a5c9b7] cursor-pointer transition-colors duration-150 ${getRowClass(index)}`}
                   >
                     <td 
-                      className="px-3 py-1 border border-gray-200 align-top" 
+                      className="px-3 py-1 border  bg-[#a5c9b7] border-gray-200 align-top" 
                       style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}
                       onClick={handleCheckboxClick}
                     >
@@ -518,44 +518,40 @@ const Landlords = () => {
                     </td>
                     
                     {/* Table cells for each column */}
-                    <td className="px-3 py-1 font-medium text-gray-900 border border-gray-200 align-top text-center">
-                      {landlord.id}
-                    </td>
-                    <td className="px-3 py-1 font-medium text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                    
+                    <td className="px-3 py-1 bg-[#a5c9b7] font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {landlord.code}
                     </td>
-                    <td className="px-3 py-1 text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                    <td className="px-3 py-1 bg-[#a5c9b7] font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {landlord.name}
                     </td>
-                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                      {landlord.pin}
-                    </td>
-                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                    
+                    <td className="px-3 py-1 bg-[#a5c9b7] font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {landlord.regId}
                     </td>
-                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                    <td className="px-3 py-1 bg-[#a5c9b7] font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {landlord.address}
                     </td>
-                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                    <td className="px-3 py-1 bg-[#a5c9b7] font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {landlord.location}
                     </td>
-                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                    <td className="px-3 py-1 bg-[#a5c9b7] font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {landlord.email}
                     </td>
-                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                    <td className="px-3 py-1 bg-[#a5c9b7] font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                       {landlord.phone}
                     </td>
-                    <td className="px-3 py-1 text-center font-medium text-gray-900 border border-gray-200 align-top">
+                    <td className="px-3 py-1 bg-[#a5c9b7] text-center font-bold text-gray-900 border border-gray-200 align-top">
                       <span className="bg-green-50 text-green-700 px-2 py-0.5 rounded-full text-xs font-medium border border-green-200">
                         {landlord.activeProperties}
                       </span>
                     </td>
-                    <td className="px-3 py-1 text-center font-medium text-gray-900 border border-gray-200 align-top">
+                    <td className="px-3 py-1  bg-[#a5c9b7] text-center font-bold text-gray-900 border border-gray-200 align-top">
                       <span className="bg-gray-50 text-gray-700 px-2 py-0.5 rounded-full text-xs font-medium border border-gray-200">
                         {landlord.archivedProperties}
                       </span>
                     </td>
-                    <td className="px-3 py-1 border border-gray-200 align-top">
+                    <td className="px-3 py-1 bg-[#a5c9b7] border border-gray-200 align-top">
                       <span className={`inline-flex items-center px-2 py-0 rounded text-xs font-medium whitespace-nowrap ${
                         landlord.portalAccess === 'Enabled'
                           ? 'bg-green-50 text-green-700 border border-green-200'

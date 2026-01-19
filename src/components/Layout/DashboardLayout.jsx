@@ -364,7 +364,7 @@ const TopToolbar = ({ darkMode }) => {
   return (
     <div className="relative">
       <Navbar darkMode={darkMode} />
-      <div className={`flex items-center ${darkMode ? 'bg-gray-800' : 'bg-[#e7f5f7]'}`}>
+      <div className={`flex items-center ${darkMode ? 'bg-gray-800' : 'bg-emerald-600'}`}>
         {/* Application Logo/Title */}
         <div className={`px-4 py-2 ${darkMode ? 'bg-gray-900' : 'bg-gray-100'} border-r ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
           <Link to="/dashboard" className="flex items-center space-x-2 no-underline">
@@ -380,11 +380,11 @@ const TopToolbar = ({ darkMode }) => {
                 setActiveMenu(activeMenu === item.id ? null : item.id);
                 setActiveSubMenu(null);
               }}
-              className={`px-4 py-2 text-xs font-medium transition-colors ${
+              className={`px-4 py-2 text-sm font-bold text-white transition-colors ${
                 activeMenu === item.id
                   ? darkMode 
                     ? 'bg-gray-700 text-white'
-                    : 'bg-gray-200 text-gray-900'
+                    : 'bg-gray-200 text-white'
                   : darkMode
                   ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
                   : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
