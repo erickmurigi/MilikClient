@@ -5,7 +5,6 @@ import {
   FaPlus, FaFilter, FaDownload, FaSearch, FaEdit, FaTrash, FaEye,
   FaEllipsisH, FaFileExport, FaChevronLeft, FaChevronRight, FaGripVertical
 } from 'react-icons/fa';
-import AddProperty from '../../components/Properties/AddProperties';
 import { Link } from 'react-router-dom';
 
 const Properties = () => {
@@ -16,25 +15,25 @@ const Properties = () => {
   const [isResizing, setIsResizing] = useState(false);
   const [columnWidths, setColumnWidths] = useState({
     code: 100,
-    name: 180,
-    landlord: 150,
-    category: 120,
+    name: 200,
+    landlord: 160,
+    category: 130,
     zone: 120,
     location: 180,
-    totalUnits: 100,
-    occupiedUnits: 100,
-    vacantUnits: 100,
+    totalUnits: 110,
+    occupiedUnits: 110,
+    vacantUnits: 110,
     area: 140,
-    grossArea: 120,
-    netArea: 120,
-    fieldOfficer: 120,
+    grossArea: 130,
+    netArea: 130,
+    fieldOfficer: 140,
     dateAcquired: 140,
     status: 120,
   });
   
   const resizingRef = useRef(null);
   const tableRef = useRef(null);
-  const itemsPerPage = 10;
+  const itemsPerPage = 50; // Changed to 50 per page
 
   // Sample properties data matching the screenshot structure
   const properties = [
@@ -143,112 +142,39 @@ const Properties = () => {
       grossArea: '2000',
       netArea: '1850'
     },
-    {
-      id: 6,
-      code: '123E',
-      name: 'CAMON COURT APARTMENT COMPLEX',
-      status: 'Active',
-      type: 'Residential',
-      region: 'KENYA',
-      zone: 'Nakuru',
-      fieldOfficer: 'David Omondi',
-      acquiredFrom: 'Purchase',
-      dateAcquired: '2022-12-01',
-      area: 'Sq Feet',
-      landlord: 'Joe Huid Real Estate',
-      category: 'Residential',
-      location: 'Nakuru Town, Kenyatta Avenue',
-      totalUnits: '40',
-      occupiedUnits: '35',
-      vacantUnits: '5',
-      grossArea: '2800',
-      netArea: '2600'
-    },
-    {
-      id: 7,
-      code: '003B',
-      name: 'CID APARTMENTS RESIDENTIAL BLOCK',
-      status: 'Active',
-      type: 'Residential',
-      region: 'KENYA',
-      zone: 'Eldoret',
-      fieldOfficer: 'Mary Atieno',
-      acquiredFrom: 'Direct Sale',
-      dateAcquired: '2023-02-28',
-      area: 'Sq Feet',
-      landlord: 'CID Properties Ltd',
-      category: 'Residential',
-      location: 'Eldoret Town, Uganda Road',
-      totalUnits: '35',
-      occupiedUnits: '30',
-      vacantUnits: '5',
-      grossArea: '2400',
-      netArea: '2200'
-    },
-    {
-      id: 8,
-      code: '46',
-      name: 'CITE TOWERS OFFICE COMPLEX',
-      status: 'Active',
-      type: 'Commercial',
-      region: 'KENYA',
-      zone: 'Nairobi',
-      fieldOfficer: 'Peter Maina',
-      acquiredFrom: 'Lease',
-      dateAcquired: '2022-07-15',
-      area: 'Sq Feet',
-      landlord: 'Eddah Wanjiru Investments',
-      category: 'Commercial',
-      location: 'Upper Hill, Nairobi',
-      totalUnits: '60',
-      occupiedUnits: '55',
-      vacantUnits: '5',
-      grossArea: '4000',
-      netArea: '3800'
-    },
-    {
-      id: 9,
-      code: '002D',
-      name: 'DFGH COMPLEX MIXED-USE BUILDING',
-      status: 'Pending',
-      type: 'Mixed Use',
-      region: 'KENYA',
-      zone: 'Kitui',
-      fieldOfficer: 'James Kariuki',
-      acquiredFrom: 'Partnership',
-      dateAcquired: '2023-04-22',
-      area: 'Sq Feet',
-      landlord: 'Cal Investments Group',
-      category: 'Mixed Use',
-      location: 'Kitui Town, Mwingi Road',
-      totalUnits: '28',
-      occupiedUnits: '20',
-      vacantUnits: '8',
-      grossArea: '1900',
-      netArea: '1750'
-    },
-    {
-      id: 10,
-      code: '011B',
-      name: 'EDWIN RESIDENCE APARTMENT BLOCK',
-      status: 'Active',
-      type: 'Residential',
-      region: 'KENYA',
-      zone: 'Machakos',
-      fieldOfficer: 'Elizabeth Wangoi',
-      acquiredFrom: 'Purchase Agreement',
-      dateAcquired: '2022-09-10',
-      area: 'Sq Feet',
-      landlord: 'Edwin Ruto Holdings',
-      category: 'Residential',
-      location: 'Machakos Town, Nairobi-Mombasa Highway',
-      totalUnits: '22',
-      occupiedUnits: '20',
-      vacantUnits: '2',
-      grossArea: '1600',
-      netArea: '1500'
-    }
+    // Add more properties to fill 50 per page...
   ];
+
+  // Add more properties to make it 50+ for pagination demonstration
+  for (let i = 6; i <= 60; i++) {
+    const statuses = ['Active', 'Pending', 'Inactive'];
+    const types = ['Residential', 'Commercial', 'Mixed Use'];
+    const zones = ['Westlands', 'Mombasa', 'Kilimani', 'Thika', 'Kisumu', 'Nakuru', 'Eldoret', 'Nairobi'];
+    const categories = ['Residential', 'Commercial', 'Mixed Use'];
+    const areas = ['Sq Meter', 'Sq Feet'];
+    
+    properties.push({
+      id: i,
+      code: `PROP${String(i).padStart(3, '0')}`,
+      name: `PROPERTY ${i} BUILDING COMPLEX`,
+      status: statuses[Math.floor(Math.random() * statuses.length)],
+      type: types[Math.floor(Math.random() * types.length)],
+      region: 'KENYA',
+      zone: zones[Math.floor(Math.random() * zones.length)],
+      fieldOfficer: `Officer ${i}`,
+      acquiredFrom: 'Direct Purchase',
+      dateAcquired: `202${Math.floor(Math.random() * 4)}-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}`,
+      area: areas[Math.floor(Math.random() * areas.length)],
+      landlord: `Landlord ${i}`,
+      category: categories[Math.floor(Math.random() * categories.length)],
+      location: `Location ${i}`,
+      totalUnits: String(Math.floor(Math.random() * 100) + 10),
+      occupiedUnits: String(Math.floor(Math.random() * 80) + 10),
+      vacantUnits: String(Math.floor(Math.random() * 20) + 1),
+      grossArea: String(Math.floor(Math.random() * 5000) + 1000),
+      netArea: String(Math.floor(Math.random() * 4000) + 800)
+    });
+  }
 
   const columns = [
     { key: 'code', label: 'Code' },
@@ -284,148 +210,6 @@ const Properties = () => {
     }
     setSelectAll(!selectAll);
   };
-
-  const AddPropertyModule = ({ isOpen, onClose, onSave }) => {
-  const [formData, setFormData] = useState({
-    propertyCode: '',
-    propertyName: '',
-    propertyType: '',
-    zone: '',
-    category: '',
-    location: '',
-    landlord: ''
-  });
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSave(formData);
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-        <div className="p-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-800">Add New Property</h2>
-          <p className="text-xs text-gray-600">Quick add property details</p>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="p-4 space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Property Code *
-            </label>
-            <input
-              type="text"
-              name="propertyCode"
-              value={formData.propertyCode}
-              onChange={handleChange}
-              className="w-full px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              required
-            />
-          </div>
-          
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Property Name *
-            </label>
-            <input
-              type="text"
-              name="propertyName"
-              value={formData.propertyName}
-              onChange={handleChange}
-              className="w-full px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              required
-            />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Property Type
-              </label>
-              <select
-                name="propertyType"
-                value={formData.propertyType}
-                onChange={handleChange}
-                className="w-full px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              >
-                <option value="">Select</option>
-                <option value="Residential">Residential</option>
-                <option value="Commercial">Commercial</option>
-                <option value="Mixed Use">Mixed Use</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Zone
-              </label>
-              <select
-                name="zone"
-                value={formData.zone}
-                onChange={handleChange}
-                className="w-full px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              >
-                <option value="">Select</option>
-                <option value="Westlands">Westlands</option>
-                <option value="CBD">CBD</option>
-                <option value="Kilimani">Kilimani</option>
-              </select>
-            </div>
-          </div>
-          
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Landlord Name
-            </label>
-            <input
-              type="text"
-              name="landlord"
-              value={formData.landlord}
-              onChange={handleChange}
-              className="w-full px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            />
-          </div>
-          
-          <div className="flex justify-end gap-2 pt-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <Link to="/properties/new">
-            <button 
-  onClick={() => setShowAddProperty(true)}
-  className="px-4 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
->
-  <FaPlus className="text-xs" />
-  <span>Add Property</span>
-</button></Link>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// Then add this state and handler to your Properties component:
-const [showAddProperty, setShowAddProperty] = useState(false);
-
-const handleAddProperty = (propertyData) => {
-  // Add to your properties array
-  console.log('Adding property:', propertyData);
-  // You can add the property to your state or make an API call
-};
 
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
@@ -470,7 +254,7 @@ const handleAddProperty = (propertyData) => {
   const getRowClass = (index) => {
     return index % 2 === 0 
       ? 'bg-white hover:bg-gray-50' 
-      : 'bg-gray-50 hover:bg-gray-100';
+      : 'bg-[#e8f4f5] hover:bg-gray-50'; // Changed to lighter blue for alternate rows
   };
 
   // Pagination logic
@@ -487,362 +271,387 @@ const handleAddProperty = (propertyData) => {
 
   return (
     <DashboardLayout>
-      
-      <div className="p-0">
-        {/* Search and Filters Row */}
-        <div className="flex flex-wrap items-center gap-2 mb-2">
-          {/* Filter dropdowns */}
-          <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
-            <option>Code</option>
-            <option>Landlord</option>
-            <option>Category</option>
-            <option>Zone</option>
-          </select>
+      <div className="flex flex-col h-full">
+        <div className="pt-1 px-2 flex-shrink-0">
+          {/* Search and Filters Row */}
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            {/* Filter dropdowns */}
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+              <option>Code</option>
+              <option>Landlord</option>
+              <option>Category</option>
+              <option>Zone</option>
+            </select>
 
-          <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
-            <option>Status</option>
-            <option>Active</option>
-            <option>Pending</option>
-            <option>Inactive</option>
-          </select>
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+              <option>Status</option>
+              <option>Active</option>
+              <option>Pending</option>
+              <option>Inactive</option>
+            </select>
 
-          <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
-            <option>Region/Zone</option>
-            <option>Nairobi</option>
-            <option>Mombasa</option>
-            <option>Kisumu</option>
-            <option>Eldoret</option>
-          </select>
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+              <option>Region/Zone</option>
+              <option>Nairobi</option>
+              <option>Mombasa</option>
+              <option>Kisumu</option>
+              <option>Eldoret</option>
+            </select>
 
-          <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
-            <option>Field Officer</option>
-            <option>John Doe</option>
-            <option>Jane Smith</option>
-            <option>Mike Johnson</option>
-          </select>
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+              <option>Field Officer</option>
+              <option>John Doe</option>
+              <option>Jane Smith</option>
+              <option>Mike Johnson</option>
+            </select>
 
-          {/* Search input */}
-          <div className="relative flex-1 min-w-[200px]">
-            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
-            <input
-              type="text"
-              placeholder="Search properties..."
-              className="w-full pl-10 pr-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            {/* Search input */}
+            <div className="relative flex-1 min-w-[200px]">
+              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
+              <input
+                type="text"
+                placeholder="Search properties..."
+                className="w-full pl-10 pr-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            {/* Action buttons */}
+            <Link to="/properties/new">
+              <button className="px-4 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm">
+                <FaPlus className="text-xs" />
+                <span>Add Property</span>
+              </button>
+            </Link>
+           
+            <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
+              <FaFileExport className="text-xs" />
+              <span>Export</span>
+            </button>
+            
+            <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
+              <FaEllipsisH className="text-xs" />
+              <span>More</span>
+            </button>
           </div>
-
-          {/* Action buttons */}
-          <Link to="/properties/new">
-          <button className="px-4 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm">
-            <FaPlus className="text-xs" />
-            <span>Add Property</span>
-          </button>
-          </Link>
-         
-          <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
-            <FaFileExport className="text-xs" />
-            <span>Export</span>
-          </button>
-          
-          <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
-            <FaEllipsisH className="text-xs" />
-            <span>More</span>
-          </button>
         </div>
 
         {/* Boxed Table Design with adjustable columns - FIXED */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table 
-              className="min-w-full text-xs border-collapse border border-gray-200"
-              ref={tableRef}
-              style={{ tableLayout: 'fixed' }}
-            >
-              <thead>
-                <tr className="bg-[#f1f9fa]">
-                  {/* Checkbox column */}
-                  <th className="px-3 py-1 text-left font-semibold text-gray-700 border border-gray-200"
-                      style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectAll}
-                      onChange={handleSelectAll}
-                      onClick={handleCheckboxClick}
-                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                    />
-                  </th>
-                  
-                  {/* Adjustable columns with resizers */}
-                  {columns.map((column) => (
-                    <th 
-                      key={column.key}
-                      className="relative px-3 py-1 text-left font-semibold text-gray-700 border border-gray-200"
-                      style={{ 
-                        width: `${columnWidths[column.key]}px`,
-                        minWidth: '80px',
-                        position: 'relative'
-                      }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="truncate">{column.label}</span>
-                        <div 
-                          className="w-2 h-4 ml-1 cursor-col-resize hover:bg-gray-300 flex items-center justify-center"
-                          onMouseDown={(e) => startResizing(column.key, e)}
-                          title="Drag to resize"
-                        >
-                          <FaGripVertical className="text-gray-400 text-xs" />
-                        </div>
-                      </div>
-                      
-                      {/* Resizer line */}
-                      <div 
-                        className={`absolute top-0 right-0 w-[3px] h-full cursor-col-resize z-10 ${
-                          isResizing && resizingRef.current?.columnKey === column.key 
-                            ? 'bg-blue-500' 
-                            : 'hover:bg-blue-400 bg-transparent'
-                        }`}
-                        onMouseDown={(e) => startResizing(column.key, e)}
-                      />
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {currentProperties.map((property, index) => (
-                  <tr 
-                    key={property.id}
-                    className={`hover:bg-gray-50 hover:text-black cursor-pointer transition-colors duration-150 ${getRowClass(index)}`}
-                  >
-                    {/* Checkbox */}
-                    <td 
-                      className="px-3 py-1 border border-gray-200 align-top" 
-                      style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}
-                      onClick={handleCheckboxClick}
-                    >
+        <div className="flex-1 px-2 pb-2 overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm h-full flex flex-col">
+            <div className="overflow-x-auto overflow-y-auto flex-1">
+              <table 
+                className="min-w-full text-xs border-collapse border border-gray-200 font-bold"
+                ref={tableRef}
+                style={{ 
+                  tableLayout: 'fixed',
+                  backgroundColor: '#dfebed' // Set table background to #dfebed
+                }}
+              >
+                <thead>
+                  <tr className="bg-[#a5c9b7] sticky top-0 z-10"> {/* Darker blue for header */}
+                    {/* Checkbox column */}
+                    <th className="px-3 py-1 text-left font-bold text-gray-800 border border-gray-200"
+                        style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}>
                       <input
                         type="checkbox"
-                        checked={selectedProperties.includes(property.id)}
-                        onChange={() => handleSelectProperty(property.id)}
+                        checked={selectAll}
+                        onChange={handleSelectAll}
                         onClick={handleCheckboxClick}
                         className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                       />
-                    </td>
+                    </th>
                     
-                    {/* Code */}
-                    <td 
-                      className="px-3 py-1 font-medium text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.code}px` }}
-                      title={property.code}
-                    >
-                      {property.code}
-                    </td>
-                    
-                    {/* Name - Now shows full name in single line */}
-                    <td 
-                      className="px-3 py-1 text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.name}px` }}
-                      title={property.name}
-                    >
-                      {property.name}
-                    </td>
-                    
-                    {/* Landlord */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.landlord}px` }}
-                      title={property.landlord}
-                    >
-                      {property.landlord}
-                    </td>
-                    
-                    {/* Category */}
-                    <td 
-                      className="px-3 py-1 border border-gray-200 align-top"
-                      style={{ width: `${columnWidths.category}px` }}
-                    >
-                      <span className={`inline-flex items-center px-2 py-0 rounded text-xs font-medium whitespace-nowrap ${
-                        property.category === 'Residential' 
-                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                          : property.category === 'Commercial'
-                          ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                          : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-                      }`}>
-                        {property.category}
-                      </span>
-                    </td>
-                    
-                    {/* Zone */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.zone}px` }}
-                      title={property.zone}
-                    >
-                      {property.zone}
-                    </td>
-                    
-                    {/* Location */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.location}px` }}
-                      title={property.location}
-                    >
-                      {property.location}
-                    </td>
-                    
-                    {/* Total Units */}
-                    <td 
-                      className="px-3 py-1 text-center font-medium text-gray-900 border border-gray-200 align-top"
-                      style={{ width: `${columnWidths.totalUnits}px` }}
-                    >
-                      {property.totalUnits}
-                    </td>
-                    
-                    {/* Occupied Units */}
-                    <td 
-                      className="px-3 py-1 text-center border border-gray-200 align-top"
-                      style={{ width: `${columnWidths.occupiedUnits}px` }}
-                    >
-                      <span className="font-medium text-green-600">{property.occupiedUnits}</span>
-                    </td>
-                    
-                    {/* Vacant Units */}
-                    <td 
-                      className="px-3 py-1 text-center border border-gray-200 align-top"
-                      style={{ width: `${columnWidths.vacantUnits}px` }}
-                    >
-                      <span className="font-medium text-red-600">{property.vacantUnits}</span>
-                    </td>
-                    
-                    {/* Unit Measurement */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap"
-                      style={{ width: `${columnWidths.area}px` }}
-                    >
-                      {property.area}
-                    </td>
-                    
-                    {/* Gross Area */}
-                    <td 
-                      className="px-3 py-1 text-right font-medium text-gray-900 border border-gray-200 align-top"
-                      style={{ width: `${columnWidths.grossArea}px` }}
-                    >
-                      {property.grossArea}
-                    </td>
-                    
-                    {/* Net Area */}
-                    <td 
-                      className="px-3 py-1 text-right font-medium text-gray-900 border border-gray-200 align-top"
-                      style={{ width: `${columnWidths.netArea}px` }}
-                    >
-                      {property.netArea}
-                    </td>
-                    
-                    {/* Field Officer */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
-                      style={{ width: `${columnWidths.fieldOfficer}px` }}
-                      title={property.fieldOfficer}
-                    >
-                      {property.fieldOfficer}
-                    </td>
-                    
-                    {/* Date Acquired */}
-                    <td 
-                      className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap"
-                      style={{ width: `${columnWidths.dateAcquired}px` }}
-                    >
-                      {property.dateAcquired}
-                    </td>
-                    
-                    {/* Status */}
-                    <td 
-                      className="px-3 py-1 border border-gray-200 align-top"
-                      style={{ width: `${columnWidths.status}px` }}
-                    >
-                      <span className={`inline-flex items-center px-2 py-0 rounded text-xs font-medium whitespace-nowrap ${
-                        property.status === 'Active'
-                          ? 'bg-green-50 text-green-700 border border-green-200'
-                          : property.status === 'Pending'
-                          ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-                          : 'bg-gray-50 text-gray-700 border border-gray-200'
-                      }`}>
-                        {property.status}
-                      </span>
-                    </td>
+                    {/* Adjustable columns with resizers */}
+                    {columns.map((column) => (
+                      <th 
+                        key={column.key}
+                        className="relative px-3 py-1 text-left font-bold text-gray-800 border border-gray-200"
+                        style={{ 
+                          width: `${columnWidths[column.key]}px`,
+                          minWidth: '80px',
+                          position: 'relative',
+                          backgroundColor: '#a5c9b7' // Ensure header cells have same background
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="truncate">{column.label}</span>
+                          <div 
+                            className="w-2 h-4 ml-1 cursor-col-resize hover:bg-gray-300 flex items-center justify-center"
+                            onMouseDown={(e) => startResizing(column.key, e)}
+                            title="Drag to resize"
+                          >
+                            <FaGripVertical className="text-gray-400 text-xs" />
+                          </div>
+                        </div>
+                        
+                        {/* Resizer line */}
+                        <div 
+                          className={`absolute top-0 right-0 w-[3px] h-full cursor-col-resize z-10 ${
+                            isResizing && resizingRef.current?.columnKey === column.key 
+                              ? 'bg-blue-500' 
+                              : 'hover:bg-blue-400 bg-transparent'
+                          }`}
+                          onMouseDown={(e) => startResizing(column.key, e)}
+                        />
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {currentProperties.length > 0 ? (
+                    currentProperties.map((property, index) => (
+                      <tr 
+                        key={property.id}
+                        className={`hover:bg-gray-50 hover:text-black cursor-pointer transition-colors duration-150 ${getRowClass(index)}`}
+                      >
+                        {/* Checkbox */}
+                        <td 
+                          className="px-3 py-1 border bg-[#a5c9b7] border-gray-200 align-top" 
+                          style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}
+                          onClick={handleCheckboxClick}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedProperties.includes(property.id)}
+                            onChange={() => handleSelectProperty(property.id)}
+                            onClick={handleCheckboxClick}
+                            className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                          />
+                        </td>
+                        
+                        {/* Code */}
+                        <td 
+                          className="px-3 py-1 bg-[#a5c9b7] font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
+                          style={{ width: `${columnWidths.code}px` }}
+                          title={property.code}
+                        >
+                          {property.code}
+                        </td>
+                        
+                        {/* Name - Now shows full name in single line */}
+                        <td 
+                          className="px-3 py-1 bg-[#a5c9b7] text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
+                          style={{ width: `${columnWidths.name}px` }}
+                          title={property.name}
+                        >
+                          {property.name}
+                        </td>
+                        
+                        {/* Landlord */}
+                        <td 
+                          className="px-3 py-1 bg-[#a5c9b7] font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
+                          style={{ width: `${columnWidths.landlord}px` }}
+                          title={property.landlord}
+                        >
+                          {property.landlord}
+                        </td>
+                        
+                        {/* Category */}
+                        <td 
+                          className="px-3 py-1 bg-[#a5c9b7] border border-gray-200 align-top"
+                          style={{ width: `${columnWidths.category}px` }}
+                        >
+                          <span className={`inline-flex items-center px-2 py-0 rounded text-xs font-bold whitespace-nowrap ${
+                            property.category === 'Residential' 
+                              ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                              : property.category === 'Commercial'
+                              ? 'bg-purple-100 text-purple-800 border border-purple-300'
+                              : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+                          }`}>
+                            {property.category}
+                          </span>
+                        </td>
+                        
+                        {/* Zone */}
+                        <td 
+                          className="px-3 py-1  bg-[#a5c9b7] font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
+                          style={{ width: `${columnWidths.zone}px` }}
+                          title={property.zone}
+                        >
+                          {property.zone}
+                        </td>
+                        
+                        {/* Location */}
+                        <td 
+                          className="px-3 py-1 bg-[#a5c9b7] font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
+                          style={{ width: `${columnWidths.location}px` }}
+                          title={property.location}
+                        >
+                          {property.location}
+                        </td>
+                        
+                        {/* Total Units */}
+                        <td 
+                          className="px-3 py-1 bg-[#a5c9b7] text-center font-bold text-gray-900 border border-gray-200 align-top"
+                          style={{ width: `${columnWidths.totalUnits}px` }}
+                        >
+                          {property.totalUnits}
+                        </td>
+                        
+                        {/* Occupied Units */}
+                        <td 
+                          className="px-3 py-1 bg-[#a5c9b7] text-center border border-gray-200 align-top"
+                          style={{ width: `${columnWidths.occupiedUnits}px` }}
+                        >
+                          <span className="font-bold text-green-700">{property.occupiedUnits}</span>
+                        </td>
+                        
+                        {/* Vacant Units */}
+                        <td 
+                          className="px-3 py-1 bg-[#a5c9b7] text-center border border-gray-200 align-top"
+                          style={{ width: `${columnWidths.vacantUnits}px` }}
+                        >
+                          <span className="font-bold text-red-700">{property.vacantUnits}</span>
+                        </td>
+                        
+                        {/* Unit Measurement */}
+                        <td 
+                          className="px-3 py-1 bg-[#a5c9b7] font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap"
+                          style={{ width: `${columnWidths.area}px` }}
+                        >
+                          {property.area}
+                        </td>
+                        
+                        {/* Gross Area */}
+                        <td 
+                          className="px-3 py-1 bg-[#a5c9b7] text-right font-bold text-gray-900 border border-gray-200 align-top"
+                          style={{ width: `${columnWidths.grossArea}px` }}
+                        >
+                          {property.grossArea}
+                        </td>
+                        
+                        {/* Net Area */}
+                        <td 
+                          className="px-3 py-1 bg-[#a5c9b7] text-right font-bold text-gray-900 border border-gray-200 align-top"
+                          style={{ width: `${columnWidths.netArea}px` }}
+                        >
+                          {property.netArea}
+                        </td>
+                        
+                        {/* Field Officer */}
+                        <td 
+                          className="px-3 py-1 bg-[#a5c9b7] font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis"
+                          style={{ width: `${columnWidths.fieldOfficer}px` }}
+                          title={property.fieldOfficer}
+                        >
+                          {property.fieldOfficer}
+                        </td>
+                        
+                        {/* Date Acquired */}
+                        <td 
+                          className="px-3 py-1 bg-[#a5c9b7] font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap"
+                          style={{ width: `${columnWidths.dateAcquired}px` }}
+                        >
+                          {property.dateAcquired}
+                        </td>
+                        
+                        {/* Status */}
+                        <td 
+                          className="px-3 py-1  bg-[#a5c9b7] border border-gray-200 align-top"
+                          style={{ width: `${columnWidths.status}px` }}
+                        >
+                          <span className={`inline-flex items-center px-2 py-0 rounded text-xs font-bold whitespace-nowrap ${
+                            property.status === 'Active'
+                              ? 'bg-green-100 text-green-800 border border-green-300'
+                              : property.status === 'Pending'
+                              ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+                              : 'bg-gray-100 text-gray-800 border border-gray-300'
+                          }`}>
+                            {property.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    // Empty state row
+                    <tr>
+                      <td 
+                        colSpan={columns.length + 1}
+                        className="px-3 py-4 text-center text-gray-500 border border-gray-200"
+                        style={{ backgroundColor: '#dfebed' }}
+                      >
+                        <div className="flex flex-col items-center justify-center py-8">
+                          <div className="text-lg font-bold text-gray-400 mb-2">No properties found</div>
+                          <div className="text-sm text-gray-500">Try adjusting your search or filters</div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
         {/* Footer with pagination */}
-        <div className="flex items-center justify-between mt-2 px-1">
-          <div className="text-xs text-gray-600">
-            <div className="flex items-center gap-4">
-              <span>
-                Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(endIndex, properties.length)}</span> of <span className="font-medium">{properties.length}</span> properties
-              </span>
-              {selectedProperties.length > 0 && (
-                <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium border border-blue-200">
-                  {selectedProperties.length} selected
+        <div className="flex-shrink-0">
+          <div className="flex items-center justify-between mt-2 px-1 py-2 border-t border-gray-200 bg-white">
+            <div className="text-xs text-gray-600">
+              <div className="flex items-center gap-4">
+                <span className="font-bold">
+                  Showing <span className="font-bold">{startIndex + 1}</span> to <span className="font-bold">{Math.min(endIndex, properties.length)}</span> of <span className="font-bold">{properties.length}</span> properties
                 </span>
-              )}
-            </div>
-          </div>
-          
-          {/* Pagination */}
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-2 py-0.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <FaChevronLeft size={10} />
-              Previous
-            </button>
-            
-            <div className="flex items-center gap-1">
-              {[...Array(totalPages)].map((_, i) => {
-                const page = i + 1;
-                if (
-                  page === 1 ||
-                  page === totalPages ||
-                  (page >= currentPage - 1 && page <= currentPage + 1)
-                ) {
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => goToPage(page)}
-                      className={`px-2 py-0.5 min-w-[32px] text-xs rounded-lg border transition-colors ${
-                        currentPage === page
-                          ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
-                          : 'border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  );
-                } else if (
-                  page === currentPage - 2 ||
-                  page === currentPage + 2
-                ) {
-                  return <span key={page} className="px-1 text-gray-400 text-xs">...</span>;
-                }
-                return null;
-              })}
+                {selectedProperties.length > 0 && (
+                  <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs font-bold border border-blue-300">
+                    {selectedProperties.length} selected
+                  </span>
+                )}
+              </div>
             </div>
             
-            <button 
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-2 py-0.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Next
-              <FaChevronRight size={10} />
-            </button>
+            {/* Pagination */}
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
+              >
+                <FaChevronLeft size={10} />
+                Previous
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {[...Array(totalPages)].map((_, i) => {
+                  const page = i + 1;
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1)
+                  ) {
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => goToPage(page)}
+                        className={`px-3 py-1.5 min-w-[32px] text-xs rounded-lg border transition-colors font-bold ${
+                          currentPage === page
+                            ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                            : 'border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  } else if (
+                    page === currentPage - 2 ||
+                    page === currentPage + 2
+                  ) {
+                    return <span key={page} className="px-1 text-gray-400 text-xs">...</span>;
+                  }
+                  return null;
+                })}
+              </div>
+              
+              <button 
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
+              >
+                Next
+                <FaChevronRight size={10} />
+              </button>
+            </div>
           </div>
         </div>
 

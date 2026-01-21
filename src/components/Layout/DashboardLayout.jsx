@@ -34,9 +34,9 @@ const DashboardLayout = ({ children }) => {
       </div>
       
       {/* Main content area with padding-top to account for fixed navbar */}
-      <div className="flex flex-1 pt-28">
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
-          <div className="max-w-full">
+      <div className="flex flex-1 pt-28 bg-[#a5c9b7]">
+        <main className="flex-1  pt-4 overflow-auto h-screen">
+          <div className="max-w-full ">
             {React.Children.map(children, child => {
               return React.cloneElement(child, { darkMode });
             })}
@@ -362,7 +362,7 @@ const TopToolbar = ({ darkMode }) => {
   };
 
   return (
-    <div className="relative">
+    <div className="relative bg-[#a5c9b7]">
       <Navbar darkMode={darkMode} />
       <div className={`flex items-center ${darkMode ? 'bg-gray-800' : 'bg-emerald-600'}`}>
         {/* Application Logo/Title */}
@@ -384,10 +384,10 @@ const TopToolbar = ({ darkMode }) => {
                 activeMenu === item.id
                   ? darkMode 
                     ? 'bg-gray-700 text-white'
-                    : 'bg-gray-200 text-white'
+                    : 'bg-emerald-700 text-white'
                   : darkMode
                   ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                  : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  : 'text-gray-700 hover:bg-emerald-700 hover:text-gray-100'
               }`}
             >
               {item.label}
@@ -416,7 +416,7 @@ const TopToolbar = ({ darkMode }) => {
                 className={`absolute left-full top-0 w-64 shadow-lg z-50 border ${
                   darkMode 
                     ? 'bg-gray-800 border-gray-700' 
-                    : 'bg-white border-gray-200'
+                    : 'bg-emerald-700 border-gray-200'
                 }`}
               >
                 {nestedSubmenus[activeSubMenu].map((nestedItem, nestedIndex) => (

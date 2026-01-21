@@ -12,7 +12,7 @@ const Dashboard = ({ darkMode }) => {
   return (
     
       <DashboardLayout>
-        <div className="flex flex-1"> {/* Add pt-20 (5rem) for navbar height */}
+        <div className="flex flex-1 p-4 bg-white"> {/* Add pt-20 (5rem) for navbar height */}
         {/* Sidebar/Quick Actions - Fixed width */}
         <div className="p-0">
           <div className="pr-4 h-full mt-0"> {/* Add mt-2 for spacing */}

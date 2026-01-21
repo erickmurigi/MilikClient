@@ -41,7 +41,7 @@ const Tenants = () => {
     emergencyEmail2: ''
   });
   
-  const columnWidths = useState({
+  const [columnWidths, setColumnWidths] = useState({
     tntId: 100,
     lseId: 100,
     unitNo: 90,
@@ -59,16 +59,16 @@ const Tenants = () => {
     property: 150,
     email: 180,
     attachedFiles: 120,
-  })[0];
+  });
   
   const resizingRef = useRef(null);
   const tableRef = useRef(null);
-  const itemsPerPage = 10;
+  const itemsPerPage = 50; // Changed to 50 per page
 
   // Sample tenants data (same as before)
   const tenants = [
-        {
-      
+    {
+      id: 1,
       tntId: 'TNT001',
       lseId: 'LSE001',
       unitNo: 'A-101',
@@ -88,7 +88,7 @@ const Tenants = () => {
       attachedFiles: 3
     },
     {
-     
+      id: 2,
       tntId: 'TNT002',
       lseId: 'LSE002',
       unitNo: 'B-205',
@@ -108,7 +108,7 @@ const Tenants = () => {
       attachedFiles: 5
     },
     {
-    
+      id: 3,
       tntId: 'TNT003',
       lseId: 'LSE003',
       unitNo: 'C-301',
@@ -128,7 +128,7 @@ const Tenants = () => {
       attachedFiles: 2
     },
     {
-   
+      id: 4,
       tntId: 'TNT004',
       lseId: 'LSE004',
       unitNo: 'SH-012',
@@ -148,7 +148,7 @@ const Tenants = () => {
       attachedFiles: 8
     },
     {
-     
+      id: 5,
       tntId: 'TNT005',
       lseId: 'LSE005',
       unitNo: 'OF-501',
@@ -168,7 +168,7 @@ const Tenants = () => {
       attachedFiles: 4
     },
     {
-     
+      id: 6,
       tntId: 'TNT006',
       lseId: 'LSE006',
       unitNo: 'APT-306',
@@ -188,7 +188,7 @@ const Tenants = () => {
       attachedFiles: 1
     },
     {
-     
+      id: 7,
       tntId: 'TNT007',
       lseId: 'LSE007',
       unitNo: 'B-107',
@@ -208,7 +208,7 @@ const Tenants = () => {
       attachedFiles: 2
     },
     {
-     
+      id: 8,
       tntId: 'TNT008',
       lseId: 'LSE008',
       unitNo: 'SUITE-800',
@@ -228,7 +228,7 @@ const Tenants = () => {
       attachedFiles: 12
     },
     {
-     
+      id: 9,
       tntId: 'TNT009',
       lseId: 'LSE009',
       unitNo: 'M-209',
@@ -248,7 +248,7 @@ const Tenants = () => {
       attachedFiles: 6
     },
     {
-     
+      id: 10,
       tntId: 'TNT010',
       lseId: 'LSE010',
       unitNo: 'A-503',
@@ -266,49 +266,48 @@ const Tenants = () => {
       property: 'EDWIN RESIDENCE APARTMENT BLOCK',
       email: 'mary.wambui@email.com',
       attachedFiles: 3
-    },
-    {
-     
-      tntId: 'TNT011',
-      lseId: 'LSE011',
-      unitNo: 'SH-115',
-      acNo: 'ACC011',
-      tenantName: 'Fashion Boutique Ltd',
-      acBal: '25,000',
-      phone: '+254 712 987 654',
-      rent: '55,000',
-      leaseType: 'Commercial',
-      paymentFreq: 'Monthly',
-      leaseStart: '2024-01-01',
-      leaseEnd: '2024-12-31',
-      leaseTerm: '1 Year',
-      daysToExpire: 45,
-      property: 'BLESSING MALL SHOPPING CENTER',
-      email: 'sales@fashionboutique.co.ke',
-      attachedFiles: 4
-    },
-    {
-     
-      tntId: 'TNT012',
-      lseId: 'LSE012',
-      unitNo: 'APT-412',
-      acNo: 'ACC012',
-      tenantName: 'Robert Kiprono',
-      acBal: '3,000',
-      phone: '+254 723 876 543',
-      rent: '28,000',
-      leaseType: 'Residential',
-      paymentFreq: 'Monthly',
-      leaseStart: '2024-03-15',
-      leaseEnd: '2025-03-14',
-      leaseTerm: '1 Year',
-      daysToExpire: 380,
-      property: 'KITUI HEIGHTS RESIDENTIAL COMPLEX',
-      email: 'robert.kiprono@email.com',
-      attachedFiles: 2
     }
-
+    // Add more tenants for pagination demonstration
   ];
+
+  // Add more tenants to make it 50+ for pagination demonstration
+  for (let i = 11; i <= 60; i++) {
+    const leaseTypes = ['Residential', 'Commercial', 'Mixed Use'];
+    const paymentFreqs = ['Monthly', 'Quarterly', 'Annually'];
+    const properties = [
+      'KITUI HEIGHTS RESIDENTIAL COMPLEX',
+      'ARDHI HOUSE COMMERCIAL CENTER',
+      'BASIL TOWERS MIXED-USE DEVELOPMENT',
+      'BLESSING MALL SHOPPING CENTER',
+      'BLUE SKY PLAZA OFFICE BUILDING',
+      'CAMON COURT APARTMENT COMPLEX',
+      'CID APARTMENTS RESIDENTIAL BLOCK',
+      'CITE TOWERS OFFICE COMPLEX',
+      'DFGH COMPLEX MIXED-USE BUILDING',
+      'EDWIN RESIDENCE APARTMENT BLOCK'
+    ];
+    
+    tenants.push({
+      id: i,
+      tntId: `TNT${String(i).padStart(3, '0')}`,
+      lseId: `LSE${String(i).padStart(3, '0')}`,
+      unitNo: `U-${Math.floor(Math.random() * 500) + 100}`,
+      acNo: `ACC${String(i).padStart(3, '0')}`,
+      tenantName: `Tenant ${i} Name`,
+      acBal: `${(Math.random() > 0.5 ? '-' : '')}${Math.floor(Math.random() * 50000)}`,
+      phone: `+254 7${String(Math.floor(Math.random() * 10000000)).padStart(7, '0')}`,
+      rent: `${Math.floor(Math.random() * 300000) + 10000}`,
+      leaseType: leaseTypes[Math.floor(Math.random() * leaseTypes.length)],
+      paymentFreq: paymentFreqs[Math.floor(Math.random() * paymentFreqs.length)],
+      leaseStart: `2024-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-01`,
+      leaseEnd: `2025-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-28`,
+      leaseTerm: `${Math.floor(Math.random() * 5) + 1} Year${Math.floor(Math.random() * 5) + 1 > 1 ? 's' : ''}`,
+      daysToExpire: Math.floor(Math.random() * 365) + 1,
+      property: properties[Math.floor(Math.random() * properties.length)],
+      email: `tenant${i}@example.com`,
+      attachedFiles: Math.floor(Math.random() * 10)
+    });
+  }
 
   const columns = [
     { key: 'tntId', label: 'Tnt Id' },
@@ -318,7 +317,7 @@ const Tenants = () => {
     { key: 'tenantName', label: 'Tenant Name' },
     { key: 'acBal', label: 'A/c Bal. (Kshs)' },
     { key: 'phone', label: 'Phone Number' },
-    { key: 'rent.', label: 'Rent     .Ksh' },
+    { key: 'rent', label: 'Rent .Ksh' },
     { key: 'leaseType', label: 'Lease Variation Type' },
     { key: 'paymentFreq', label: 'Payment Frequency' },
     { key: 'leaseStart', label: 'Lease Start' },
@@ -368,7 +367,11 @@ const Tenants = () => {
       const diff = e.clientX - startX;
       const newWidth = Math.max(80, startWidth + diff);
       
-      // Note: columnWidths is not a state variable in this version
+      // Update column widths
+      setColumnWidths(prev => ({
+        ...prev,
+        [columnKey]: newWidth
+      }));
     };
     
     const handleMouseUp = () => {
@@ -385,28 +388,28 @@ const Tenants = () => {
   // Function to apply zebra striping pattern
   const getRowClass = (index) => {
     return index % 2 === 0 
-      ? 'bg-white hover:bg-gray-50' 
-      : 'bg-gray-50 hover:bg-gray-100';
+      ? 'bg-[#a5c9b7] hover:bg-[#94bba9]' 
+      : 'bg-[#b4d4c6] hover:bg-[#a3c2b5]';
   };
 
   // Function to determine account balance color
   const getBalanceColor = (balance) => {
     if (balance.startsWith('-')) {
-      return 'text-red-600 bg-red-50 border-red-200';
+      return 'text-red-700 bg-red-100 border-red-300';
     } else if (parseFloat(balance.replace(/,/g, '')) > 0) {
-      return 'text-orange-600 bg-orange-50 border-orange-200';
+      return 'text-orange-700 bg-orange-100 border-orange-300';
     }
-    return 'text-green-600 bg-green-50 border-green-200';
+    return 'text-green-700 bg-green-100 border-green-300';
   };
 
   // Function to determine days to expire color
   const getDaysToExpireColor = (days) => {
     if (days <= 30) {
-      return 'text-red-600 bg-red-50 border-red-200';
+      return 'text-red-700 bg-red-100 border-red-300';
     } else if (days <= 90) {
-      return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      return 'text-yellow-700 bg-yellow-100 border-yellow-300';
     }
-    return 'text-green-600 bg-green-50 border-green-200';
+    return 'text-green-700 bg-green-100 border-green-300';
   };
 
   // Pagination logic
@@ -508,296 +511,325 @@ const Tenants = () => {
 
   return (
     <DashboardLayout>
-      <div className="p-0">
+      <div className="flex flex-col h-full p-0">
         {/* Search and Filters Row */}
-        <div className="flex flex-wrap items-center gap-2 mb-2">
-          {/* Filter dropdowns */}
-          <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
-            <option>Tenant Name</option>
-            <option>Tenant ID</option>
-            <option>Lease ID</option>
-            <option>Unit No.</option>
-          </select>
+        <div className="flex-shrink-0 pt-1 px-2">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            {/* Filter dropdowns */}
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+              <option>Tenant Name</option>
+              <option>Tenant ID</option>
+              <option>Lease ID</option>
+              <option>Unit No.</option>
+            </select>
 
-          <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
-            <option>Account Balance</option>
-            <option>Credit Balance</option>
-            <option>Zero Balance</option>
-            <option>Arrears</option>
-          </select>
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+              <option>Account Balance</option>
+              <option>Credit Balance</option>
+              <option>Zero Balance</option>
+              <option>Arrears</option>
+            </select>
 
-          <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
-            <option>Lease Type</option>
-            <option>Residential</option>
-            <option>Commercial</option>
-            <option>Mixed Use</option>
-          </select>
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+              <option>Lease Type</option>
+              <option>Residential</option>
+              <option>Commercial</option>
+              <option>Mixed Use</option>
+            </select>
 
-          <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
-            <option>Payment Frequency</option>
-            <option>Monthly</option>
-            <option>Quarterly</option>
-            <option>Annually</option>
-          </select>
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+              <option>Payment Frequency</option>
+              <option>Monthly</option>
+              <option>Quarterly</option>
+              <option>Annually</option>
+            </select>
 
-          <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
-            <option>Lease Expiry</option>
-            <option>Expiring in 30 days</option>
-            <option>Expiring in 90 days</option>
-            <option>More than 90 days</option>
-          </select>
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+              <option>Lease Expiry</option>
+              <option>Expiring in 30 days</option>
+              <option>Expiring in 90 days</option>
+              <option>More than 90 days</option>
+            </select>
 
-          {/* Search input */}
-          <div className="relative flex-1 min-w-[200px]">
-            <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
-            <input
-              type="text"
-              placeholder="Search tenants..."
-              className="w-full pl-10 pr-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            {/* Search input */}
+            <div className="relative flex-1 min-w-[200px]">
+              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
+              <input
+                type="text"
+                placeholder="Search tenants..."
+                className="w-full pl-10 pr-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            {/* Action buttons */}
+            <button 
+              onClick={() => setShowAddTenantModal(true)}
+              className="px-4 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
+            >
+              <FaPlus className="text-xs" />
+              <span>Add Tenant</span>
+            </button>
+            
+            <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
+              <FaFileExport className="text-xs" />
+              <span>Export</span>
+            </button>
+            
+            <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
+              <FaEllipsisH className="text-xs" />
+              <span>More</span>
+            </button>
           </div>
-
-          {/* Action buttons */}
-          <button 
-            onClick={() => setShowAddTenantModal(true)}
-            className="px-4 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
-          >
-            <FaPlus className="text-xs" />
-            <span>Add Tenant</span>
-          </button>
-          
-          <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
-            <FaFileExport className="text-xs" />
-            <span>Export</span>
-          </button>
-          
-          <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
-            <FaEllipsisH className="text-xs" />
-            <span>More</span>
-          </button>
         </div>
 
         {/* Boxed Table Design with adjustable columns */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table 
-              className="min-w-full text-xs border-collapse border border-gray-200"
-              ref={tableRef}
-              style={{ tableLayout: 'fixed' }}
-            >
-              <thead>
-                <tr className="bg-[#f1f9fa]">
-                  {/* Checkbox column */}
-                  <th className="px-3 py-1 text-left font-semibold text-gray-700 border border-gray-200"
-                      style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectAll}
-                      onChange={handleSelectAll}
-                      onClick={handleCheckboxClick}
-                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                    />
-                  </th>
-                  
-                  {/* Columns */}
-                  {columns.map((column) => (
-                    <th 
-                      key={column.key}
-                      className="relative px-3 py-1 text-left font-semibold text-gray-700 border border-gray-200"
-                      style={{ 
-                        width: `${columnWidths[column.key]}px`,
-                        minWidth: '80px',
-                        position: 'relative'
-                      }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="truncate">{column.label}</span>
-                        <div 
-                          className="w-2 h-4 ml-1 cursor-col-resize hover:bg-gray-300 flex items-center justify-center"
-                          onMouseDown={(e) => startResizing(column.key, e)}
-                          title="Drag to resize"
-                        >
-                          <FaGripVertical className="text-gray-400 text-xs" />
-                        </div>
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {currentTenants.map((tenant, index) => (
-                  <tr 
-                    key={tenant.id}
-                    className={`hover:bg-gray-50 hover:text-black cursor-pointer transition-colors duration-150 ${getRowClass(index)}`}
-                  >
-                    {/* Checkbox */}
-                    <td 
-                      className="px-3 py-1 border border-gray-200 align-top" 
-                      style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}
-                      onClick={handleCheckboxClick}
-                    >
+        <div className="flex-1 px-2 pb-2 overflow-hidden">
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm h-full flex flex-col">
+            <div className="overflow-x-auto overflow-y-auto flex-1">
+              <table 
+                className="min-w-full text-xs border-collapse border border-gray-200 font-bold"
+                ref={tableRef}
+                style={{ 
+                  tableLayout: 'fixed',
+                  backgroundColor: '#a5c9b7' // Main table background
+                }}
+              >
+                <thead>
+                  <tr className="bg-[#8db6a3] sticky top-0 z-10"> {/* Darker green for header */}
+                    {/* Checkbox column */}
+                    <th className="px-3 py-1 text-left font-bold text-gray-800 border border-gray-200"
+                        style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}>
                       <input
                         type="checkbox"
-                        checked={selectedTenants.includes(tenant.id)}
-                        onChange={() => handleSelectTenant(tenant.id)}
+                        checked={selectAll}
+                        onChange={handleSelectAll}
                         onClick={handleCheckboxClick}
                         className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                       />
-                    </td>
+                    </th>
                     
-                    {/* Render tenant cells */}
-                    <td className="px-3 py-1 font-medium text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                      {tenant.tntId}
-                    </td>
-                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                      {tenant.lseId}
-                    </td>
-                    <td className="px-3 py-1 text-center font-medium text-gray-900 border border-gray-200 align-top">
-                      {tenant.unitNo}
-                    </td>
-                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                      {tenant.acNo}
-                    </td>
-                    <td className="px-3 py-1 font-medium text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                      {tenant.tenantName}
-                    </td>
-                    <td className="px-3 py-1 text-right font-medium border border-gray-200 align-top">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${getBalanceColor(tenant.acBal)}`}>
-                        Ksh {tenant.acBal}
-                      </span>
-                    </td>
-                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                      {tenant.phone}
-                    </td>
-                    <td className="px-3 py-1 text-right font-medium text-gray-900 border border-gray-200 align-top">
-                      <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs border border-blue-200">
-                        {tenant.rent}
-                      </span>
-                    </td>
-                    <td className="px-3 py-1 border border-gray-200 align-top">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${
-                        tenant.leaseType === 'Residential'
-                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                          : tenant.leaseType === 'Commercial'
-                          ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                          : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-                      }`}>
-                        {tenant.leaseType}
-                      </span>
-                    </td>
-                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top text-center">
-                      {tenant.paymentFreq}
-                    </td>
-                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap">
-                      {tenant.leaseStart}
-                    </td>
-                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap">
-                      {tenant.leaseEnd}
-                    </td>
-                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top text-center">
-                      {tenant.leaseTerm}
-                    </td>
-                    <td className="px-3 py-1 text-center font-medium border border-gray-200 align-top">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${getDaysToExpireColor(tenant.daysToExpire)}`}>
-                        {tenant.daysToExpire} days
-                      </span>
-                    </td>
-                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                      {tenant.property}
-                    </td>
-                    <td className="px-3 py-1 text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                      {tenant.email}
-                    </td>
-                    <td className="px-3 py-1 text-center border border-gray-200 align-top">
-                      <div className="flex items-center justify-center gap-1">
-                        <FaPaperclip className="text-gray-500 text-xs" />
-                        <span className="bg-gray-50 text-gray-700 px-2 py-0.5 rounded text-xs border border-gray-200">
-                          {tenant.attachedFiles} files
-                        </span>
-                      </div>
-                    </td>
+                    {/* Columns */}
+                    {columns.map((column) => (
+                      <th 
+                        key={column.key}
+                        className="relative px-3 py-1 text-left font-bold text-gray-800 border border-gray-200"
+                        style={{ 
+                          width: `${columnWidths[column.key]}px`,
+                          minWidth: '80px',
+                          position: 'relative',
+                          backgroundColor: '#8db6a3' // Ensure header cells have same background
+                        }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="truncate">{column.label}</span>
+                          <div 
+                            className="w-2 h-4 ml-1 cursor-col-resize hover:bg-gray-300 flex items-center justify-center"
+                            onMouseDown={(e) => startResizing(column.key, e)}
+                            title="Drag to resize"
+                          >
+                            <FaGripVertical className="text-gray-400 text-xs" />
+                          </div>
+                        </div>
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {currentTenants.length > 0 ? (
+                    currentTenants.map((tenant, index) => (
+                      <tr 
+                        key={tenant.id}
+                        className={`hover:bg-[#c7dfd3] hover:text-black cursor-pointer transition-colors duration-150 ${getRowClass(index)}`}
+                      >
+                        {/* Checkbox */}
+                        <td 
+                          className="px-3 py-1 border border-gray-200 align-top" 
+                          style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}
+                          onClick={handleCheckboxClick}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedTenants.includes(tenant.id)}
+                            onChange={() => handleSelectTenant(tenant.id)}
+                            onClick={handleCheckboxClick}
+                            className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                          />
+                        </td>
+                        
+                        {/* Render tenant cells */}
+                        <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                          {tenant.tntId}
+                        </td>
+                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                          {tenant.lseId}
+                        </td>
+                        <td className="px-3 py-1 text-center font-bold text-gray-900 border border-gray-200 align-top">
+                          {tenant.unitNo}
+                        </td>
+                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                          {tenant.acNo}
+                        </td>
+                        <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                          {tenant.tenantName}
+                        </td>
+                        <td className="px-3 py-1 text-right font-bold border border-gray-200 align-top">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${getBalanceColor(tenant.acBal)}`}>
+                            Ksh {tenant.acBal}
+                          </span>
+                        </td>
+                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                          {tenant.phone}
+                        </td>
+                        <td className="px-3 py-1 text-right font-bold text-gray-900 border border-gray-200 align-top">
+                          <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs border border-blue-300">
+                            {tenant.rent}
+                          </span>
+                        </td>
+                        <td className="px-3 py-1 border border-gray-200 align-top">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap ${
+                            tenant.leaseType === 'Residential'
+                              ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                              : tenant.leaseType === 'Commercial'
+                              ? 'bg-purple-100 text-purple-800 border border-purple-300'
+                              : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+                          }`}>
+                            {tenant.leaseType}
+                          </span>
+                        </td>
+                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top text-center">
+                          {tenant.paymentFreq}
+                        </td>
+                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap">
+                          {tenant.leaseStart}
+                        </td>
+                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap">
+                          {tenant.leaseEnd}
+                        </td>
+                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top text-center">
+                          {tenant.leaseTerm}
+                        </td>
+                        <td className="px-3 py-1 text-center font-bold border border-gray-200 align-top">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${getDaysToExpireColor(tenant.daysToExpire)}`}>
+                            {tenant.daysToExpire} days
+                          </span>
+                        </td>
+                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                          {tenant.property}
+                        </td>
+                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                          {tenant.email}
+                        </td>
+                        <td className="px-3 py-1 text-center border border-gray-200 align-top">
+                          <div className="flex items-center justify-center gap-1">
+                            <FaPaperclip className="text-gray-600 text-xs" />
+                            <span className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-xs border border-gray-300">
+                              {tenant.attachedFiles} files
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    // Empty state row
+                    <tr>
+                      <td 
+                        colSpan={columns.length + 1}
+                        className="px-3 py-4 text-center text-gray-500 border border-gray-200"
+                        style={{ backgroundColor: '#a5c9b7' }}
+                      >
+                        <div className="flex flex-col items-center justify-center py-8">
+                          <div className="text-lg font-bold text-gray-400 mb-2">No tenants found</div>
+                          <div className="text-sm text-gray-500">Try adjusting your search or filters</div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
         {/* Footer with pagination */}
-        <div className="flex items-center justify-between mt-2 px-1">
-          <div className="text-xs text-gray-600">
-            <div className="flex items-center gap-4">
-              <span>
-                Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(endIndex, tenants.length)}</span> of <span className="font-medium">{tenants.length}</span> tenants
-              </span>
-              {selectedTenants.length > 0 && (
-                <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium border border-blue-200">
-                  {selectedTenants.length} selected
+        <div className="flex-shrink-0">
+          <div className="flex items-center justify-between mt-2 px-1 py-2 border-t border-gray-200 bg-white">
+            <div className="text-xs text-gray-600">
+              <div className="flex items-center gap-4">
+                <span className="font-bold">
+                  Showing <span className="font-bold">{startIndex + 1}</span> to <span className="font-bold">{Math.min(endIndex, tenants.length)}</span> of <span className="font-bold">{tenants.length}</span> tenants
                 </span>
-              )}
-            </div>
-          </div>
-          
-          {/* Pagination */}
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-2 py-0.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <FaChevronLeft size={10} />
-              Previous
-            </button>
-            
-            <div className="flex items-center gap-1">
-              {[...Array(totalPages)].map((_, i) => {
-                const page = i + 1;
-                if (
-                  page === 1 ||
-                  page === totalPages ||
-                  (page >= currentPage - 1 && page <= currentPage + 1)
-                ) {
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => goToPage(page)}
-                      className={`px-2 py-0.5 min-w-[32px] text-xs rounded-lg border transition-colors ${
-                        currentPage === page
-                          ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
-                          : 'border-gray-300 hover:bg-gray-50'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  );
-                } else if (
-                  page === currentPage - 2 ||
-                  page === currentPage + 2
-                ) {
-                  return <span key={page} className="px-1 text-gray-400 text-xs">...</span>;
-                }
-                return null;
-              })}
+                {selectedTenants.length > 0 && (
+                  <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs font-bold border border-blue-300">
+                    {selectedTenants.length} selected
+                  </span>
+                )}
+              </div>
             </div>
             
-            <button 
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-2 py-0.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Next
-              <FaChevronRight size={10} />
-            </button>
+            {/* Pagination */}
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
+              >
+                <FaChevronLeft size={10} />
+                Previous
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {[...Array(totalPages)].map((_, i) => {
+                  const page = i + 1;
+                  if (
+                    page === 1 ||
+                    page === totalPages ||
+                    (page >= currentPage - 1 && page <= currentPage + 1)
+                  ) {
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => goToPage(page)}
+                        className={`px-3 py-1.5 min-w-[32px] text-xs rounded-lg border transition-colors font-bold ${
+                          currentPage === page
+                            ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                            : 'border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  } else if (
+                    page === currentPage - 2 ||
+                    page === currentPage + 2
+                  ) {
+                    return <span key={page} className="px-1 text-gray-400 text-xs">...</span>;
+                  }
+                  return null;
+                })}
+              </div>
+              
+              <button 
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
+              >
+                Next
+                <FaChevronRight size={10} />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Add Tenant Modal */}
+        {/* Resizing overlay */}
+        {isResizing && (
+          <div className="fixed inset-0 z-50 cursor-col-resize" style={{ cursor: 'col-resize' }} />
+        )}
+
+        {/* Add Tenant Modal (keep the same as before) */}
         {showAddTenantModal && (
-          <div className="fixed inset-0  bg-black/20
-  backdrop-blur-md
-  backdrop-saturate-150 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-md backdrop-saturate-150 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
               {/* Modal Header */}
               <div className="flex justify-between items-center p-4 border-b">
