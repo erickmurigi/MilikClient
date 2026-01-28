@@ -270,7 +270,7 @@ const Landlords = () => {
     if (selectAll) {
       setSelectedLandlords([]);
     } else {
-      setSelectedLandlords(landlords.map(l => l.id));
+      setSelectedLandlords(currentLandlords.map(l => l.id));
     }
     setSelectAll(!selectAll);
   };
@@ -314,11 +314,17 @@ const Landlords = () => {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  // Function to apply zebra striping pattern
-  const getRowClass = (index) => {
+  // Function to apply zebra striping pattern with white backgrounds
+  const getRowClass = (index, landlordId) => {
+    // If row is selected, use the selection color
+    if (selectedLandlords.includes(landlordId)) {
+      return 'bg-[#addbb2] hover:bg-[#c8e6c9]';
+    }
+    
+    // Otherwise, use alternating white patterns
     return index % 2 === 0 
-      ? 'bg-[#a5c9b7] hover:bg-[#94bba9]' 
-      : 'bg-[#b4d4c6] hover:bg-[#a3c2b5]';
+      ? 'bg-white hover:bg-[#f8f8f8]' 
+      : 'bg-[#f9f9f9] hover:bg-[#f0f0f0]';
   };
 
   // Pagination logic
@@ -407,32 +413,32 @@ const Landlords = () => {
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col h-full p-0 bg-[#a5c9b7]">
+      <div className="flex flex-col h-full p-0 bg-gray-50">
         {/* Search and Filters Row */}
         <div className="flex-shrink-0 pt-1 px-2">
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            {/* Filter dropdowns */}
-            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+            {/* Filter dropdowns with custom styling */}
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors">
               <option>Landlord Code</option>
               <option>Landlord Name</option>
               <option>PIN No.</option>
               <option>Location</option>
             </select>
 
-            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors">
               <option>Portal Access</option>
               <option>Enabled</option>
               <option>Disabled</option>
             </select>
 
-            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors">
               <option>Properties Count</option>
               <option>1-5 Properties</option>
               <option>6-10 Properties</option>
               <option>10+ Properties</option>
             </select>
 
-            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors">
               <option>Location</option>
               <option>Nairobi CBD</option>
               <option>Mombasa Road</option>
@@ -475,21 +481,21 @@ const Landlords = () => {
         </div>
 
         {/* Boxed Table Design with adjustable columns */}
-        <div className="flex-1 px-2 pb-2 overflow-hidden">
+        <div className="flex-1 px-2 pb-2 overflow-hidden relative">
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm h-full flex flex-col">
-            <div className="overflow-x-auto overflow-y-auto flex-1">
+            {/* Table Container with Scroll */}
+            <div className="overflow-x-auto overflow-y-auto flex-1 pb-16"> {/* Added pb-16 for footer space */}
               <table 
-                className="min-w-full text-xs border-collapse border border-gray-200 font-bold"
+                className="min-w-full text-xs border-collapse border border-gray-200 font-bold bg-white"
                 ref={tableRef}
                 style={{ 
-                  tableLayout: 'fixed',
-                  backgroundColor: '#a5c9b7' // Main table background
+                  tableLayout: 'fixed'
                 }}
               >
                 {/* Table header */}
                 <thead>
-                  <tr className="bg-[#8db6a3] sticky top-0 z-10"> {/* Darker green for header */}
-                    <th className="px-3 py-1 text-left font-bold text-gray-800 border border-gray-200"
+                  <tr className="sticky top-0 z-10">
+                    <th className="px-3 py-1 text-left font-bold text-gray-800 border border-gray-200 bg-[#addbb2]"
                         style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}>
                       <input
                         type="checkbox"
@@ -503,12 +509,11 @@ const Landlords = () => {
                     {columns.map((column) => (
                       <th 
                         key={column.key}
-                        className="relative px-3 py-1 text-left font-bold text-gray-800 border border-gray-200"
+                        className="relative px-3 py-1 text-left font-bold text-gray-800 border border-gray-200 bg-[#addbb2]"
                         style={{ 
                           width: `${columnWidths[column.key]}px`,
                           minWidth: '80px',
                           position: 'relative',
-                          backgroundColor: '#8db6a3' // Ensure header cells have same background
                         }}
                       >
                         <div className="flex items-center justify-between">
@@ -532,7 +537,8 @@ const Landlords = () => {
                     currentLandlords.map((landlord, index) => (
                       <tr 
                         key={landlord.id}
-                        className={`hover:bg-[#c7dfd3] hover:text-black cursor-pointer transition-colors duration-150 ${getRowClass(index)}`}
+                        className={`border-b border-gray-200 cursor-pointer transition-colors duration-150 ${getRowClass(index, landlord.id)}`}
+                        onClick={() => handleSelectLandlord(landlord.id)}
                       >
                         <td 
                           className="px-3 py-1 border border-gray-200 align-top" 
@@ -571,20 +577,32 @@ const Landlords = () => {
                           {landlord.phone}
                         </td>
                         <td className="px-3 py-1 text-center font-bold text-gray-900 border border-gray-200 align-top">
-                          <span className="bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs font-bold border border-green-300">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${
+                            selectedLandlords.includes(landlord.id) 
+                              ? 'bg-white text-green-800 border-green-300' 
+                              : 'bg-green-100 text-green-800 border-green-300'
+                          }`}>
                             {landlord.activeProperties}
                           </span>
                         </td>
                         <td className="px-3 py-1 text-center font-bold text-gray-900 border border-gray-200 align-top">
-                          <span className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full text-xs font-bold border border-gray-300">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${
+                            selectedLandlords.includes(landlord.id) 
+                              ? 'bg-white text-gray-800 border-gray-300' 
+                              : 'bg-gray-100 text-gray-800 border-gray-300'
+                          }`}>
                             {landlord.archivedProperties}
                           </span>
                         </td>
                         <td className="px-3 py-1 border border-gray-200 align-top">
-                          <span className={`inline-flex items-center px-2 py-0 rounded text-xs font-bold whitespace-nowrap ${
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap border ${
                             landlord.portalAccess === 'Enabled'
-                              ? 'bg-green-100 text-green-800 border border-green-300'
-                              : 'bg-gray-100 text-gray-800 border border-gray-300'
+                              ? selectedLandlords.includes(landlord.id)
+                                ? 'bg-white text-green-800 border-green-300'
+                                : 'bg-green-100 text-green-800 border-green-300'
+                              : selectedLandlords.includes(landlord.id)
+                                ? 'bg-white text-gray-800 border-gray-300'
+                                : 'bg-gray-100 text-gray-800 border-gray-300'
                           }`}>
                             {landlord.portalAccess}
                           </span>
@@ -596,8 +614,7 @@ const Landlords = () => {
                     <tr>
                       <td 
                         colSpan={columns.length + 1}
-                        className="px-3 py-4 text-center text-gray-500 border border-gray-200"
-                        style={{ backgroundColor: '#a5c9b7' }}
+                        className="px-3 py-4 text-center text-gray-500 border border-gray-200 bg-white"
                       >
                         <div className="flex flex-col items-center justify-center py-8">
                           <div className="text-lg font-bold text-gray-400 mb-2">No landlords found</div>
@@ -609,75 +626,75 @@ const Landlords = () => {
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
 
-        {/* Footer with pagination */}
-        <div className="flex-shrink-0">
-          <div className="flex items-center justify-between mt-2 px-1 py-2 border-t border-gray-200 bg-white">
-            <div className="text-xs text-gray-600">
-              <div className="flex items-center gap-4">
-                <span className="font-bold">
-                  Showing <span className="font-bold">{startIndex + 1}</span> to <span className="font-bold">{Math.min(endIndex, landlords.length)}</span> of <span className="font-bold">{landlords.length}</span> landlords
-                </span>
-                {selectedLandlords.length > 0 && (
-                  <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs font-bold border border-blue-300">
-                    {selectedLandlords.length} selected
-                  </span>
-                )}
+            {/* Absolute Footer with Pagination */}
+            <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-20 shadow-sm">
+              <div className="flex items-center justify-between px-3 py-2">
+                <div className="text-xs text-gray-600">
+                  <div className="flex items-center gap-4">
+                    <span className="font-bold">
+                      Showing <span className="font-bold">{startIndex + 1}</span> to <span className="font-bold">{Math.min(endIndex, landlords.length)}</span> of <span className="font-bold">{landlords.length}</span> landlords
+                    </span>
+                    {selectedLandlords.length > 0 && (
+                      <span className="bg-[#addbb2] text-gray-800 px-2 py-0.5 rounded-full text-xs font-bold border border-green-300">
+                        {selectedLandlords.length} selected
+                      </span>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Pagination */}
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
+                  >
+                    <FaChevronLeft size={10} />
+                    Previous
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {[...Array(totalPages)].map((_, i) => {
+                      const page = i + 1;
+                      if (
+                        page === 1 ||
+                        page === totalPages ||
+                        (page >= currentPage - 1 && page <= currentPage + 1)
+                      ) {
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => goToPage(page)}
+                            className={`px-3 py-1.5 min-w-[32px] text-xs rounded-lg border transition-colors font-bold ${
+                              currentPage === page
+                                ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                                : 'border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      } else if (
+                        page === currentPage - 2 ||
+                        page === currentPage + 2
+                      ) {
+                        return <span key={page} className="px-1 text-gray-400 text-xs">...</span>;
+                      }
+                      return null;
+                    })}
+                  </div>
+                  
+                  <button 
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
+                  >
+                    Next
+                    <FaChevronRight size={10} />
+                  </button>
+                </div>
               </div>
-            </div>
-            
-            {/* Pagination */}
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => goToPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
-              >
-                <FaChevronLeft size={10} />
-                Previous
-              </button>
-              
-              <div className="flex items-center gap-1">
-                {[...Array(totalPages)].map((_, i) => {
-                  const page = i + 1;
-                  if (
-                    page === 1 ||
-                    page === totalPages ||
-                    (page >= currentPage - 1 && page <= currentPage + 1)
-                  ) {
-                    return (
-                      <button
-                        key={page}
-                        onClick={() => goToPage(page)}
-                        className={`px-3 py-1.5 min-w-[32px] text-xs rounded-lg border transition-colors font-bold ${
-                          currentPage === page
-                            ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
-                            : 'border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    );
-                  } else if (
-                    page === currentPage - 2 ||
-                    page === currentPage + 2
-                  ) {
-                    return <span key={page} className="px-1 text-gray-400 text-xs">...</span>;
-                  }
-                  return null;
-                })}
-              </div>
-              
-              <button 
-                onClick={() => goToPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
-              >
-                Next
-                <FaChevronRight size={10} />
-              </button>
             </div>
           </div>
         </div>
@@ -735,7 +752,7 @@ const Landlords = () => {
                           name="landlordType"
                           value={formData.landlordType}
                           onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
                           required
                         >
                           <option value="Individual">Individual</option>
@@ -996,4 +1013,4 @@ const Landlords = () => {
   );
 };
 
-export default Landlords;
+export default Landlord;
