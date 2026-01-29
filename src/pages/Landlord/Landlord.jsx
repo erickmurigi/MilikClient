@@ -1013,4 +1013,4 @@ const Landlords = () => {
   );
 };
 
-export default Landlord;
+export default Landlords;
