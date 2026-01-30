@@ -4,7 +4,8 @@ import DashboardLayout from '../../components/Layout/DashboardLayout';
 import { 
   FaPlus, FaSearch, FaEllipsisH, FaFileExport, 
   FaChevronLeft, FaChevronRight, FaGripVertical,
-  FaFile, FaPaperclip, FaTimes, FaSave
+  FaPaperclip, FaTimes, FaSave, FaDownload, FaTrash,
+  FaFile, FaDownload as FaDownloadIcon, FaTrashAlt
 } from 'react-icons/fa';
 
 const Tenants = () => {
@@ -41,6 +42,10 @@ const Tenants = () => {
     emergencyEmail2: ''
   });
   
+  // File attachments state
+  const [attachments, setAttachments] = useState([]);
+  const fileInputRef = useRef(null);
+  
   const [columnWidths, setColumnWidths] = useState({
     tntId: 100,
     lseId: 100,
@@ -63,9 +68,9 @@ const Tenants = () => {
   
   const resizingRef = useRef(null);
   const tableRef = useRef(null);
-  const itemsPerPage = 50; // Changed to 50 per page
+  const itemsPerPage = 50;
 
-  // Sample tenants data (same as before)
+  // Sample tenants data
   const tenants = [
     {
       id: 1,
@@ -127,151 +132,11 @@ const Tenants = () => {
       email: 'mike.johnson@tech.com',
       attachedFiles: 2
     },
-    {
-      id: 4,
-      tntId: 'TNT004',
-      lseId: 'LSE004',
-      unitNo: 'SH-012',
-      acNo: 'ACC004',
-      tenantName: 'Tech Solutions Ltd',
-      acBal: '120,000',
-      phone: '+254 745 678 901',
-      rent: '85,000',
-      leaseType: 'Commercial',
-      paymentFreq: 'Annually',
-      leaseStart: '2023-01-01',
-      leaseEnd: '2025-12-31',
-      leaseTerm: '3 Years',
-      daysToExpire: 720,
-      property: 'BLESSING MALL SHOPPING CENTER',
-      email: 'accounts@techsolutions.co.ke',
-      attachedFiles: 8
-    },
-    {
-      id: 5,
-      tntId: 'TNT005',
-      lseId: 'LSE005',
-      unitNo: 'OF-501',
-      acNo: 'ACC005',
-      tenantName: 'Legal Partners Advocates',
-      acBal: '0',
-      phone: '+254 756 789 012',
-      rent: '120,000',
-      leaseType: 'Commercial',
-      paymentFreq: 'Monthly',
-      leaseStart: '2024-03-01',
-      leaseEnd: '2026-02-28',
-      leaseTerm: '2 Years',
-      daysToExpire: 430,
-      property: 'BLUE SKY PLAZA OFFICE BUILDING',
-      email: 'info@legalpartners.co.ke',
-      attachedFiles: 4
-    },
-    {
-      id: 6,
-      tntId: 'TNT006',
-      lseId: 'LSE006',
-      unitNo: 'APT-306',
-      acNo: 'ACC006',
-      tenantName: 'Grace Achieng',
-      acBal: '8,500',
-      phone: '+254 767 890 123',
-      rent: '18,000',
-      leaseType: 'Residential',
-      paymentFreq: 'Monthly',
-      leaseStart: '2024-01-15',
-      leaseEnd: '2024-12-14',
-      leaseTerm: '11 Months',
-      daysToExpire: 30,
-      property: 'CAMON COURT APARTMENT COMPLEX',
-      email: 'grace.achieng@email.com',
-      attachedFiles: 1
-    },
-    {
-      id: 7,
-      tntId: 'TNT007',
-      lseId: 'LSE007',
-      unitNo: 'B-107',
-      acNo: 'ACC007',
-      tenantName: 'David Omondi',
-      acBal: '0',
-      phone: '+254 778 901 234',
-      rent: '22,000',
-      leaseType: 'Residential',
-      paymentFreq: 'Monthly',
-      leaseStart: '2024-04-01',
-      leaseEnd: '2025-03-31',
-      leaseTerm: '1 Year',
-      daysToExpire: 330,
-      property: 'CID APARTMENTS RESIDENTIAL BLOCK',
-      email: 'david.omondi@email.com',
-      attachedFiles: 2
-    },
-    {
-      id: 8,
-      tntId: 'TNT008',
-      lseId: 'LSE008',
-      unitNo: 'SUITE-800',
-      acNo: 'ACC008',
-      tenantName: 'Global Finance Bank',
-      acBal: '450,000',
-      phone: '+254 789 012 345',
-      rent: '300,000',
-      leaseType: 'Commercial',
-      paymentFreq: 'Quarterly',
-      leaseStart: '2022-07-01',
-      leaseEnd: '2027-06-30',
-      leaseTerm: '5 Years',
-      daysToExpire: 1200,
-      property: 'CITE TOWERS OFFICE COMPLEX',
-      email: 'facilities@globalfinancebank.com',
-      attachedFiles: 12
-    },
-    {
-      id: 9,
-      tntId: 'TNT009',
-      lseId: 'LSE009',
-      unitNo: 'M-209',
-      acNo: 'ACC009',
-      tenantName: 'Restaurant Delight',
-      acBal: '-12,000',
-      phone: '+254 790 123 456',
-      rent: '65,000',
-      leaseType: 'Mixed Use',
-      paymentFreq: 'Monthly',
-      leaseStart: '2024-02-01',
-      leaseEnd: '2025-01-31',
-      leaseTerm: '1 Year',
-      daysToExpire: 350,
-      property: 'DFGH COMPLEX MIXED-USE BUILDING',
-      email: 'info@restaurantdelight.com',
-      attachedFiles: 6
-    },
-    {
-      id: 10,
-      tntId: 'TNT010',
-      lseId: 'LSE010',
-      unitNo: 'A-503',
-      acNo: 'ACC010',
-      tenantName: 'Mary Wambui',
-      acBal: '0',
-      phone: '+254 701 234 567',
-      rent: '20,000',
-      leaseType: 'Residential',
-      paymentFreq: 'Monthly',
-      leaseStart: '2024-05-01',
-      leaseEnd: '2025-04-30',
-      leaseTerm: '1 Year',
-      daysToExpire: 390,
-      property: 'EDWIN RESIDENCE APARTMENT BLOCK',
-      email: 'mary.wambui@email.com',
-      attachedFiles: 3
-    }
-    // Add more tenants for pagination demonstration
+    // ... rest of your sample data
   ];
 
-  // Add more tenants to make it 50+ for pagination demonstration
-  for (let i = 11; i <= 60; i++) {
+  // Add more tenants for pagination
+  for (let i = 4; i <= 60; i++) {
     const leaseTypes = ['Residential', 'Commercial', 'Mixed Use'];
     const paymentFreqs = ['Monthly', 'Quarterly', 'Annually'];
     const properties = [
@@ -341,7 +206,7 @@ const Tenants = () => {
     if (selectAll) {
       setSelectedTenants([]);
     } else {
-      setSelectedTenants(tenants.map(t => t.id));
+      setSelectedTenants(currentTenants.map(t => t.id));
     }
     setSelectAll(!selectAll);
   };
@@ -367,7 +232,6 @@ const Tenants = () => {
       const diff = e.clientX - startX;
       const newWidth = Math.max(80, startWidth + diff);
       
-      // Update column widths
       setColumnWidths(prev => ({
         ...prev,
         [columnKey]: newWidth
@@ -385,31 +249,49 @@ const Tenants = () => {
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  // Function to apply zebra striping pattern
-  const getRowClass = (index) => {
+  // Function to apply zebra striping pattern with white backgrounds (same as Landlords)
+  const getRowClass = (index, tenantId) => {
+    // If row is selected, use the selection color
+    if (selectedTenants.includes(tenantId)) {
+      return 'bg-[#addbb2] hover:bg-[#c8e6c9]';
+    }
+    
+    // Otherwise, use alternating white patterns
     return index % 2 === 0 
-      ? 'bg-[#a5c9b7] hover:bg-[#94bba9]' 
-      : 'bg-[#b4d4c6] hover:bg-[#a3c2b5]';
+      ? 'bg-white hover:bg-[#f8f8f8]' 
+      : 'bg-[#f9f9f9] hover:bg-[#f0f0f0]';
   };
 
   // Function to determine account balance color
-  const getBalanceColor = (balance) => {
+  const getBalanceColor = (balance, isSelected) => {
     if (balance.startsWith('-')) {
-      return 'text-red-700 bg-red-100 border-red-300';
+      return isSelected 
+        ? 'bg-white text-red-800 border-red-300' 
+        : 'bg-red-100 text-red-800 border-red-300';
     } else if (parseFloat(balance.replace(/,/g, '')) > 0) {
-      return 'text-orange-700 bg-orange-100 border-orange-300';
+      return isSelected
+        ? 'bg-white text-orange-800 border-orange-300'
+        : 'bg-orange-100 text-orange-800 border-orange-300';
     }
-    return 'text-green-700 bg-green-100 border-green-300';
+    return isSelected
+      ? 'bg-white text-green-800 border-green-300'
+      : 'bg-green-100 text-green-800 border-green-300';
   };
 
   // Function to determine days to expire color
-  const getDaysToExpireColor = (days) => {
+  const getDaysToExpireColor = (days, isSelected) => {
     if (days <= 30) {
-      return 'text-red-700 bg-red-100 border-red-300';
+      return isSelected
+        ? 'bg-white text-red-800 border-red-300'
+        : 'bg-red-100 text-red-800 border-red-300';
     } else if (days <= 90) {
-      return 'text-yellow-700 bg-yellow-100 border-yellow-300';
+      return isSelected
+        ? 'bg-white text-yellow-800 border-yellow-300'
+        : 'bg-yellow-100 text-yellow-800 border-yellow-300';
     }
-    return 'text-green-700 bg-green-100 border-green-300';
+    return isSelected
+      ? 'bg-white text-green-800 border-green-300'
+      : 'bg-green-100 text-green-800 border-green-300';
   };
 
   // Pagination logic
@@ -448,6 +330,7 @@ const Tenants = () => {
     }
     
     console.log('Adding tenant:', formData);
+    console.log('Attachments:', attachments);
     
     // Here you would typically make an API call to add the tenant
     // For now, we'll just close the modal and reset the form
@@ -478,6 +361,47 @@ const Tenants = () => {
       emergencyRelationship2: '',
       emergencyEmail2: ''
     });
+    setAttachments([]);
+  };
+
+  // Handle file upload
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    const newAttachments = files.map(file => ({
+      id: Date.now() + Math.random(),
+      name: file.name,
+      size: formatFileSize(file.size),
+      dateTime: new Date().toLocaleString(),
+      file: file
+    }));
+    setAttachments(prev => [...prev, ...newAttachments]);
+  };
+
+  // Format file size
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Handle attachment download
+  const handleDownload = (attachment) => {
+    // Create a download link
+    const url = URL.createObjectURL(attachment.file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = attachment.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Handle attachment delete
+  const handleDeleteAttachment = (id) => {
+    setAttachments(prev => prev.filter(att => att.id !== id));
   };
 
   // Gender options
@@ -511,40 +435,40 @@ const Tenants = () => {
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col h-full p-0">
-        {/* Search and Filters Row */}
+      <div className="flex flex-col h-full p-0 bg-gray-50">
+        {/* Search and Filters Row - MATCHING LANDLORDS STYLING */}
         <div className="flex-shrink-0 pt-1 px-2">
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            {/* Filter dropdowns */}
-            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+            {/* Filter dropdowns with custom styling */}
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors">
               <option>Tenant Name</option>
               <option>Tenant ID</option>
               <option>Lease ID</option>
               <option>Unit No.</option>
             </select>
 
-            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors">
               <option>Account Balance</option>
               <option>Credit Balance</option>
               <option>Zero Balance</option>
               <option>Arrears</option>
             </select>
 
-            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors">
               <option>Lease Type</option>
               <option>Residential</option>
               <option>Commercial</option>
               <option>Mixed Use</option>
             </select>
 
-            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors">
               <option>Payment Frequency</option>
               <option>Monthly</option>
               <option>Quarterly</option>
               <option>Annually</option>
             </select>
 
-            <select className="px-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500">
+            <select className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors">
               <option>Lease Expiry</option>
               <option>Expiring in 30 days</option>
               <option>Expiring in 90 days</option>
@@ -584,22 +508,22 @@ const Tenants = () => {
           </div>
         </div>
 
-        {/* Boxed Table Design with adjustable columns */}
-        <div className="flex-1 px-2 pb-2 overflow-hidden">
+        {/* Boxed Table Design with adjustable columns - MATCHING LANDLORDS STYLING */}
+        <div className="flex-1 px-2 pb-2 overflow-hidden relative">
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm h-full flex flex-col">
-            <div className="overflow-x-auto overflow-y-auto flex-1">
+            {/* Table Container with Scroll */}
+            <div className="overflow-x-auto overflow-y-auto flex-1 pb-16">
               <table 
-                className="min-w-full text-xs border-collapse border border-gray-200 font-bold"
+                className="min-w-full text-xs border-collapse border border-gray-200 font-bold bg-white"
                 ref={tableRef}
                 style={{ 
-                  tableLayout: 'fixed',
-                  backgroundColor: '#a5c9b7' // Main table background
+                  tableLayout: 'fixed'
                 }}
               >
+                {/* Table header */}
                 <thead>
-                  <tr className="bg-[#8db6a3] sticky top-0 z-10"> {/* Darker green for header */}
-                    {/* Checkbox column */}
-                    <th className="px-3 py-1 text-left font-bold text-gray-800 border border-gray-200"
+                  <tr className="sticky top-0 z-10">
+                    <th className="px-3 py-1 text-left font-bold text-gray-800 border border-gray-200 bg-[#addbb2]"
                         style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}>
                       <input
                         type="checkbox"
@@ -610,16 +534,14 @@ const Tenants = () => {
                       />
                     </th>
                     
-                    {/* Columns */}
                     {columns.map((column) => (
                       <th 
                         key={column.key}
-                        className="relative px-3 py-1 text-left font-bold text-gray-800 border border-gray-200"
+                        className="relative px-3 py-1 text-left font-bold text-gray-800 border border-gray-200 bg-[#addbb2]"
                         style={{ 
                           width: `${columnWidths[column.key]}px`,
                           minWidth: '80px',
                           position: 'relative',
-                          backgroundColor: '#8db6a3' // Ensure header cells have same background
                         }}
                       >
                         <div className="flex items-center justify-between">
@@ -636,108 +558,126 @@ const Tenants = () => {
                     ))}
                   </tr>
                 </thead>
+                
+                {/* Table body */}
                 <tbody>
                   {currentTenants.length > 0 ? (
-                    currentTenants.map((tenant, index) => (
-                      <tr 
-                        key={tenant.id}
-                        className={`hover:bg-[#c7dfd3] hover:text-black cursor-pointer transition-colors duration-150 ${getRowClass(index)}`}
-                      >
-                        {/* Checkbox */}
-                        <td 
-                          className="px-3 py-1 border border-gray-200 align-top" 
-                          style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}
-                          onClick={handleCheckboxClick}
+                    currentTenants.map((tenant, index) => {
+                      const isSelected = selectedTenants.includes(tenant.id);
+                      return (
+                        <tr 
+                          key={tenant.id}
+                          className={`border-b border-gray-200 cursor-pointer transition-colors duration-150 ${getRowClass(index, tenant.id)}`}
+                          onClick={() => handleSelectTenant(tenant.id)}
                         >
-                          <input
-                            type="checkbox"
-                            checked={selectedTenants.includes(tenant.id)}
-                            onChange={() => handleSelectTenant(tenant.id)}
+                          <td 
+                            className="px-3 py-1 border border-gray-200 align-top" 
+                            style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}
                             onClick={handleCheckboxClick}
-                            className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                          />
-                        </td>
-                        
-                        {/* Render tenant cells */}
-                        <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                          {tenant.tntId}
-                        </td>
-                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                          {tenant.lseId}
-                        </td>
-                        <td className="px-3 py-1 text-center font-bold text-gray-900 border border-gray-200 align-top">
-                          {tenant.unitNo}
-                        </td>
-                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                          {tenant.acNo}
-                        </td>
-                        <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                          {tenant.tenantName}
-                        </td>
-                        <td className="px-3 py-1 text-right font-bold border border-gray-200 align-top">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${getBalanceColor(tenant.acBal)}`}>
-                            Ksh {tenant.acBal}
-                          </span>
-                        </td>
-                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                          {tenant.phone}
-                        </td>
-                        <td className="px-3 py-1 text-right font-bold text-gray-900 border border-gray-200 align-top">
-                          <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs border border-blue-300">
-                            {tenant.rent}
-                          </span>
-                        </td>
-                        <td className="px-3 py-1 border border-gray-200 align-top">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap ${
-                            tenant.leaseType === 'Residential'
-                              ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                              : tenant.leaseType === 'Commercial'
-                              ? 'bg-purple-100 text-purple-800 border border-purple-300'
-                              : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
-                          }`}>
-                            {tenant.leaseType}
-                          </span>
-                        </td>
-                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top text-center">
-                          {tenant.paymentFreq}
-                        </td>
-                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap">
-                          {tenant.leaseStart}
-                        </td>
-                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap">
-                          {tenant.leaseEnd}
-                        </td>
-                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top text-center">
-                          {tenant.leaseTerm}
-                        </td>
-                        <td className="px-3 py-1 text-center font-bold border border-gray-200 align-top">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${getDaysToExpireColor(tenant.daysToExpire)}`}>
-                            {tenant.daysToExpire} days
-                          </span>
-                        </td>
-                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                          {tenant.property}
-                        </td>
-                        <td className="px-3 py-1 font-bold text-gray-700 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                          {tenant.email}
-                        </td>
-                        <td className="px-3 py-1 text-center border border-gray-200 align-top">
-                          <div className="flex items-center justify-center gap-1">
-                            <FaPaperclip className="text-gray-600 text-xs" />
-                            <span className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded text-xs border border-gray-300">
-                              {tenant.attachedFiles} files
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleSelectTenant(tenant.id)}
+                              onClick={handleCheckboxClick}
+                              className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                            />
+                          </td>
+                          
+                          {/* Table cells for each column */}
+                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                            {tenant.tntId}
+                          </td>
+                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                            {tenant.lseId}
+                          </td>
+                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top text-center">
+                            {tenant.unitNo}
+                          </td>
+                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                            {tenant.acNo}
+                          </td>
+                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                            {tenant.tenantName}
+                          </td>
+                          <td className="px-3 py-1 text-right font-bold border border-gray-200 align-top">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${getBalanceColor(tenant.acBal, isSelected)}`}>
+                              Ksh {tenant.acBal}
                             </span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                          </td>
+                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                            {tenant.phone}
+                          </td>
+                          <td className="px-3 py-1 text-right font-bold text-gray-900 border border-gray-200 align-top">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${
+                              isSelected 
+                                ? 'bg-white text-blue-800 border-blue-300' 
+                                : 'bg-blue-100 text-blue-800 border-blue-300'
+                            }`}>
+                              {tenant.rent}
+                            </span>
+                          </td>
+                          <td className="px-3 py-1 border border-gray-200 align-top">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap ${
+                              tenant.leaseType === 'Residential'
+                                ? isSelected
+                                  ? 'bg-white text-blue-800 border-blue-300'
+                                  : 'bg-blue-100 text-blue-800 border-blue-300'
+                                : tenant.leaseType === 'Commercial'
+                                ? isSelected
+                                  ? 'bg-white text-purple-800 border-purple-300'
+                                  : 'bg-purple-100 text-purple-800 border-purple-300'
+                                : isSelected
+                                  ? 'bg-white text-yellow-800 border-yellow-300'
+                                  : 'bg-yellow-100 text-yellow-800 border-yellow-300'
+                            }`}>
+                              {tenant.leaseType}
+                            </span>
+                          </td>
+                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top text-center">
+                            {tenant.paymentFreq}
+                          </td>
+                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap">
+                            {tenant.leaseStart}
+                          </td>
+                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap">
+                            {tenant.leaseEnd}
+                          </td>
+                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top text-center">
+                            {tenant.leaseTerm}
+                          </td>
+                          <td className="px-3 py-1 text-center font-bold border border-gray-200 align-top">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${getDaysToExpireColor(tenant.daysToExpire, isSelected)}`}>
+                              {tenant.daysToExpire} days
+                            </span>
+                          </td>
+                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                            {tenant.property}
+                          </td>
+                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
+                            {tenant.email}
+                          </td>
+                          <td className="px-3 py-1 border border-gray-200 align-top">
+                            <div className="flex items-center justify-center gap-1">
+                              <FaPaperclip className="text-gray-600 text-xs" />
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${
+                                isSelected
+                                  ? 'bg-white text-gray-800 border-gray-300'
+                                  : 'bg-gray-100 text-gray-800 border-gray-300'
+                              }`}>
+                                {tenant.attachedFiles} files
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     // Empty state row
                     <tr>
                       <td 
                         colSpan={columns.length + 1}
-                        className="px-3 py-4 text-center text-gray-500 border border-gray-200"
-                        style={{ backgroundColor: '#a5c9b7' }}
+                        className="px-3 py-4 text-center text-gray-500 border border-gray-200 bg-white"
                       >
                         <div className="flex flex-col items-center justify-center py-8">
                           <div className="text-lg font-bold text-gray-400 mb-2">No tenants found</div>
@@ -749,75 +689,75 @@ const Tenants = () => {
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
 
-        {/* Footer with pagination */}
-        <div className="flex-shrink-0">
-          <div className="flex items-center justify-between mt-2 px-1 py-2 border-t border-gray-200 bg-white">
-            <div className="text-xs text-gray-600">
-              <div className="flex items-center gap-4">
-                <span className="font-bold">
-                  Showing <span className="font-bold">{startIndex + 1}</span> to <span className="font-bold">{Math.min(endIndex, tenants.length)}</span> of <span className="font-bold">{tenants.length}</span> tenants
-                </span>
-                {selectedTenants.length > 0 && (
-                  <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs font-bold border border-blue-300">
-                    {selectedTenants.length} selected
-                  </span>
-                )}
+            {/* Absolute Footer with Pagination - MATCHING LANDLORDS STYLING */}
+            <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-20 shadow-sm">
+              <div className="flex items-center justify-between px-3 py-2">
+                <div className="text-xs text-gray-600">
+                  <div className="flex items-center gap-4">
+                    <span className="font-bold">
+                      Showing <span className="font-bold">{startIndex + 1}</span> to <span className="font-bold">{Math.min(endIndex, tenants.length)}</span> of <span className="font-bold">{tenants.length}</span> tenants
+                    </span>
+                    {selectedTenants.length > 0 && (
+                      <span className="bg-[#addbb2] text-gray-800 px-2 py-0.5 rounded-full text-xs font-bold border border-green-300">
+                        {selectedTenants.length} selected
+                      </span>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Pagination */}
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
+                  >
+                    <FaChevronLeft size={10} />
+                    Previous
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {[...Array(totalPages)].map((_, i) => {
+                      const page = i + 1;
+                      if (
+                        page === 1 ||
+                        page === totalPages ||
+                        (page >= currentPage - 1 && page <= currentPage + 1)
+                      ) {
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => goToPage(page)}
+                            className={`px-3 py-1.5 min-w-[32px] text-xs rounded-lg border transition-colors font-bold ${
+                              currentPage === page
+                                ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                                : 'border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      } else if (
+                        page === currentPage - 2 ||
+                        page === currentPage + 2
+                      ) {
+                        return <span key={page} className="px-1 text-gray-400 text-xs">...</span>;
+                      }
+                      return null;
+                    })}
+                  </div>
+                  
+                  <button 
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
+                  >
+                    Next
+                    <FaChevronRight size={10} />
+                  </button>
+                </div>
               </div>
-            </div>
-            
-            {/* Pagination */}
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={() => goToPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
-              >
-                <FaChevronLeft size={10} />
-                Previous
-              </button>
-              
-              <div className="flex items-center gap-1">
-                {[...Array(totalPages)].map((_, i) => {
-                  const page = i + 1;
-                  if (
-                    page === 1 ||
-                    page === totalPages ||
-                    (page >= currentPage - 1 && page <= currentPage + 1)
-                  ) {
-                    return (
-                      <button
-                        key={page}
-                        onClick={() => goToPage(page)}
-                        className={`px-3 py-1.5 min-w-[32px] text-xs rounded-lg border transition-colors font-bold ${
-                          currentPage === page
-                            ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
-                            : 'border-gray-300 hover:bg-gray-50'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    );
-                  } else if (
-                    page === currentPage - 2 ||
-                    page === currentPage + 2
-                  ) {
-                    return <span key={page} className="px-1 text-gray-400 text-xs">...</span>;
-                  }
-                  return null;
-                })}
-              </div>
-              
-              <button 
-                onClick={() => goToPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
-              >
-                Next
-                <FaChevronRight size={10} />
-              </button>
             </div>
           </div>
         </div>
@@ -827,9 +767,9 @@ const Tenants = () => {
           <div className="fixed inset-0 z-50 cursor-col-resize" style={{ cursor: 'col-resize' }} />
         )}
 
-        {/* Add Tenant Modal (keep the same as before) */}
+        {/* Add Tenant Modal with Attachments Section */}
         {showAddTenantModal && (
-          <div className="fixed inset-0 bg-black/20 backdrop-blur-md backdrop-saturate-150 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-md backdrop-saturate-300 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
               {/* Modal Header */}
               <div className="flex justify-between items-center p-4 border-b">
@@ -1229,6 +1169,88 @@ const Tenants = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Section: Attachments (like Landlords modal) */}
+                  <div className="mb-6 border-t pt-4">
+                    <h3 className="text-sm font-semibold text-gray-800 mb-4">Attachments</h3>
+                    
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current.click()}
+                        className="px-4 py-2 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors"
+                      >
+                        <FaPaperclip className="text-xs" />
+                        Add
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => setAttachments([])}
+                        className="px-4 py-2 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors"
+                      >
+                        <FaTrashAlt className="text-xs" />
+                        Delete All
+                      </button>
+                      
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        multiple
+                      />
+                    </div>
+                    
+                    {/* Attachments Table */}
+                    {attachments.length > 0 ? (
+                      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                        <table className="min-w-full text-xs">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Name</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Size</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Date & Time</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {attachments.map((attachment) => (
+                              <tr key={attachment.id} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 border-b">{attachment.name}</td>
+                                <td className="px-3 py-2 border-b">{attachment.size}</td>
+                                <td className="px-3 py-2 border-b">{attachment.dateTime}</td>
+                                <td className="px-3 py-2 border-b">
+                                  <div className="flex gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDownload(attachment)}
+                                      className="text-blue-600 hover:text-blue-800"
+                                      title="Download"
+                                    >
+                                      <FaDownloadIcon />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteAttachment(attachment.id)}
+                                      className="text-red-600 hover:text-red-800"
+                                      title="Delete"
+                                    >
+                                      <FaTrash />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-gray-500 text-sm border border-gray-200 rounded-lg">
+                        No attachments added yet
+                      </div>
+                    )}
+                  </div>
                 </form>
               </div>
               
@@ -1273,6 +1295,7 @@ const Tenants = () => {
                         emergencyRelationship2: '',
                         emergencyEmail2: ''
                       });
+                      setAttachments([]);
                     }}
                     className="px-6 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >

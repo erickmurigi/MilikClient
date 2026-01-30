@@ -129,7 +129,7 @@ function Login() {
     setTimeout(() => {
       setLoading(false);
       setLoginSuccess(true);
-      navigate('/dashboard');
+      navigate('/moduleDashboard');
       
       // Reset success state after 2 seconds
       setTimeout(() => {

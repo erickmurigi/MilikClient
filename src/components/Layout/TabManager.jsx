@@ -170,7 +170,7 @@ const TabManager = ({ darkMode }) => {
   // Sort tabs by timestamp (oldest first)
   const sortedTabs = [...tabs].sort((a, b) => a.timestamp - b.timestamp);
  return (
-    <div className={`flex items-center ${darkMode ? 'bg-gray-800' : 'bg-emerald-600'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'} overflow-x-auto`}>
+    <div className={`flex items-center ${darkMode ? 'bg-gray-800' : 'bg-[#31694E]'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'} overflow-x-auto`}>
       <div className="flex items-center px-2 py-1 space-x-1 min-w-max">
         {sortedTabs.map((tab) => (
           <div

@@ -364,7 +364,7 @@ const TopToolbar = ({ darkMode }) => {
   return (
     <div className="relative bg-[#a5c9b7]">
       <Navbar darkMode={darkMode} />
-      <div className={`flex items-center ${darkMode ? 'bg-gray-800' : 'bg-emerald-600'}`}>
+      <div className={`flex items-center ${darkMode ? 'bg-gray-800' : 'bg-[#0A400C]'}`}>
         {/* Application Logo/Title */}
         <div className={`px-4 py-2 ${darkMode ? 'bg-gray-900' : 'bg-gray-100'} border-r ${darkMode ? 'border-gray-700' : 'border-gray-300'}`}>
           <Link to="/dashboard" className="flex items-center space-x-2 no-underline">
@@ -436,21 +436,21 @@ const TopToolbar = ({ darkMode }) => {
         <div className="flex items-center space-x-1 px-4 py-1 text-xs">
           <button 
             onClick={() => navigate('/tenants/new')}
-            className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} 
+            className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-500 text-gray-200'}`} 
             title="Add Tenant"
           >
             + Tenant
           </button>
           <button 
             onClick={() => navigate('/invoices/new')}
-            className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} 
+            className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-500 text-gray-200'}`} 
             title="New Invoice"
           >
             + Invoice
           </button>
           <button 
             onClick={() => navigate('/receipts')}
-            className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} 
+            className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-500 text-gray-200'}`} 
             title="Receive Payment"
           >
             + Payment
@@ -458,14 +458,14 @@ const TopToolbar = ({ darkMode }) => {
           <div className={`h-6 w-px ${darkMode ? 'bg-gray-600' : 'bg-gray-300'} mx-2`} />
           <button 
             onClick={() => window.location.reload()} 
-            className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} 
+            className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-500 text-gray-200'}`} 
             title="Refresh"
           >
             ↻
           </button>
           <button 
             onClick={() => navigate('/settings')}
-            className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`} 
+            className={`p-2 rounded ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-500 text-gray-200'}`} 
             title="Settings"
           >
             ⚙

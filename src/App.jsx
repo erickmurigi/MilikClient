@@ -14,6 +14,7 @@ import Vacants from './pages/Vacants/Vacants';
 import Maintenances from './pages/Maintenances/Maintenances';
 import Inspections from './pages/Inspections/Inspections';
 import AddProperty from './components/Properties/AddProperties';
+import ModulesDashboard from './pages/moduleDashboard/ModulesDashboard';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="/" element={<Navigate to="/home" />} />
         <Route path="/home" element={<Home />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/moduleDashboard" element={<ModulesDashboard/>}/>
         <Route path="/dashboard" element={<Dashboard/>} />
         <Route path="/landlords" element={<Landlords />} />
         <Route path="/properties" element={<Properties />} />

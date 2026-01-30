@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import MetricsGrid from '../../components/Dashboard/MetricsGrid';
 import PropertiesOverview from '../../components/Dashboard/PropertiesOverview';
@@ -9,43 +9,43 @@ import AlertBanner from '../../components/Dashboard/AlertBanner';
 import './dashboard.css';
 
 const Dashboard = ({ darkMode }) => {
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
-    
-      <DashboardLayout>
-        <div className="flex flex-1 p-4 bg-white"> {/* Add pt-20 (5rem) for navbar height */}
+    <DashboardLayout>
+      <div className="flex flex-1 p-4 bg-white">
         {/* Sidebar/Quick Actions - Fixed width */}
         <div className="p-0">
-          <div className="pr-4 h-full mt-0"> {/* Add mt-2 for spacing */}
+          <div className="pr-4 h-full mt-0">
             <QuickActions darkMode={darkMode} />
           </div>
         </div>
         <div className={`flex-1 overflow-auto space-y-6 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-         
           {/* Metrics Grid */}
           <MetricsGrid darkMode={darkMode} />
 
           {/* Financial Overview */}
           <FinancialOverview darkMode={darkMode} />
 
-         {/* Charts and Data Grid */}
-         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Properties Overview */}
-          <div className="lg:col-span-2">
-            <PropertiesOverview darkMode={darkMode} />
-          </div>
+          {/* Charts and Data Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Properties Overview */}
+            <div className="lg:col-span-2">
+              <PropertiesOverview darkMode={darkMode} />
+            </div>
 
-          {/* Recent Activity */}
-          <div>
-            <RecentActivity darkMode={darkMode} />
+            {/* Recent Activity */}
+            <div>
+              <RecentActivity darkMode={darkMode} />
+            </div>
           </div>
-         </div>
-
-        
-        {/* Quick Actions */}
-             </div>
-             </div>
+        </div>
+      </div>
     </DashboardLayout>
   );
 };
- 
+
 export default Dashboard;
