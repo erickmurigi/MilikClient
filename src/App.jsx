@@ -15,7 +15,8 @@ import Maintenances from './pages/Maintenances/Maintenances';
 import Inspections from './pages/Inspections/Inspections';
 import AddProperty from './components/Properties/AddProperties';
 import ModulesDashboard from './pages/moduleDashboard/ModulesDashboard';
-
+import EditProperty from './components/Properties/EditProperties';
+import PropertyDetail from './components/Properties/PropertyDetail';
 function App() {
   return (
     <BrowserRouter>
@@ -34,6 +35,8 @@ function App() {
         <Route path="/maintenances" element={<Maintenances />} />
         <Route path="/inspections" element={<Inspections />} />
         <Route path="/properties/new" element={<AddProperty />} />
+        <Route path="/properties/:id" element={<PropertyDetail />} />
+         <Route path="/properties/edit/:id" element={<EditProperty />} />
       </Routes>
     </BrowserRouter>
   )
