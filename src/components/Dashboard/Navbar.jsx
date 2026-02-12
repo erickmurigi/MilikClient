@@ -1,95 +1,285 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
-  FaBars,
-  FaBell,
+  FaHome,
+  FaBuilding,
+  FaKey,
+  FaFileInvoiceDollar,
+  FaBoxes,
+  FaUsers,
+  FaFolderOpen,
+  FaCogs,
+  FaUserShield,
+  FaExchangeAlt,
+  FaCalculator,
+  FaStickyNote,
+  FaEnvelope,
+  FaSms,
+  FaQuestionCircle,
+  FaUserCircle,
   FaSignOutAlt,
-  FaExclamationTriangle,
-  FaMoon,
-  FaSun
-} from 'react-icons/fa';
-import { Link } from 'react-router-dom';
+  FaThLarge,
+} from "react-icons/fa";
+import { Link, useNavigate } from "react-router-dom";
 
-const Navbar = ({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode }) => {
+const StartMenu = ({ darkMode = false }) => {
+  const [open, setOpen] = useState(false);
+  const anchorRef = useRef(null);
+  const menuRef = useRef(null);
+  const navigate = useNavigate();
+
+  // close on outside click
+  useEffect(() => {
+    const onDown = (e) => {
+      if (!open) return;
+      const a = anchorRef.current;
+      const m = menuRef.current;
+      if (m && m.contains(e.target)) return;
+      if (a && a.contains(e.target)) return;
+      setOpen(false);
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  // close on ESC
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    if (open) window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  const primary = useMemo(
+    () => [
+      { label: "Milik Property Management System", to: "/moduleDashboard" },
+      { label: "Financial Accounts", icon: <FaUsers />, to: "/tenants" },
+      { label: "Ven-Door", icon: <FaKey />, to: "/vendors" },
+      { label: "Inventory Management", icon: <FaBoxes />, to: "/inventory" },
+      { label: "Document Management", icon: <FaFolderOpen />, to: "/documents" },
+    ],
+    []
+  );
+
+  const secondaryTop = useMemo(
+    () => [
+      { label: "SMS Manager", icon: <FaSms />, onClick: () => alert("SMS Manager coming soon") },
+      { label: "Email Manager", icon: <FaEnvelope />, onClick: () => alert("Email Manager coming soon") },
+      { label: "Sticky Notes", icon: <FaStickyNote />, onClick: () => alert("Sticky Notes coming soon") },
+      { label: "Calculator", icon: <FaCalculator />, onClick: () => window.open("https://www.google.com/search?q=calculator", "_blank") },
+      { label: "Help", icon: <FaQuestionCircle />, onClick: () => alert("Help coming soon") },
+    ],
+    []
+  );
+
+  const secondaryBottom = useMemo(
+    () => [
+      { label: "Company Setup", icon: <FaCogs />, onClick: () => { window.dispatchEvent(new Event("milik:open-company-setup")); setOpen(false); } },
+      { label: "System Setup", icon: <FaCogs />, onClick: () => alert("System Setup coming soon") },
+      { label: "System Admin", icon: <FaUserShield />, onClick: () => alert("System Admin coming soon") },
+      { label: "Switch Company", icon: <FaExchangeAlt />, onClick: () => alert("Switch Company coming soon") },
+    ],
+    []
+  );
+
+  const onSignOut = () => {
+    // you can later clear auth context/storage here
+    setOpen(false);
+    navigate("/home");
+  };
+
   return (
-    <nav className={`sticky top-0 z-20 ${darkMode ? 'bg-[#dfebed] text-white' : 'bg-[#dfebed] text-gray-900'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'} shadow-sm`}>
-      <div className="px-5 py-1">
-        <div className="flex items-center justify-between">
-          {/* Left Section */}
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+    <>
+      {/* Start button - bottom center */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[120]">
+        <button
+          ref={anchorRef}
+          onClick={() => setOpen((v) => !v)}
+          className={[
+            "group relative flex items-center gap-2 rounded-2xl px-4 py-2 shadow-lg border",
+            "backdrop-blur-xl transition active:scale-[0.98]",
+            darkMode
+              ? "bg-white/25 border-white/20 text-white"
+              : "bg-white/70 border-slate-200 text-slate-900",
+          ].join(" ")}
+          aria-label="Open Start Menu"
+        >
+          <span className="h-10 w-10 rounded-2xl bg-[#0f766e] text-white flex items-center justify-center shadow-inner">
+            <FaThLarge />
+          </span>
+          <span className="text-sm font-extrabold tracking-wide">Start</span>
+
+          <span className="absolute -inset-1 rounded-3xl opacity-0 group-hover:opacity-100 transition bg-white/10" />
+        </button>
+
+        {/* Popup attached to button */}
+        {open && (
+          <div
+            ref={menuRef}
+            className="absolute left-1/2 -translate-x-1/2 bottom-[60px] w-[92vw] max-w-[760px]"
+          >
+            <div
+              className={[
+                "rounded-3xl border shadow-2xl overflow-hidden",
+                "backdrop-blur-2xl",
+                darkMode
+                  ? "border-white/15 bg-black/30"
+                  : "border-white/40 bg-white/70",
+              ].join(" ")}
             >
-              <FaBars className={darkMode ? 'text-gray-300' : 'text-gray-600'} />
-            </button>
-            
-            <div>
-              <h1 className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                Bosco Property Management
-              </h1>
-              <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Welcome back, Erick
-              </p>
-            </div>
-          </div>
+              {/* Top bar */}
+              <div className="px-5 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-2xl bg-gradient-to-r from-[#0f766e] to-[#22c55e] flex items-center justify-center text-white">
+                    <FaHome />
+                  </div>
+                  <div>
+                    <div className={darkMode ? "text-white font-extrabold" : "text-slate-900 font-extrabold"}>
+                      JOHN DOE
+                    </div>
+                    <div className={darkMode ? "text-white/70 text-xs" : "text-slate-600 text-xs"}>
+                      Quick access to modules & tools
+                    </div>
+                  </div>
+                </div>
 
-          {/* Right Section */}
-          <div className="flex items-center space-x-4">
-            {/* Theme Toggle */}
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
-              aria-label="Toggle theme"
-            >
-              {darkMode ? (
-                <FaSun className="text-yellow-500 text-lg" />
-              ) : (
-                <FaMoon className="text-gray-600 text-lg" />
-              )}
-            </button>
-
-            {/* Notifications */}
-            <button className={`relative p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
-              <FaBell className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'}`} />
-              <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full"></span>
-            </button>
-
-            {/* Demo Warning 
-            <div className={`hidden md:flex items-center space-x-2 px-3 py-2 rounded-lg
-                          ${darkMode 
-                            ? 'bg-amber-900/20 border border-amber-800' 
-                            : 'bg-amber-50 border border-amber-200'
-                          }`}>
-              <FaExclamationTriangle className={darkMode ? 'text-amber-400' : 'text-amber-600'} />
-              <span className={`text-sm font-medium ${darkMode ? 'text-amber-300' : 'text-amber-800'}`}>
-                Demo Account
-              </span>
-            </div>*/}
-
-            {/* User Profile */}
-            <div className="flex items-center space-x-3">
-              <div className="h-6 w-6 rounded-full bg-gradient-to-r from-[#369519] to-[#0b570b] flex items-center justify-center">
-                <span className="text-white text-xs font-semibold">EM</span>
-              </div>
-              <div className="hidden md:block text-right">
-                <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Erick Murigi
-                </p>
-                <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                  Admin
-                </p>
-              </div>
-              <Link to="/home">
-                <button className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
-                  <FaSignOutAlt className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'}`} />
+                <button
+                  onClick={() => setOpen(false)}
+                  className={[
+                    "rounded-xl px-3 py-2 text-xs font-semibold border transition",
+                    darkMode
+                      ? "border-white/20 text-white hover:bg-white/10"
+                      : "border-slate-200 text-slate-700 hover:bg-white",
+                  ].join(" ")}
+                >
+                  Close
                 </button>
-              </Link>
+              </div>
+
+              {/* Content grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3">
+                {/* Left: primary list (like screenshot) */}
+                <div className={["md:col-span-2 p-4", darkMode ? "bg-white/5" : "bg-white/40"].join(" ")}>
+                  <div className={darkMode ? "text-white/80 text-xs font-bold mb-3" : "text-slate-700 text-xs font-bold mb-3"}>
+                    MODULES
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {primary.map((item) => (
+                      <Link
+                        key={item.label}
+                        to={item.to}
+                        onClick={() => setOpen(false)}
+                        className={[
+                          "flex items-center gap-3 rounded-2xl px-3 py-3 border transition",
+                          darkMode
+                            ? "border-white/10 hover:bg-white/10 text-white"
+                            : "border-slate-200 hover:bg-white text-slate-900",
+                        ].join(" ")}
+                      >
+                        <span className="h-10 w-10 rounded-2xl bg-[#0f766e] text-white flex items-center justify-center">
+                          {item.icon}
+                        </span>
+                        <div className="text-sm font-semibold">{item.label}</div>
+                      </Link>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 h-px bg-black/10" />
+
+                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {secondaryBottom.map((item) => (
+                      <button
+                        key={item.label}
+                        onClick={item.onClick}
+                        className={[
+                          "flex items-center gap-2 rounded-2xl px-3 py-3 border text-left transition",
+                          darkMode
+                            ? "border-white/10 hover:bg-white/10 text-white"
+                            : "border-slate-200 hover:bg-white text-slate-900",
+                        ].join(" ")}
+                      >
+                        <span className="h-9 w-9 rounded-2xl bg-slate-900/90 text-white flex items-center justify-center">
+                          {item.icon}
+                        </span>
+                        <span className="text-xs font-bold">{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Right: quick tools (like screenshot right column) */}
+                <div className={["p-4", darkMode ? "bg-black/10" : "bg-white/55"].join(" ")}>
+                  <div className={darkMode ? "text-white/80 text-xs font-bold mb-3" : "text-slate-700 text-xs font-bold mb-3"}>
+                    TOOLS
+                  </div>
+
+                  <div className="space-y-2">
+                    {secondaryTop.map((item) => (
+                      <button
+                        key={item.label}
+                        onClick={item.onClick}
+                        className={[
+                          "w-full flex items-center gap-3 rounded-2xl px-3 py-3 border transition",
+                          darkMode
+                            ? "border-white/10 hover:bg-white/10 text-white"
+                            : "border-slate-200 hover:bg-white text-slate-900",
+                        ].join(" ")}
+                      >
+                        <span className="h-10 w-10 rounded-2xl bg-[#0f766e] text-white flex items-center justify-center">
+                          {item.icon}
+                        </span>
+                        <div className="text-sm font-semibold">{item.label}</div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 h-px bg-black/10" />
+
+                  <div className="mt-4 space-y-2">
+                    <button
+                      onClick={() => alert("My Account coming soon")}
+                      className={[
+                        "w-full flex items-center gap-3 rounded-2xl px-3 py-3 border transition",
+                        darkMode
+                          ? "border-white/10 hover:bg-white/10 text-white"
+                          : "border-slate-200 hover:bg-white text-slate-900",
+                      ].join(" ")}
+                    >
+                      <span className="h-10 w-10 rounded-2xl bg-slate-900/90 text-white flex items-center justify-center">
+                        <FaUserCircle />
+                      </span>
+                      <div className="text-sm font-semibold">My Account</div>
+                    </button>
+
+                    <button
+                      onClick={onSignOut}
+                      className={[
+                        "w-full flex items-center gap-3 rounded-2xl px-3 py-3 border transition",
+                        darkMode
+                          ? "border-white/10 hover:bg-white/10 text-white"
+                          : "border-slate-200 hover:bg-white text-slate-900",
+                      ].join(" ")}
+                    >
+                      <span className="h-10 w-10 rounded-2xl bg-red-600/90 text-white flex items-center justify-center">
+                        <FaSignOutAlt />
+                      </span>
+                      <div className="text-sm font-semibold">Sign Out</div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Small “pointer” like attached popover */}
+              <div className="relative">
+                <div className="absolute left-1/2 -translate-x-1/2 -bottom-2 h-4 w-4 rotate-45 border border-white/30 bg-white/70 backdrop-blur-xl" />
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
-    </nav>
+    </>
   );
 };
 
-export default Navbar;
+export default StartMenu;
