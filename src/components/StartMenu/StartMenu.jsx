@@ -75,8 +75,8 @@ const StartMenu = ({ darkMode = false }) => {
   const secondaryBottom = useMemo(
     () => [
       { label: "Company Setup",to: "/company-setup", icon: <FaCogs />, onClick: () => { window.dispatchEvent(new Event("milik:open-company-setup")); setOpen(false); } },
-      { label: "System Setup", icon: <FaCogs />, onClick: () => alert("System Setup coming soon") },
-      { label: "System Admin", icon: <FaUserShield />, onClick: () => alert("System Admin coming soon") },
+        { label: "System Setup",to: "/system-setup", icon: <FaCogs />, onClick: () => { window.dispatchEvent(new Event("milik:open-system-setup")); setOpen(false); } },
+      
       { label: "Switch Company", icon: <FaExchangeAlt />, onClick: () => alert("Switch Company coming soon") },
     ],
     []

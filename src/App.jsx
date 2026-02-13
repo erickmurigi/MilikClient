@@ -18,8 +18,9 @@ import ModulesDashboard from "./pages/moduleDashboard/ModulesDashboard";
 import EditProperty from "./components/Properties/EditProperties";
 import PropertyDetail from "./components/Properties/PropertyDetail";
 import CompanySetupPage from "./pages/companySetup/CompanySetupPage";
-
-
+import SystemSetupPage from "./pages/SystemSetup/SystemSetup";
+import AddCompanyWizard from "./pages/SystemSetup/AddCompanyWizard";
+import AddUserPage from "./pages/SystemSetup/AddUsers";
 function App() {
   return (
     <BrowserRouter>
@@ -33,7 +34,7 @@ function App() {
 
         <Route path="/moduleDashboard" element={<ModulesDashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
-
+        <Route path="/system-setup" element={<SystemSetupPage />} />
         <Route path="/landlords" element={<Landlords />} />
         <Route path="/properties" element={<Properties />} />
         <Route path="/units" element={<Units />} />
@@ -42,11 +43,11 @@ function App() {
         <Route path="/vacants" element={<Vacants />} />
         <Route path="/maintenances" element={<Maintenances />} />
         <Route path="/inspections" element={<Inspections />} />
-
+        <Route path="/add-company" element={<AddCompanyWizard />} />
         <Route path="/properties/new" element={<AddProperty />} />
         <Route path="/properties/:id" element={<PropertyDetail />} />
         <Route path="/properties/edit/:id" element={<EditProperty />} />
-
+        <Route path="/add-user" element={<AddUserPage />} />
         <Route path="/company-setup" element={<CompanySetupPage />} />
       </Routes>
     </BrowserRouter>
