@@ -49,6 +49,7 @@ import {
   FaArrowLeft,
   FaArrowRight,
 } from "react-icons/fa";
+import StartMenu from "../../components/StartMenu/StartMenu";
 
 // Animation Components
 const SavingAnimation = ({ isSaving, isComplete, step }) => {
@@ -263,6 +264,7 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
 
   const renderStep1 = () => (
     <div className="space-y-6">
+        <StartMenu></StartMenu>
       {/* General Information */}
       <div>
         <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
