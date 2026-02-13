@@ -10,6 +10,7 @@ import {
   FaUserClock,
   FaHistory,
 } from "react-icons/fa";
+import StartMenu from "../../components/StartMenu/StartMenu";   
 
 const tabs = [
   { key: "details", label: "COMPANY DETAILS", icon: <FaBuilding /> },
@@ -77,6 +78,7 @@ export default function CompanySetupPage() {
       case "details":
         return (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <StartMenu />
             <Card title="Company Profile" subtitle="Basic property management company information">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="md:col-span-2">

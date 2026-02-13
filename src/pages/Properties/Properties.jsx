@@ -403,7 +403,7 @@ const handleFilterChange = (filterName, value) => {
             )}
 
             {/* Action buttons */}
-            <Link to="/properties/add">
+            <Link to="/properties/new">
               <button className="px-4 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm">
                 <FaPlus className="text-xs" />
                 <span>Add Property</span>
@@ -819,7 +819,7 @@ const handleFilterChange = (filterName, value) => {
                                 ? 'Try adjusting your search or filters'
                                 : 'Get started by adding your first property'}
                             </div>
-                            <Link to="/properties/add">
+                            <Link to="/properties/new">
                               <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors">
                                 Add New Property
                               </button>

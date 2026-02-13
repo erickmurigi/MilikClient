@@ -4,7 +4,8 @@ import { Toaster } from "react-hot-toast";
 import { Link, useNavigate } from "react-router-dom";
 import "./dashboard.css";
 import TabManager from "../../components/Layout/TabManager";
-
+import Navbar from "../../components/Dashboard/Navbar";
+import StartMenu from "../../components/StartMenu/StartMenu";
 const DashboardLayout = ({ children }) => {
   const [darkMode, setDarkMode] = useState(false);
 
@@ -378,7 +379,8 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
   return (
     <div className="relative bg-[#a5c9b7]">
       {/* REMOVED: <Navbar darkMode={darkMode} />  (this is where the old Start button was coming from) */}
-
+    <Navbar />
+     <StartMenu />
       <div className={`flex items-center ${darkMode ? "bg-gray-800" : "bg-[#0A400C]"}`}>
         {/* Application Logo/Title */}
         <div

@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useContext } from "react";
 import { FaBuilding, FaCalendarAlt, FaChevronLeft, FaChevronRight, FaCheck } from "react-icons/fa";
 import { BusinessContext } from "../../context/BusinessContext";
+import StartMenu from "../../components/StartMenu/StartMenu";
 
 const months = [
   "January","February","March","April","May","June",
@@ -140,7 +141,8 @@ const CompanySetupWizard = ({ onDone }) => {
   };
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 md:p-8"> 
+     <StartMenu/>
       {/* Header */}
       <div className="flex items-center gap-3">
         <div className="h-12 w-12 rounded-2xl bg-[#0f766e] text-white flex items-center justify-center shadow">
@@ -170,7 +172,7 @@ const CompanySetupWizard = ({ onDone }) => {
                   <Input
                     value={company.companyName}
                     onChange={(e) => setCompany({ ...company, companyName: e.target.value })}
-                    placeholder="Milik Property Management"
+                    placeholder="Mi Property Management"
                   />
                 </Field>
 
@@ -178,7 +180,7 @@ const CompanySetupWizard = ({ onDone }) => {
                   <Input
                     value={company.legalName}
                     onChange={(e) => setCompany({ ...company, legalName: e.target.value })}
-                    placeholder="Milik Property Management Ltd"
+                    placeholder="Milik Prrty Management Ltd"
                   />
                 </Field>
 

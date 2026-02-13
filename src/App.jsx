@@ -18,13 +18,13 @@ import ModulesDashboard from "./pages/moduleDashboard/ModulesDashboard";
 import EditProperty from "./components/Properties/EditProperties";
 import PropertyDetail from "./components/Properties/PropertyDetail";
 import CompanySetupPage from "./pages/companySetup/CompanySetupPage";
-import StartMenu from "./components/StartMenu/StartMenu";
+
 
 function App() {
   return (
     <BrowserRouter>
       {/* Global Start Menu (must be inside BrowserRouter for useNavigate) */}
-      <StartMenu />
+     
 
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
