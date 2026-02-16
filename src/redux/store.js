@@ -3,7 +3,7 @@ import employeesReducer from "./employeesRedux"
 import {persistStore,persistReducer,FLUSH,REHYDRATE,PAUSE,PERSIST,PURGE,REGISTER, createTransform,} from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
-import businessRedux from "./businessRedux";
+import companiesRedux from "./companiesRedux";
 import printerRedux from "./printerRedux";
 import requestRedux from "./requestServiceRedux";
 import AES from 'crypto-js/aes';
@@ -48,7 +48,7 @@ const peristConfig = {key:"root",version:1,storage, transforms: [Encryptor],}
 
 
 const rootReducer = combineReducers({
-  business: businessRedux,
+  company: companiesRedux,
   employee: employeesReducer,
   printer: printerRedux,
   request: requestRedux,

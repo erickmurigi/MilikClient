@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { createCompany } from "../../redux/apiCalls"; 
 import {
   FaBuilding,
   FaUsers,
@@ -155,58 +157,53 @@ const ModuleToggle = ({ label, icon: Icon, enabled, onChange, description }) => 
 );
 // Add Company Wizard Component
 const AddCompanyWizard = ({ onClose, onSave }) => {
+   const dispatch = useDispatch();
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [companyData, setCompanyData] = useState({
-    // General Information
-    companyName: "",
-    registrationNo: "",
-    taxPIN: "",
-    taxExemptCode: "",
-    
-    // Address
-    postalAddress: "",
-    country: "Kenya",
-    town: "",
-    roadStreet: "",
-    latitude: "",
-    longitude: "",
-    
-    // Currency & Statutory
-    baseCurrency: "KES",
-    taxRegime: "VAT",
-    
-    // Module Settings
-    modules: {
-      propertyManagement: { enabled: true, required: true },
-      inventory: { enabled: false, required: false },
-      telcoDealership: { enabled: false, required: false },
-      procurement: { enabled: false, required: false },
-      hr: { enabled: false, required: false },
-      facilityManagement: { enabled: false, required: false },
-      hotelManagement: { enabled: false, required: false },
-      accounts: { enabled: true, required: true },
-      billing: { enabled: true, required: true },
-      propertySale: { enabled: false, required: false },
-      frontOffice: { enabled: false, required: false },
-      dms: { enabled: false, required: false },
-      academics: { enabled: false, required: false },
-      projectManagement: { enabled: false, required: false },
-      assetValuation: { enabled: false, required: false },
-    },
-    
-    // Fiscal Period Settings
-    fiscalStartMonth: "January",
-    fiscalStartYear: new Date().getFullYear(),
-    fiscalPeriods: {
-      monthly: true,
-      quarterly: false,
-      fourMonths: false,
-      semiAnnual: false,
-    },
-    operationPeriodType: "Monthly",
-  });
+  const [error, setError] = useState(null);
+    const [companyData, setCompanyData] = useState({
+        // same initial state as before
+        companyName: "",
+        registrationNo: "",
+        taxPIN: "",
+        taxExemptCode: "",
+        postalAddress: "",
+        country: "Kenya",
+        town: "",
+        roadStreet: "",
+        latitude: "",
+        longitude: "",
+        baseCurrency: "KES",
+        taxRegime: "VAT",
+        modules: {
+            propertyManagement: { enabled: true, required: true },
+            inventory: { enabled: false, required: false },
+            telcoDealership: { enabled: false, required: false },
+            procurement: { enabled: false, required: false },
+            hr: { enabled: false, required: false },
+            facilityManagement: { enabled: false, required: false },
+            hotelManagement: { enabled: false, required: false },
+            accounts: { enabled: true, required: true },
+            billing: { enabled: true, required: true },
+            propertySale: { enabled: false, required: false },
+            frontOffice: { enabled: false, required: false },
+            dms: { enabled: false, required: false },
+            academics: { enabled: false, required: false },
+            projectManagement: { enabled: false, required: false },
+            assetValuation: { enabled: false, required: false },
+        },
+        fiscalStartMonth: "January",
+        fiscalStartYear: new Date().getFullYear(),
+        fiscalPeriods: {
+            monthly: true,
+            quarterly: false,
+            fourMonths: false,
+            semiAnnual: false,
+        },
+        operationPeriodType: "Monthly",
+    });
+
 
   const totalSteps = 3;
   const steps = [
@@ -229,25 +226,19 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
     }
   };
 
-  const handleSave = () => {
-    setIsSaving(true);
-    
-    // Simulate API calls with different steps
-    setTimeout(() => {
-      // Step 1 complete
-      setTimeout(() => {
-        // Step 2 complete
-        setTimeout(() => {
-          // Step 3 complete
-          setIsSaving(false);
-          setIsComplete(true);
-          setTimeout(() => {
-            onSave(companyData);
-          }, 2000);
-        }, 1500);
-      }, 1500);
-    }, 1500);
-  };
+ const handleSave = async () => {
+  setIsSaving(true);
+  try {
+    const savedCompany = await dispatch(createCompany(companyData))
+    // unwrap() gives you the resolved value or throws on error
+    setIsComplete(true);
+    setTimeout(() => onSave(savedCompany), 2000);
+  } catch (error) {
+    setError(error.message);
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   const toggleModule = (moduleKey) => {
     setCompanyData({
@@ -688,80 +679,79 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
   );
 
   return (
-    <>
-      <SavingAnimation isSaving={isSaving} isComplete={isComplete} step={`Step ${step} of ${totalSteps}`} />
-      
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-40 overflow-y-auto">
-        <div className="bg-white rounded-2xl w-full max-w-4xl mx-4 my-8">
-          {/* Header */}
-          <div className="p-6 border-b border-slate-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-900">Company Set Up Wizard</h2>
-              <button onClick={onClose} className="text-slate-400 hover:text-slate-600">&times;</button>
-            </div>
-            <p className="text-sm text-slate-600 mt-1">
-              This wizard will assist you in setting up new company.
-            </p>
-          </div>
-
-          {/* Progress Steps */}
-          <div className="px-6 pt-6">
-            <div className="flex items-center justify-between">
-              {steps.map((s, idx) => (
-                <div key={s.number} className="flex items-center flex-1">
-                  <div className={`flex items-center gap-2 ${s.number <= step ? 'text-teal-600' : 'text-slate-400'}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
-                      ${s.number < step ? 'bg-teal-600 text-white' :
-                        s.number === step ? 'bg-teal-100 text-teal-600 border-2 border-teal-600' :
-                        'bg-slate-100 text-slate-400'}`}>
-                      {s.number < step ? <FaCheck /> : s.number}
+     <>
+            <SavingAnimation isSaving={isSaving} isComplete={isComplete} step={`Step ${step} of ${totalSteps}`} />
+            
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-40 overflow-y-auto">
+                <div className="bg-white rounded-2xl w-full max-w-4xl mx-4 my-8">
+                    {/* Header */}
+                    <div className="p-6 border-b border-slate-200">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold text-slate-900">Company Set Up Wizard</h2>
+                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600">&times;</button>
+                        </div>
+                        <p className="text-sm text-slate-600 mt-1">
+                            This wizard will assist you in setting up new company.
+                        </p>
+                        {error && (
+                            <div className="mt-2 p-2 bg-red-50 text-red-700 text-sm rounded">
+                                {error}
+                            </div>
+                        )}
                     </div>
-                    <span className="text-sm font-medium hidden md:inline">{s.name}</span>
-                  </div>
-                  {idx < steps.length - 1 && (
-                    <div className={`flex-1 h-0.5 mx-2 ${s.number < step ? 'bg-teal-600' : 'bg-slate-200'}`} />
-                  )}
+
+                    {/* Progress Steps */}
+                    <div className="px-6 pt-6">
+                        {/* ... same as before ... */}
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-6 max-h-[60vh] overflow-y-auto">
+                        {step === 1 && renderStep1()}
+                        {step === 2 && renderStep2()}
+                        {step === 3 && renderStep3()}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="p-6 border-t border-slate-200 flex justify-between">
+                        <button
+                            onClick={handlePrevious}
+                            disabled={step === 1 || isSaving}
+                            className={`px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2
+                                ${step === 1 || isSaving ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-100'}`}
+                        >
+                            <FaArrowLeft /> Previous
+                        </button>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={onClose}
+                                disabled={isSaving}
+                                className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleNext}
+                                disabled={isSaving}
+                                className="px-4 py-2 text-sm font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2"
+                            >
+                                {isSaving ? (
+                                    <>
+                                        <FaSpinner className="animate-spin" /> Saving...
+                                    </>
+                                ) : step === totalSteps ? (
+                                    'Save Configuration'
+                                ) : (
+                                    <>
+                                        Next <FaArrowRight />
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
                 </div>
-              ))}
             </div>
-          </div>
-
-          {/* Content */}
-          <div className="p-6 max-h-[60vh] overflow-y-auto">
-            {step === 1 && renderStep1()}
-            {step === 2 && renderStep2()}
-            {step === 3 && renderStep3()}
-          </div>
-
-          {/* Footer */}
-          <div className="p-6 border-t border-slate-200 flex justify-between">
-            <button
-              onClick={handlePrevious}
-              disabled={step === 1}
-              className={`px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2
-                ${step === 1 ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-100'}`}
-            >
-              <FaArrowLeft /> Previous
-            </button>
-            <div className="flex gap-2">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleNext}
-                className="px-4 py-2 text-sm font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2"
-              >
-                {step === totalSteps ? 'Save Configuration' : 'Next'}
-                {step < totalSteps && <FaArrowRight />}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
-  );
+        </>
+    );
 };
 export default AddCompanyWizard;

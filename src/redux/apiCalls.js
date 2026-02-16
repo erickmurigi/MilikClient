@@ -177,10 +177,23 @@ import {getRequestsFailure, getRequestsStart, getRequestsSuccess,
     createRequestStart, createRequestFailure, createRequestSuccess,
     deleteRequestStart,deleteRequestSuccess,deleteRequestFailure } from "./requestServiceRedux"
 
-import { getBusinessesStart,getBusinessesSuccess,getBusinessesFailure, createBusinessFailure, createBusinessStart, createBusinessSuccess , deleteBusinessStart,
-    deleteBusinessSuccess,
-    deleteBusinessFailure } from "./businessRedux"
-
+import {
+    getCompaniesStart,
+    getCompaniesSuccess,
+    getCompaniesFailure,
+    getCompanyStart,
+    getCompanySuccess,
+    getCompanyFailure,
+    createCompanyStart,
+    createCompanySuccess,
+    createCompanyFailure,
+    updateCompanyStart,
+    updateCompanySuccess,
+    updateCompanyFailure,
+    deleteCompanyStart,
+    deleteCompanySuccess,
+    deleteCompanyFailure
+} from "./companiesRedux";
 
 
 
@@ -308,20 +321,86 @@ export const getRequests = async (dispatch) => {
     }
 }
 
-//Business Section
+// Helper to transform wizard data to backend format
+const transformCompanyData = (data) => {
+  const transformed = { ...data };
 
-export const getBusiness = async (dispatch, krapin) => {
-    dispatch(getBusinessesStart());
-    try {
-        const res = await adminRequests.get(`/businesses/owner/${krapin}`);
-        dispatch(getBusinessesSuccess(res.data));
-    } catch (err) {
-        dispatch(getBusinessesFailure());
+  if (data.modules) {
+    const moduleBooleans = {};
+    for (const [key, value] of Object.entries(data.modules)) {
+      moduleBooleans[key] = value.enabled || false;
     }
+    transformed.modules = moduleBooleans;
+  }
+
+  return transformed;
 };
 
+// GET all companies (with pagination & search)
+export const getCompanies = (queryParams = {}) => async (dispatch) => {
+  dispatch(getCompaniesStart());
+  try {
+    const res = await adminRequests.get('/companies', { params: queryParams });
+    dispatch(getCompaniesSuccess(res.data));
+    return res.data;
+  } catch (err) {
+    dispatch(getCompaniesFailure());
+    throw err;
+  }
+};
 
+// GET single company by ID
+export const getCompany = (id) => async (dispatch) => {
+  dispatch(getCompanyStart());
+  try {
+    const res = await adminRequests.get(`/companies/${id}`);
+    dispatch(getCompanySuccess(res.data));
+    return res.data;
+  } catch (err) {
+    dispatch(getCompanyFailure());
+    throw err;
+  }
+};
 
+// CREATE new company
+export const createCompany = (companyData) => async (dispatch) => {
+  dispatch(createCompanyStart());
+  try {
+    const payload = transformCompanyData(companyData);
+    const res = await adminRequests.post('/companies', payload);
+    dispatch(createCompanySuccess(res.data));
+    return res.data;
+  } catch (err) {
+    dispatch(createCompanyFailure());
+    throw err;
+  }
+};
+
+// UPDATE company by ID
+export const updateCompany = (id, companyData) => async (dispatch) => {
+  dispatch(updateCompanyStart());
+  try {
+    const payload = transformCompanyData(companyData);
+    const res = await adminRequests.put(`/companies/${id}`, payload);
+    dispatch(updateCompanySuccess({ id, company: res.data }));
+    return res.data;
+  } catch (err) {
+    dispatch(updateCompanyFailure());
+    throw err;
+  }
+};
+
+// DELETE company by ID
+export const deleteCompany = (id) => async (dispatch) => {
+  dispatch(deleteCompanyStart());
+  try {
+    await adminRequests.delete(`/companies/${id}`);
+    dispatch(deleteCompanySuccess(id));
+  } catch (err) {
+    dispatch(deleteCompanyFailure());
+    throw err;
+  }
+};
 
 // Get all landlords
 export const getLandlords = async (dispatch, business) => {
