@@ -1,13 +1,6 @@
 /* eslint-disable no-undef */
 import {adminRequests} from "../utils/requestMethods"
 
-//employees actions
-import {createEmployeeFailure, createEmployeeStart, createEmployeeSuccess,
-       deleteEmployeeFailure,deleteEmployeeStart,deleteEmployeeSuccess,
-       getEmployeesFailure, getEmployeesStart, getEmployeesSuccess, 
-       updateEmployeeFailure, updateEmployeeStart, updateEmployeeSuccess} from "./employeesRedux"
-
-
 
 
 import {
@@ -195,55 +188,124 @@ import {
     deleteCompanyFailure
 } from "./companiesRedux";
 
+import {
+  getUsersStart,
+  getUsersSuccess,
+  getUsersFailure,
+  getUserStart,
+  getUserSuccess,
+  getUserFailure,
+  createUserStart,
+  createUserSuccess,
+  createUserFailure,
+  updateUserStart,
+  updateUserSuccess,
+  updateUserFailure,
+  deleteUserStart,
+  deleteUserSuccess,
+  deleteUserFailure,
+  toggleUserLockStart,
+  toggleUserLockSuccess,
+  toggleUserLockFailure,
+} from "./userRedux";
 
-
-
-//employees section
-//getting all employees
-export const getEmployees = async (dispatch, businessId) => {
-    dispatch(getEmployeesStart());
-    try {
-        const res = await adminRequests.get(`/employees?businessId=${businessId}`);
-        dispatch(getEmployeesSuccess(res.data));
-    } catch (err) {
-        dispatch(getEmployeesFailure());
-    }
+// Helper to transform user data (if needed)
+const transformUserData = (data) => {
+  // No transformation needed for now
+  return data;
 };
 
-//creating an employee
-export const createEmployee = async (employee, dispatch) => {
-    dispatch(createEmployeeStart());
-    try {
-        const res = await adminRequests.post(`/employeesAuth/register`, employee);
-        dispatch(createEmployeeSuccess(res.data));
-        return res.data; 
-    } catch (err) {
-        dispatch(createEmployeeFailure());
-        throw err; 
+// Get all users for a company
+export const getUsers = (companyId, queryParams = {}) => async (dispatch) => {
+  dispatch(getUsersStart());
+  try {
+    const params = { ...queryParams, companyId };
+    const res = await adminRequests.get('/users', { params });
+    // Handle paginated response: { users, totalPages, ... }
+    if (res.data && Array.isArray(res.data.users)) {
+      dispatch(getUsersSuccess(res.data.users));
+    } else if (Array.isArray(res.data)) {
+      dispatch(getUsersSuccess(res.data));
+    } else {
+      dispatch(getUsersSuccess([]));
     }
+    return res.data;
+  } catch (err) {
+    dispatch(getUsersFailure());
+    throw err;
+  }
 };
 
-//updating an employee
-export const updateEmployee = async (id,employee,dispatch) => {
-    dispatch(updateEmployeeStart())
-    try{
-        await adminRequests.put(`/employees/${id}`,employee)
-        dispatch(updateEmployeeSuccess({id,employee}))
-    }catch(err){
-        dispatch(updateEmployeeFailure())
-    }
-}
+// Get single user
+export const getUser = (id) => async (dispatch) => {
+  dispatch(getUserStart());
+  try {
+    const res = await adminRequests.get(`/users/${id}`);
+    dispatch(getUserSuccess(res.data));
+    return res.data;
+  } catch (err) {
+    dispatch(getUserFailure());
+    throw err;
+  }
+};
 
-//deleting an employee
-export const deleteEmployee = async (id,dispatch) => {
-    dispatch(deleteEmployeeStart())
-    try{
-        await adminRequests.delete(`/employees/${id}`)
-        dispatch(deleteEmployeeSuccess(id))
-    }catch(err){
-        dispatch(deleteEmployeeFailure())
+// Create new user
+export const createUser = (userData) => async (dispatch) => {
+  dispatch(createUserStart());
+  try {
+    if (!userData.password) {
+      throw new Error("Password is required");
     }
-}
+    const payload = transformUserData(userData);
+    const res = await adminRequests.post('/users', payload);
+    dispatch(createUserSuccess(res.data));
+    return res.data;
+  } catch (err) {
+    dispatch(createUserFailure());
+    throw err;
+  }
+};
+
+// Update user
+export const updateUser = (id, userData) => async (dispatch) => {
+  dispatch(updateUserStart());
+  try {
+    if (userData.password === "") delete userData.password;
+    const payload = transformUserData(userData);
+    const res = await adminRequests.put(`/users/${id}`, payload);
+    dispatch(updateUserSuccess({ id, user: res.data }));
+    return res.data;
+  } catch (err) {
+    dispatch(updateUserFailure());
+    throw err;
+  }
+};
+
+// Delete user
+export const deleteUser = (id) => async (dispatch) => {
+  dispatch(deleteUserStart());
+  try {
+    await adminRequests.delete(`/users/${id}`);
+    dispatch(deleteUserSuccess(id));
+  } catch (err) {
+    dispatch(deleteUserFailure());
+    throw err;
+  }
+};
+
+// Toggle lock status
+export const toggleUserLock = (id) => async (dispatch) => {
+  dispatch(toggleUserLockStart());
+  try {
+    const res = await adminRequests.patch(`/users/${id}/toggle-lock`);
+    dispatch(toggleUserLockSuccess({ id, locked: res.data.locked }));
+    return res.data;
+  } catch (err) {
+    dispatch(toggleUserLockFailure());
+    throw err;
+  }
+};
+
 
 //Printers section
 // Getting all printers

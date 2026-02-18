@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { getUsers, createUser, deleteUser, toggleUserLock } from "../../redux/apiCalls";
 import { Link } from "react-router-dom";
 import {
   FaBuilding,
@@ -798,36 +799,58 @@ const CompaniesTable = ({ companies, onEdit, onDelete, onLock, isLoading }) => {
     </div>
   );
 };
-
-const UsersTable = ({ users, onEdit, onLock, onDelete }) => {
+const UsersTable = ({ users, onEdit, onLock, onDelete, isLoading, selectedCompany }) => {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const recordsPerPage = 15;
 
-  const filteredUsers = users.filter(u => 
+  // Map user data to display fields
+  const mappedUsers = users.map(user => ({
+    id: user._id,
+    name: `${user.surname || ''} ${user.otherNames || ''}`.trim() || '-',
+    email: user.email || '-',
+    phone: user.phoneNumber || '-',
+    status: user.isActive ? 'Active' : 'Inactive',
+    locked: user.locked ? 'Yes' : 'No',
+    adminAccess: user.adminAccess ? 'System Admin' : 'Standard',
+    userProfile: user.profile || '-',
+    companies: selectedCompany?.companyName || '-',
+    createdAt: user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-GB') : '-',
+  }));
+
+  // Filter based on search
+  const filteredUsers = mappedUsers.filter(u =>
     u.name.toLowerCase().includes(search.toLowerCase()) ||
     u.email.toLowerCase().includes(search.toLowerCase()) ||
-    u.adminAccess.toLowerCase().includes(search.toLowerCase())
+    u.phone.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Pagination
   const totalPages = Math.ceil(filteredUsers.length / recordsPerPage);
   const paginatedUsers = filteredUsers.slice(
     (currentPage - 1) * recordsPerPage,
     currentPage * recordsPerPage
   );
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-8">
+        <FaSpinner className="animate-spin text-teal-600 text-2xl" />
+        <span className="ml-2 text-slate-600">Loading users...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <SearchBar 
+        <SearchBar
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search users..."
         />
         <div className="flex gap-2">
-            <Link to="/add-user">
-          <ActionButton icon={<FaPlus />} label="Add User" variant="primary" />
-          </Link>
+          <ActionButton icon={<FaPlus />} label="Add User" variant="primary" onClick={() => {}} />
           <ActionButton icon={<FaFilter />} label="Filter" />
           <ActionButton icon={<FaFileExport />} label="Export" />
         </div>
@@ -835,7 +858,7 @@ const UsersTable = ({ users, onEdit, onLock, onDelete }) => {
 
       <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="w-full text-xs min-w-[1200px]">
             <thead className="bg-slate-50 border-b border-slate-200">
               <tr>
                 <th className="px-3 py-2 text-left font-semibold text-slate-700">Name</th>
@@ -845,62 +868,74 @@ const UsersTable = ({ users, onEdit, onLock, onDelete }) => {
                 <th className="px-3 py-2 text-center font-semibold text-slate-700">Locked</th>
                 <th className="px-3 py-2 text-left font-semibold text-slate-700">Admin Access</th>
                 <th className="px-3 py-2 text-center font-semibold text-slate-700">Profile</th>
-                <th className="px-3 py-2 text-center font-semibold text-slate-700">Companies</th>
+                <th className="px-3 py-2 text-center font-semibold text-slate-700">Company</th>
                 <th className="px-3 py-2 text-left font-semibold text-slate-700">Created</th>
                 <th className="px-3 py-2 text-center font-semibold text-slate-700">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
-              {paginatedUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-slate-50">
-                  <td className="px-3 py-2 font-medium text-slate-900">{user.name}</td>
-                  <td className="px-3 py-2 text-slate-600 max-w-[150px] truncate" title={user.email}>
-                    {user.email}
-                  </td>
-                  <td className="px-3 py-2 text-slate-600">{user.phone || '-'}</td>
-                  <td className="px-3 py-2 text-center">
-                    <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      {user.status}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-center">
-                    {user.locked === 'Yes' ? (
-                      <span className="text-amber-600"><FaLock className="inline" /></span>
-                    ) : (
-                      <span className="text-slate-400"><FaUnlock className="inline" /></span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-slate-600">{user.adminAccess}</td>
-                  <td className="px-3 py-2 text-center text-slate-600">{user.userProfile}</td>
-                  <td className="px-3 py-2 text-center text-slate-600">{user.companies}</td>
-                  <td className="px-3 py-2 text-slate-600">{user.createdAt}</td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => onEdit(user)} className="p-1 hover:bg-blue-50 rounded text-blue-600" title="Edit">
-                        <FaEdit />
-                      </button>
-                      <button onClick={() => onLock(user)} className="p-1 hover:bg-amber-50 rounded text-amber-600" title={user.locked === 'Yes' ? 'Unlock' : 'Lock'}>
-                        {user.locked === 'Yes' ? <FaUnlock /> : <FaLock />}
-                      </button>
-                      <button onClick={() => onDelete(user)} className="p-1 hover:bg-red-50 rounded text-red-600" title="Delete">
-                        <FaTrash />
-                      </button>
-                    </div>
+              {paginatedUsers.length > 0 ? (
+                paginatedUsers.map((user) => (
+                  <tr key={user.id} className="hover:bg-slate-50">
+                    <td className="px-3 py-2 font-medium text-slate-900">{user.name}</td>
+                    <td className="px-3 py-2 text-slate-600 max-w-[150px] truncate" title={user.email}>
+                      {user.email}
+                    </td>
+                    <td className="px-3 py-2 text-slate-600">{user.phone}</td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
+                        user.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {user.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      {user.locked === 'Yes' ? (
+                        <FaLock className="inline text-amber-600" />
+                      ) : (
+                        <FaUnlock className="inline text-slate-400" />
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-slate-600">{user.adminAccess}</td>
+                    <td className="px-3 py-2 text-center text-slate-600">{user.userProfile}</td>
+                    <td className="px-3 py-2 text-center text-slate-600">{user.companies}</td>
+                    <td className="px-3 py-2 text-slate-600">{user.createdAt}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => onEdit(user)} className="p-1 hover:bg-blue-50 rounded text-blue-600" title="Edit">
+                          <FaEdit />
+                        </button>
+                        <button onClick={() => onLock(user.id)} className="p-1 hover:bg-amber-50 rounded text-amber-600" title={user.locked === 'Yes' ? 'Unlock' : 'Lock'}>
+                          {user.locked === 'Yes' ? <FaUnlock /> : <FaLock />}
+                        </button>
+                        <button onClick={() => onDelete(user.id)} className="p-1 hover:bg-red-50 rounded text-red-600" title="Delete">
+                          <FaTrash />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="10" className="px-3 py-4 text-center text-slate-500">
+                    No users found.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
       </div>
 
-      <Pagination 
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={setCurrentPage}
-        totalRecords={filteredUsers.length}
-        recordsPerPage={recordsPerPage}
-      />
+      {filteredUsers.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalRecords={filteredUsers.length}
+          recordsPerPage={recordsPerPage}
+        />
+      )}
     </div>
   );
 };
@@ -979,18 +1014,53 @@ const SystemRightsTable = () => {
   );
 };
 export default function SystemSetupPage() {
+  
   const dispatch = useDispatch();
-  const { companies, isFetching } = useSelector((state) => state.company);
+  const { companies, isFetching: companiesFetching } = useSelector((state) => state.company);
+  const { users, isFetching: usersFetching } = useSelector((state) => state.user);
   const [activeTab, setActiveTab] = useState("companies");
-  const [users] = useState(initialUsers); // still dummy
   const [showAddCompany, setShowAddCompany] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
+  const [selectedCompanyForUsers, setSelectedCompanyForUsers] = useState(null);
 
-   useEffect(() => {
-    dispatch(getCompanies({ limit: 100 })); // fetch companies on mount
+  // Fetch companies on mount
+  useEffect(() => {
+    dispatch(getCompanies({ limit: 100 }));
   }, [dispatch]);
 
+  // Set default company for users when companies load
+  useEffect(() => {
+    if (companies.length > 0 && !selectedCompanyForUsers) {
+      setSelectedCompanyForUsers(companies[0]);
+    }
+  }, [companies]);
+
+  // Fetch users when selected company changes
+  useEffect(() => {
+    if (selectedCompanyForUsers) {
+      dispatch(getUsers(selectedCompanyForUsers._id, { limit: 100 }));
+    }
+  }, [dispatch, selectedCompanyForUsers]);
+
   
+
+  const handleDeleteUser = (userId) => {
+    if (window.confirm("Are you sure you want to delete this user?")) {
+      dispatch(deleteUser(userId));
+    }
+  };
+
+  const handleLockUser = (userId) => {
+    dispatch(toggleUserLock(userId));
+  };
+
+  const handleEditUser = (user) => {
+    console.log("Edit user:", user);
+    // Open edit modal or navigate
+  };
+
+
+
   const tabs = [
     { key: "companies", label: "COMPANIES", icon: <FaBuilding />, count: companies.length },
     { key: "users", label: "USERS", icon: <FaUsers />, count: users.length },
@@ -1011,25 +1081,13 @@ export default function SystemSetupPage() {
     }
   };
 
-  const handleAddUser = (userData) => {
-    // Keep dummy logic for now
-    const newUser = {
-      id: users.length + 1,
-      name: `${userData.surname} ${userData.otherNames}`,
-      email: userData.email,
-      phone: userData.phoneNumber,
-      status: "Active",
-      locked: "No",
-      userControl: userData.userControl ? "Allowed" : "Not Allowed",
-      adminAccess: userData.adminAccess ? "System Administration" : "Property Management",
-      userProfile: userData.profile,
-      companies: "1",
-      createdAt: new Date().toLocaleDateString('en-GB') + " 00:00",
-    };
-    // Since we're not using Redux for users, we'd need to update local state
-    // But we'll keep it simple for now
-    setUsers([...users, newUser]); // Note: we need to add setUsers state if we want to modify
-    setShowAddUser(false);
+  const handleAddUser = async (userData) => {
+    try {
+      await dispatch(createUser(userData)).unwrap();
+      setShowAddUser(false);
+    } catch (error) {
+      alert("Failed to create user: " + error.message);
+    }
   };
 
   const handleEdit = (item) => {
@@ -1093,7 +1151,7 @@ export default function SystemSetupPage() {
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onLock={handleLock}
-                isLoading={isFetching}
+                isLoading={companiesFetching}
               />
               <div className="mt-3 text-right">
                 <ActionButton 
@@ -1109,23 +1167,26 @@ export default function SystemSetupPage() {
         
           
           {activeTab === "users" && (
-            <div>
-              <UsersTable 
-                users={users}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onLock={handleLock}
-              />
-              <div className="mt-3 text-right">
-                <ActionButton 
-                  icon={<FaPlus />} 
-                  label="Add New User" 
-                  variant="primary"
-                  onClick={() => setShowAddUser(true)}
-                />
-              </div>
-            </div>
-          )}
+      <div>
+        
+        <UsersTable
+          users={users}
+          onEdit={handleEditUser}
+          onDelete={handleDeleteUser}
+          onLock={handleLockUser}
+          isLoading={usersFetching}
+          selectedCompany={selectedCompanyForUsers}
+        />
+        <div className="mt-3 text-right">
+          <ActionButton
+            icon={<FaPlus />}
+            label="Add New User"
+            variant="primary"
+            onClick={() => setShowAddUser(true)}
+          />
+        </div>
+      </div>
+    )}
           
           {activeTab === "rights" && (
             <SystemRightsTable />

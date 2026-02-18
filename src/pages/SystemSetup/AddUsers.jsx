@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import StartMenu from "../../components/StartMenu/StartMenu";
 
 const AddUserPage = ({ onClose, onSave, selectedCompany }) => {
+  const [password, setPassword] = useState("");
+const [confirmPassword, setConfirmPassword] = useState("");
   const [userData, setUserData] = useState({
     // General Information
     surname: "",
@@ -98,28 +100,46 @@ const AddUserPage = ({ onClose, onSave, selectedCompany }) => {
 
   const uniqueModules = ["All", ...new Set(userRights.map(r => r.module))];
 
-  const handleSave = () => {
-    // Validate required fields
-    if (!userData.surname || !userData.otherNames || !userData.idNumber || 
-        !userData.phoneNumber || !userData.email || !userData.profile) {
-      alert("Please fill in all required fields");
-      return;
-    }
+ const handleSave = async () => {
+  // Validate required fields
+  if (!userData.surname || !userData.otherNames || !userData.idNumber ||
+      !userData.phoneNumber || !userData.email || !userData.profile) {
+    alert("Please fill in all required fields");
+    return;
+  }
+  if (!password) {
+    alert("Password is required");
+    return;
+  }
+  if (password !== confirmPassword) {
+    alert("Passwords do not match");
+    return;
+  }
 
-    // Save user with rights
-    const finalUserData = {
-      ...userData,
-      rights: userRights.filter(r => r.enabled).map(r => r.id),
-      companyId: selectedCompany?.id,
-      fullName: `${userData.surname} ${userData.otherNames}`.trim(),
-      status: "Active",
-      locked: "No",
-      createdAt: new Date().toLocaleDateString('en-GB') + " " + 
-                 new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-    };
-    onSave(finalUserData);
+  const finalUserData = {
+    surname: userData.surname,
+    otherNames: userData.otherNames,
+    idNumber: userData.idNumber,
+    gender: userData.gender,
+    postalAddress: userData.postalAddress,
+    phoneNumber: userData.phoneNumber,
+    email: userData.email,
+    profile: userData.profile,
+    userControl: userData.userControl,
+    superAdminAccess: userData.superAdminAccess,
+    adminAccess: userData.adminAccess,
+    setupAccess: userData.setupAccess,
+    companySetupAccess: userData.companySetupAccess,
+    moduleAccess: userData.moduleAccess,
+    rights: userRights.filter(r => r.enabled).map(r => r.id),
+    company: selectedCompany?._id,
+    password,
+    isActive: true,
+    locked: false,
   };
 
+  onSave(finalUserData);
+};
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-40 overflow-y-auto">
         <StartMenu></StartMenu>
@@ -180,6 +200,28 @@ const AddUserPage = ({ onClose, onSave, selectedCompany }) => {
                       />
                     </div>
                   </div>
+                  <div>
+  <label className="text-xs font-medium text-slate-700">
+    Password <span className="text-red-500">*</span>
+  </label>
+  <input
+    type="password"
+    value={password}
+    onChange={(e) => setPassword(e.target.value)}
+    className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg"
+  />
+</div>
+<div>
+  <label className="text-xs font-medium text-slate-700">
+    Confirm Password <span className="text-red-500">*</span>
+  </label>
+  <input
+    type="password"
+    value={confirmPassword}
+    onChange={(e) => setConfirmPassword(e.target.value)}
+    className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg"
+  />
+</div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>

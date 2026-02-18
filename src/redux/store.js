@@ -1,5 +1,5 @@
 import {configureStore,combineReducers} from "@reduxjs/toolkit"
-import employeesReducer from "./employeesRedux"
+import userReducer from "./userRedux"
 import {persistStore,persistReducer,FLUSH,REHYDRATE,PAUSE,PERSIST,PURGE,REGISTER, createTransform,} from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
@@ -49,7 +49,7 @@ const peristConfig = {key:"root",version:1,storage, transforms: [Encryptor],}
 
 const rootReducer = combineReducers({
   company: companiesRedux,
-  employee: employeesReducer,
+  user: userReducer,
   printer: printerRedux,
   request: requestRedux,
   
