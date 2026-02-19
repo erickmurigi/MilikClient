@@ -1,11 +1,52 @@
 import React, { useState, useEffect } from "react";
-import StartMenu from "../../components/StartMenu/StartMenu";
 
-const AddUserPage = ({ onClose, onSave, selectedCompany }) => {
+const AddUserPage = ({ onClose, onSave, selectedCompany: initialCompany, companies }) => {
   const [password, setPassword] = useState("");
-const [confirmPassword, setConfirmPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [companySearch, setCompanySearch] = useState("");
+  const [selectedCompany, setSelectedCompany] = useState(() => {
+    // Normalize initialCompany to have { id, name } structure
+    if (initialCompany) {
+      return {
+        id: initialCompany._id,
+        name: initialCompany.companyName || initialCompany.name,
+      };
+    }
+    return null;
+  });
+  const [showCompanyDropdown, setShowCompanyDropdown] = useState(false);
+
+  // Handle both array and paginated object
+  let companiesArray = [];
+  if (Array.isArray(companies)) {
+    companiesArray = companies;
+  } else if (companies && Array.isArray(companies.companies)) {
+    companiesArray = companies.companies;
+  }
+
+  // Map API data to display fields (relevant attributes only)
+  const mappedCompanies = companiesArray.map(company => ({
+    id: company._id,
+    name: company.companyName || company.name || '-',
+    regNo: company.registrationNo || '-',
+    taxPIN: company.taxPIN || '-',
+    email: company.email || '-',
+    country: company.country || '-',
+    town: company.town || '-',
+    baseCurrency: company.baseCurrency || '-',
+    taxRegime: company.taxRegime || '-',
+    status: company.accountStatus || (company.isActive ? 'Active' : 'Inactive'),
+  }));
+
+  // Filter based on search
+  const filteredCompanies = mappedCompanies.filter(c => 
+    c.name.toLowerCase().includes(companySearch.toLowerCase()) ||
+    c.regNo.toLowerCase().includes(companySearch.toLowerCase()) ||
+    c.email.toLowerCase().includes(companySearch.toLowerCase()) ||
+    c.country.toLowerCase().includes(companySearch.toLowerCase())
+  );
+
   const [userData, setUserData] = useState({
-    // General Information
     surname: "",
     otherNames: "",
     idNumber: "",
@@ -13,16 +54,12 @@ const [confirmPassword, setConfirmPassword] = useState("");
     postalAddress: "",
     phoneNumber: "",
     email: "",
-    
-    // User Details
     profile: "",
     userControl: true,
     superAdminAccess: false,
     adminAccess: false,
     setupAccess: false,
     companySetupAccess: false,
-    
-    // Module Access
     moduleAccess: {
       propertyMgmt: "Not allowed",
       propertySale: "Not allowed",
@@ -44,8 +81,6 @@ const [confirmPassword, setConfirmPassword] = useState("");
       dms: "Not allowed",
       academics: "Not allowed",
     },
-    
-    // Companies Access
     companies: [],
   });
 
@@ -100,70 +135,111 @@ const [confirmPassword, setConfirmPassword] = useState("");
 
   const uniqueModules = ["All", ...new Set(userRights.map(r => r.module))];
 
- const handleSave = async () => {
-  // Validate required fields
-  if (!userData.surname || !userData.otherNames || !userData.idNumber ||
-      !userData.phoneNumber || !userData.email || !userData.profile) {
-    alert("Please fill in all required fields");
-    return;
-  }
-  if (!password) {
-    alert("Password is required");
-    return;
-  }
-  if (password !== confirmPassword) {
-    alert("Passwords do not match");
-    return;
-  }
+  const handleSave = async () => {
+    // Validate required fields
+    if (!selectedCompany) {
+      alert("Please select a company");
+      return;
+    }
+    if (!userData.surname || !userData.otherNames || !userData.idNumber ||
+        !userData.phoneNumber || !userData.email || !userData.profile) {
+      alert("Please fill in all required fields");
+      return;
+    }
+    if (!password) {
+      alert("Password is required");
+      return;
+    }
+    if (password !== confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
 
-  const finalUserData = {
-    surname: userData.surname,
-    otherNames: userData.otherNames,
-    idNumber: userData.idNumber,
-    gender: userData.gender,
-    postalAddress: userData.postalAddress,
-    phoneNumber: userData.phoneNumber,
-    email: userData.email,
-    profile: userData.profile,
-    userControl: userData.userControl,
-    superAdminAccess: userData.superAdminAccess,
-    adminAccess: userData.adminAccess,
-    setupAccess: userData.setupAccess,
-    companySetupAccess: userData.companySetupAccess,
-    moduleAccess: userData.moduleAccess,
-    rights: userRights.filter(r => r.enabled).map(r => r.id),
-    company: selectedCompany?._id,
-    password,
-    isActive: true,
-    locked: false,
+    const finalUserData = {
+      surname: userData.surname,
+      otherNames: userData.otherNames,
+      idNumber: userData.idNumber,
+      gender: userData.gender,
+      postalAddress: userData.postalAddress,
+      phoneNumber: userData.phoneNumber,
+      email: userData.email,
+      profile: userData.profile,
+      userControl: userData.userControl,
+      superAdminAccess: userData.superAdminAccess,
+      adminAccess: userData.adminAccess,
+      setupAccess: userData.setupAccess,
+      companySetupAccess: userData.companySetupAccess,
+      moduleAccess: userData.moduleAccess,
+      rights: userRights.filter(r => r.enabled).map(r => r.id),
+      company: selectedCompany.id, // ✅ use the normalized id
+      password,
+      isActive: true,
+      locked: false,
+    };
+
+    onSave(finalUserData);
   };
 
-  onSave(finalUserData);
-};
+  // Handle company selection
+  const selectCompany = (company) => {
+    setSelectedCompany(company); // company already has { id, name } from mappedCompanies
+    setCompanySearch(company.name);
+    setShowCompanyDropdown(false);
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-40 overflow-y-auto">
-        <StartMenu></StartMenu>
-      <div className="bg-white rounded-2xl w-full max-w-6xl mx-4 my-8">
-        {/* Header */}
-        <div className="p-6 border-b border-slate-200">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-40 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col">
+        {/* Fixed Header */}
+        <div className="p-6 border-b border-slate-200 flex-shrink-0">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-slate-900">Add New User</h2>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-2xl">&times;</button>
           </div>
         </div>
 
-        <div className="p-6">
-          {/* Selected Company Indicator */}
-          {selectedCompany && (
-            <div className="bg-teal-50 p-3 rounded-lg mb-4">
-              <div>
-                <span className="text-xs text-teal-700">Adding user to:</span>
-                <span className="ml-2 font-medium text-teal-900">{selectedCompany.name}</span>
-              </div>
+        {/* Scrollable Content */}
+        <div className="p-6 overflow-y-auto flex-1">
+          {/* Company Selection - Autocomplete */}
+          <div className="mb-6">
+            <label className="text-sm font-medium text-slate-700 block mb-1">
+              Select Company <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={companySearch}
+                onChange={(e) => {
+                  setCompanySearch(e.target.value);
+                  setShowCompanyDropdown(true);
+                  if (!e.target.value) setSelectedCompany(null);
+                }}
+                onFocus={() => setShowCompanyDropdown(true)}
+                placeholder="Search for a company..."
+                className="w-full px-4 py-2.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-600"
+              />
+              {showCompanyDropdown && filteredCompanies.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  {filteredCompanies.map(company => (
+                    <div
+                      key={company.id} // ✅ use company.id
+                      onClick={() => selectCompany(company)}
+                      className="px-4 py-2 hover:bg-teal-50 cursor-pointer text-sm"
+                    >
+                      {company.name}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+            {selectedCompany && (
+              <div className="mt-2 text-sm text-teal-700 bg-teal-50 p-2 rounded-lg">
+                <span className="font-medium">Selected: </span>{selectedCompany.name}
+              </div>
+            )}
+          </div>
 
-          {/* Two Column Layout */}
+          {/* Two Column Layout (unchanged) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Left Column - User Information */}
             <div className="space-y-6">
@@ -201,28 +277,27 @@ const [confirmPassword, setConfirmPassword] = useState("");
                     </div>
                   </div>
                   <div>
-  <label className="text-xs font-medium text-slate-700">
-    Password <span className="text-red-500">*</span>
-  </label>
-  <input
-    type="password"
-    value={password}
-    onChange={(e) => setPassword(e.target.value)}
-    className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg"
-  />
-</div>
-<div>
-  <label className="text-xs font-medium text-slate-700">
-    Confirm Password <span className="text-red-500">*</span>
-  </label>
-  <input
-    type="password"
-    value={confirmPassword}
-    onChange={(e) => setConfirmPassword(e.target.value)}
-    className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg"
-  />
-</div>
-
+                    <label className="text-xs font-medium text-slate-700">
+                      Password <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-700">
+                      Confirm Password <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg"
+                    />
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs font-medium text-slate-700">
@@ -250,7 +325,6 @@ const [confirmPassword, setConfirmPassword] = useState("");
                       </select>
                     </div>
                   </div>
-
                   <div>
                     <label className="text-xs font-medium text-slate-700">Postal Address</label>
                     <input
@@ -261,7 +335,6 @@ const [confirmPassword, setConfirmPassword] = useState("");
                       placeholder="Postal address"
                     />
                   </div>
-
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-xs font-medium text-slate-700">
@@ -350,7 +423,7 @@ const [confirmPassword, setConfirmPassword] = useState("");
               </div>
             </div>
 
-            {/* Right Column - Module Access */}
+            {/* Right Column - Module Access (unchanged) */}
             <div>
               <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
                 <span className="w-1 h-4 bg-teal-600 rounded-full"></span>
@@ -418,7 +491,7 @@ const [confirmPassword, setConfirmPassword] = useState("");
             </div>
           </div>
 
-          {/* User Rights Section */}
+          {/* User Rights Section (unchanged) */}
           <div className="mt-6 border-t border-slate-200 pt-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
@@ -520,22 +593,22 @@ const [confirmPassword, setConfirmPassword] = useState("");
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Footer Buttons */}
-          <div className="mt-6 flex justify-end gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg border border-slate-200"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 text-sm font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-700"
-            >
-              Create User
-            </button>
-          </div>
+        {/* Fixed Footer */}
+        <div className="p-6 border-t border-slate-200 flex-shrink-0 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg border border-slate-200"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-4 py-2 text-sm font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+          >
+            Create User
+          </button>
         </div>
       </div>
     </div>
