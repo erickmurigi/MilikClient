@@ -585,7 +585,7 @@ function Home() {
       {/* WhatsApp Floating Button */}
       <div className="fixed bottom-8 right-8 z-50">
         <a
-          href="https://wa.me/254791483607"
+          href="https://wa.me/254790607640"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-center h-16 w-16 rounded-full bg-[#286323] text-white shadow-xl hover:shadow-2xl hover:scale-110 transition-all"
