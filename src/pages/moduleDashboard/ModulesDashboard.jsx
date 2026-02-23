@@ -1,7 +1,6 @@
 // pages/ModulesDashboard/ModulesDashboard.jsx
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import StartMenu from "../../components/StartMenu/StartMenu";
 import {
   FaBuilding,
   FaChartLine,
@@ -42,7 +41,7 @@ const ModulesDashboard = () => {
         status: "active",
         route: "/dashboard",
         icon: 
-          <img src="/logo.png" alt="Milik" className="h-30 w-20 object-contain" />,
+          <img src="/logo.png" alt="Milik" className="h-8 w-10" />,
         accent: "from-emerald-600 to-green-700",
       },
       {
@@ -63,9 +62,6 @@ const ModulesDashboard = () => {
         icon: <FaWarehouse className="text-2xl" />,
         accent: "from-sky-600 to-cyan-600",
       },
-
-
-      // ===== LOCKED (future premium) =====
       {
         id: "crm",
         title: "CRM",
@@ -134,7 +130,7 @@ const ModulesDashboard = () => {
       return;
     }
     if (m.status === "coming") {
-      alert(`${m.title} is coming soon. We’ll activate it once it’s ready.`);
+      alert(`${m.title} is coming soon! Stay tuned for updates.`);
       return;
     }
     if (m.status === "locked") {
@@ -162,8 +158,8 @@ const ModulesDashboard = () => {
               </div>
             </div>
             <div className="leading-tight">
-              <div className="text-lg font-extrabold text-slate-900">Milik Modules</div>
-              <div className="text-xs text-slate-600">Choose a module to launch</div>
+              <div className="text-lg font-extrabold text-slate-900">Your Modules</div>
+              <div className="text-xs text-slate-600">Click a module to launch</div>
             </div>
           </div>
 
@@ -314,7 +310,6 @@ const ModulesDashboard = () => {
 
         {/* Footer note */}
         <div className="mt-6 text-xs text-slate-500">
-          Tip: Use search to quickly find modules. Locked modules can be enabled later per your plan.
         </div>
       </main>
     </div>
