@@ -15,14 +15,23 @@ import {
   FaDownload as FaDownloadIcon,
   FaTrash,
   FaTrashAlt,
+  FaEdit,
+  FaRedoAlt,
+  FaArchive,
+  FaUndo,
+  FaChevronDown,
 } from "react-icons/fa";
 
 const STORAGE_KEY = "milik_landlords_v1";
 const ITEMS_PER_PAGE = 50;
 
+const MILIK_GREEN = "bg-[#0B3B2E]"; // deep MILIK-ish green
+const MILIK_GREEN_HOVER = "hover:bg-[#0A3127]";
+const MILIK_ORANGE = "bg-[#FF8C00]";
+const MILIK_ORANGE_HOVER = "hover:bg-[#e67e00]";
+
 const Landlords = () => {
   // Table + UI state
-  const [searchTerm, setSearchTerm] = useState("");
   const [selectedLandlords, setSelectedLandlords] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -33,15 +42,30 @@ const Landlords = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingId, setEditingId] = useState(null);
 
-  // Filters
-  const [filterField, setFilterField] = useState("any"); // any | code | name | regId | pin | location | email | phone
-  const [filterPortal, setFilterPortal] = useState("any"); // any | Enabled | Disabled
-  const [filterPropertiesCount, setFilterPropertiesCount] = useState("any"); // any | 1-5 | 6-10 | 10+
-  const [filterLocation, setFilterLocation] = useState("any"); // any | value
-  const [filterStatus, setFilterStatus] = useState("any"); // any | Active | Archived
-
   // Data
   const [landlords, setLandlords] = useState([]);
+
+  // ---- NEW: Draft filters (typed) + Applied filters (used for searching) ----
+  const emptyFilters = {
+    status: "any", // any | Active | Archived
+    portal: "any", // any | Enabled | Disabled
+    propsCount: "any", // any | 1-5 | 6-10 | 10+
+    location: "any",
+
+    code: "",
+    name: "",
+    regId: "",
+    pin: "",
+    email: "",
+    phone: "",
+  };
+
+  const [draftFilters, setDraftFilters] = useState(emptyFilters);
+  const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
+
+  // Dropdown (Archive/Restore)
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
+  const actionMenuRef = useRef(null);
 
   // Modal form state
   const [formData, setFormData] = useState({
@@ -54,8 +78,8 @@ const Landlords = () => {
     email: "",
     phoneNumber: "",
     location: "",
-    portalAccess: "Disabled", // allow edit
-    status: "Active", // Active | Archived
+    portalAccess: "Disabled",
+    status: "Active",
   });
 
   const [attachments, setAttachments] = useState([]);
@@ -118,6 +142,16 @@ const Landlords = () => {
     }
   }, [landlords]);
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (!actionMenuRef.current) return;
+      if (!actionMenuRef.current.contains(e.target)) setActionMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
   // Reset selectAll whenever page changes
   useEffect(() => {
     setSelectAll(false);
@@ -133,74 +167,93 @@ const Landlords = () => {
     return ["any", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
   }, [landlords]);
 
-  // --- SEARCH / FILTERS ---
-  const matchesSearch = (l) => {
-    const term = normalize(searchTerm);
-    if (!term) return true;
+  // --- APPLY SEARCH (button) ---
+  const applySearch = () => {
+    setAppliedFilters({
+      ...draftFilters,
+      code: draftFilters.code.trim(),
+      name: draftFilters.name.trim(),
+      regId: draftFilters.regId.trim(),
+      pin: draftFilters.pin.trim(),
+      email: draftFilters.email.trim(),
+      phone: draftFilters.phone.trim(),
+    });
+    setCurrentPage(1);
+    setSelectedLandlords([]);
+    setSelectAll(false);
+  };
 
-    const fields = {
-      code: normalize(l.code),
-      name: normalize(l.name),
-      status: normalize(l.status),
-      regId: normalize(l.regId),
-      pin: normalize(l.pin),
-      address: normalize(l.address),
-      location: normalize(l.location),
-      email: normalize(l.email),
-      phone: normalize(l.phone),
-    };
+  const resetFilters = () => {
+    setDraftFilters(emptyFilters);
+    setAppliedFilters(emptyFilters);
+    setSelectedLandlords([]);
+    setSelectAll(false);
+    setCurrentPage(1);
+    setActionMenuOpen(false);
+  };
 
-    // IMPORTANT: user asked search by name, code, status
-    // We still keep "any" and other fields for flexibility
-    if (filterField === "any") return Object.values(fields).some((x) => x.includes(term));
-    return (fields[filterField] || "").includes(term);
+  const onFilterEnter = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      applySearch();
+    }
+  };
+
+  // --- FILTER LOGIC (uses appliedFilters only) ---
+  const matchesText = (fieldValue, query) => {
+    const q = normalize(query);
+    if (!q) return true;
+    return normalize(fieldValue).includes(q);
   };
 
   const matchesPortal = (l) => {
-    if (filterPortal === "any") return true;
-    return String(l.portalAccess) === filterPortal;
+    if (appliedFilters.portal === "any") return true;
+    return String(l.portalAccess) === appliedFilters.portal;
   };
 
   const matchesLocation = (l) => {
-    if (filterLocation === "any") return true;
-    return String(l.location) === filterLocation;
+    if (appliedFilters.location === "any") return true;
+    return String(l.location) === appliedFilters.location;
   };
 
   const matchesStatus = (l) => {
-    if (filterStatus === "any") return true;
-    return String(l.status || "Active") === filterStatus;
+    if (appliedFilters.status === "any") return true;
+    return String(l.status || "Active") === appliedFilters.status;
   };
 
   const matchesPropertiesCount = (l) => {
-    if (filterPropertiesCount === "any") return true;
+    if (appliedFilters.propsCount === "any") return true;
     const n = Number(l.activeProperties || 0);
     if (Number.isNaN(n)) return false;
 
-    if (filterPropertiesCount === "1-5") return n >= 1 && n <= 5;
-    if (filterPropertiesCount === "6-10") return n >= 6 && n <= 10;
-    if (filterPropertiesCount === "10+") return n >= 11;
+    if (appliedFilters.propsCount === "1-5") return n >= 1 && n <= 5;
+    if (appliedFilters.propsCount === "6-10") return n >= 6 && n <= 10;
+    if (appliedFilters.propsCount === "10+") return n >= 11;
     return true;
+  };
+
+  const matchesTypedFields = (l) => {
+    return (
+      matchesText(l.code, appliedFilters.code) &&
+      matchesText(l.name, appliedFilters.name) &&
+      matchesText(l.regId, appliedFilters.regId) &&
+      matchesText(l.pin, appliedFilters.pin) &&
+      matchesText(l.email, appliedFilters.email) &&
+      matchesText(l.phone, appliedFilters.phone)
+    );
   };
 
   const filteredLandlords = useMemo(() => {
     return landlords.filter(
       (l) =>
-        matchesSearch(l) &&
+        matchesTypedFields(l) &&
         matchesStatus(l) &&
         matchesPortal(l) &&
         matchesLocation(l) &&
         matchesPropertiesCount(l)
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    landlords,
-    searchTerm,
-    filterField,
-    filterStatus,
-    filterPortal,
-    filterLocation,
-    filterPropertiesCount,
-  ]);
+  }, [landlords, appliedFilters]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredLandlords.length / ITEMS_PER_PAGE));
@@ -237,7 +290,7 @@ const Landlords = () => {
 
   // Zebra + selection styling
   const getRowClass = (index, landlordId) => {
-    if (selectedLandlords.includes(landlordId)) return "bg-[#addbb2] hover:bg-[#c8e6c9]";
+    if (selectedLandlords.includes(landlordId)) return "bg-[#CDE7D3] hover:bg-[#DFF1E3]";
     return index % 2 === 0 ? "bg-white hover:bg-[#f8f8f8]" : "bg-[#f9f9f9] hover:bg-[#f0f0f0]";
   };
 
@@ -445,39 +498,25 @@ const Landlords = () => {
     setCurrentPage(1);
   };
 
-  // --- TOP BAR BUTTON ACTIONS ---
-  const resetFilters = () => {
-    setSearchTerm("");
-    setFilterField("any");
-    setFilterStatus("any");
-    setFilterPortal("any");
-    setFilterPropertiesCount("any");
-    setFilterLocation("any");
-    setSelectedLandlords([]);
-    setSelectAll(false);
-    setCurrentPage(1);
-  };
-
+  // --- TOP BAR ACTIONS ---
   const archiveSelected = () => {
     if (selectedLandlords.length === 0) return;
     setLandlords((prev) =>
       prev.map((l) =>
-        selectedLandlords.includes(l.id)
-          ? { ...l, status: "Archived", updatedAt: new Date().toISOString() }
-          : l
+        selectedLandlords.includes(l.id) ? { ...l, status: "Archived", updatedAt: new Date().toISOString() } : l
       )
     );
+    setActionMenuOpen(false);
   };
 
   const restoreSelected = () => {
     if (selectedLandlords.length === 0) return;
     setLandlords((prev) =>
       prev.map((l) =>
-        selectedLandlords.includes(l.id)
-          ? { ...l, status: "Active", updatedAt: new Date().toISOString() }
-          : l
+        selectedLandlords.includes(l.id) ? { ...l, status: "Active", updatedAt: new Date().toISOString() } : l
       )
     );
+    setActionMenuOpen(false);
   };
 
   const deleteSelected = () => {
@@ -502,165 +541,192 @@ const Landlords = () => {
     <DashboardLayout>
       <div className="flex flex-col h-full p-0 bg-gray-50">
         {/* Filters Row */}
-        <div className="flex-shrink-0 pt-1 px-2">
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            {/* Status filter */}
-            <select
-              value={filterStatus}
-              onChange={(e) => {
-                setFilterStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors"
-            >
-              <option value="any">Status</option>
-              <option value="Active">Active</option>
-              <option value="Archived">Archived</option>
-            </select>
+        <div className="flex-shrink-0 pt-2 px-2">
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2">
+            {/* Row 1: dropdown filters */}
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={draftFilters.status}
+                onChange={(e) => setDraftFilters((p) => ({ ...p, status: e.target.value }))}
+                className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-[#0B3B2E] bg-[#DDEFE1] text-gray-800 hover:bg-white transition-colors"
+              >
+                <option value="any">Status</option>
+                <option value="Active">Active</option>
+                <option value="Archived">Archived</option>
+              </select>
 
-            {/* Search field selector */}
-            <select
-              value={filterField}
-              onChange={(e) => {
-                setFilterField(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors"
-            >
-              <option value="any">Search: Any Field</option>
-              <option value="code">Landlord Code</option>
-              <option value="name">Landlord Name</option>
-              <option value="status">Status</option>
-              <option value="regId">Reg No./ID</option>
-              <option value="pin">PIN No.</option>
-              <option value="location">Location</option>
-              <option value="email">Email</option>
-              <option value="phone">Phone</option>
-            </select>
+              <select
+                value={draftFilters.portal}
+                onChange={(e) => setDraftFilters((p) => ({ ...p, portal: e.target.value }))}
+                className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-[#0B3B2E] bg-[#DDEFE1] text-gray-800 hover:bg-white transition-colors"
+              >
+                <option value="any">Portal Access</option>
+                <option value="Enabled">Enabled</option>
+                <option value="Disabled">Disabled</option>
+              </select>
 
-            {/* Portal filter */}
-            <select
-              value={filterPortal}
-              onChange={(e) => {
-                setFilterPortal(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors"
-            >
-              <option value="any">Portal Access</option>
-              <option value="Enabled">Enabled</option>
-              <option value="Disabled">Disabled</option>
-            </select>
+              <select
+                value={draftFilters.propsCount}
+                onChange={(e) => setDraftFilters((p) => ({ ...p, propsCount: e.target.value }))}
+                className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-[#0B3B2E] bg-[#DDEFE1] text-gray-800 hover:bg-white transition-colors"
+              >
+                <option value="any">Properties Count</option>
+                <option value="1-5">1-5 Properties</option>
+                <option value="6-10">6-10 Properties</option>
+                <option value="10+">10+ Properties</option>
+              </select>
 
-            {/* Properties count filter */}
-            <select
-              value={filterPropertiesCount}
-              onChange={(e) => {
-                setFilterPropertiesCount(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors"
-            >
-              <option value="any">Properties Count</option>
-              <option value="1-5">1-5 Properties</option>
-              <option value="6-10">6-10 Properties</option>
-              <option value="10+">10+ Properties</option>
-            </select>
+              <select
+                value={draftFilters.location}
+                onChange={(e) => setDraftFilters((p) => ({ ...p, location: e.target.value }))}
+                className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-[#0B3B2E] bg-[#DDEFE1] text-gray-800 hover:bg-white transition-colors"
+              >
+                {uniqueLocations.map((loc) => (
+                  <option key={loc} value={loc}>
+                    {loc === "any" ? "Location" : loc}
+                  </option>
+                ))}
+              </select>
 
-            {/* Location filter */}
-            <select
-              value={filterLocation}
-              onChange={(e) => {
-                setFilterLocation(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors"
-            >
-              {uniqueLocations.map((loc) => (
-                <option key={loc} value={loc}>
-                  {loc === "any" ? "Location" : loc}
-                </option>
-              ))}
-            </select>
+              {/* Search button */}
+              <button
+                onClick={applySearch}
+                className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${MILIK_ORANGE} ${MILIK_ORANGE_HOVER}`}
+                title="Search using the fields"
+              >
+                <FaSearch className="text-xs" />
+                Search
+              </button>
 
-            {/* Search input (REDUCED WIDTH to make space for buttons) */}
-            <div className="relative w-full sm:w-[320px] md:w-[360px] lg:w-[420px]">
-              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
-              <input
-                type="text"
-                placeholder="Search by Landlord Name or Code..."
-                className="w-full pl-10 pr-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1);
-                }}
-              />
+              {/* Reset */}
+              <button
+                onClick={resetFilters}
+                className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
+                title="Reset filters and selection"
+              >
+                <FaRedoAlt className="text-xs" />
+                Reset
+              </button>
+
+              {/* Edit */}
+              <button
+                onClick={openEditModal}
+                disabled={!canEdit}
+                className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${
+                  canEdit ? `${MILIK_GREEN} ${MILIK_GREEN_HOVER}` : "bg-gray-400 cursor-not-allowed"
+                }`}
+                title={canEdit ? "Edit selected landlord" : "Select exactly 1 landlord to edit"}
+              >
+                <FaEdit className="text-xs" />
+                Edit
+              </button>
+
+              {/* Archive / Restore dropdown */}
+              <div className="relative" ref={actionMenuRef}>
+                <button
+                  onClick={() => setActionMenuOpen((v) => !v)}
+                  disabled={selectedCount === 0}
+                  className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${
+                    selectedCount > 0 ? `${MILIK_GREEN} ${MILIK_GREEN_HOVER}` : "bg-gray-400 cursor-not-allowed"
+                  }`}
+                  title={selectedCount ? "Archive/Restore selected landlord(s)" : "Select landlord(s) first"}
+                >
+                  <FaArchive className="text-xs" />
+                  Actions
+                  <FaChevronDown className="text-[10px] opacity-90" />
+                </button>
+
+                {actionMenuOpen && selectedCount > 0 && (
+                  <div className="absolute mt-1 right-0 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
+                    <button
+                      onClick={archiveSelected}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <FaArchive className="text-xs text-gray-700" />
+                      Archive
+                    </button>
+                    <button
+                      onClick={restoreSelected}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <FaUndo className="text-xs text-gray-700" />
+                      Restore
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Delete */}
+              <button
+                onClick={deleteSelected}
+                disabled={selectedCount === 0}
+                className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${
+                  selectedCount > 0 ? "bg-red-600 hover:bg-red-700" : "bg-gray-400 cursor-not-allowed"
+                }`}
+                title={selectedCount ? "Delete selected landlord(s)" : "Select landlord(s) to delete"}
+              >
+                <FaTrash className="text-xs" />
+                Delete
+              </button>
+
+              {/* Existing actions */}
+              <button
+                onClick={openAddModal}
+                className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
+              >
+                <FaPlus className="text-xs" />
+                <span>Add Landlord</span>
+              </button>
+
+              <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
+                <FaFileExport className="text-xs" />
+                <span>Export</span>
+              </button>
+
+              <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
+                <FaEllipsisH className="text-xs" />
+                <span>More</span>
+              </button>
             </div>
 
-            {/* Buttons area (the highlighted space) */}
-            <button
-              onClick={resetFilters}
-              className="px-3 py-1 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-bold"
-              title="Reset search, filters and selection"
-            >
-              RESET
-            </button>
-
-            <button
-              onClick={openEditModal}
-              disabled={!canEdit}
-              className="px-3 py-1 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-              title={canEdit ? "Edit selected landlord" : "Select exactly 1 landlord to edit"}
-            >
-              EDIT LANDLORD
-            </button>
-
-            <button
-              onClick={archiveSelected}
-              disabled={selectedCount === 0}
-              className="px-3 py-1 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-              title={selectedCount ? "Archive selected landlord(s)" : "Select landlord(s) to archive"}
-            >
-              ARCHIVE LANDLORD
-            </button>
-
-            <button
-              onClick={restoreSelected}
-              disabled={selectedCount === 0}
-              className="px-3 py-1 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-              title={selectedCount ? "Restore selected landlord(s)" : "Select landlord(s) to restore"}
-            >
-              RESTORE LANDLORD
-            </button>
-
-            <button
-              onClick={deleteSelected}
-              disabled={selectedCount === 0}
-              className="px-3 py-1 text-xs border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors shadow-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed"
-              title={selectedCount ? "Delete selected landlord(s)" : "Select landlord(s) to delete"}
-            >
-              DELETE LANDLORD
-            </button>
-
-            {/* Existing right-side actions */}
-            <button
-              onClick={openAddModal}
-              className="px-4 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
-            >
-              <FaPlus className="text-xs" />
-              <span>Add Landlord</span>
-            </button>
-
-            <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
-              <FaFileExport className="text-xs" />
-              <span>Export</span>
-            </button>
-
-            <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
-              <FaEllipsisH className="text-xs" />
-              <span>More</span>
-            </button>
+            {/* Row 2: typed fields */}
+            <div className="mt-2 grid grid-cols-2 md:grid-cols-6 gap-2">
+              <input
+                value={draftFilters.code}
+                onChange={(e) => setDraftFilters((p) => ({ ...p, code: e.target.value }))}
+                onKeyDown={onFilterEnter}
+                placeholder="Landlord Code"
+                className="px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0B3B2E] bg-white"
+              />
+              <input
+                value={draftFilters.name}
+                onChange={(e) => setDraftFilters((p) => ({ ...p, name: e.target.value }))}
+                onKeyDown={onFilterEnter}
+                placeholder="Landlord Name"
+                className="px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0B3B2E] bg-white"
+              />
+              <input
+                value={draftFilters.regId}
+                onChange={(e) => setDraftFilters((p) => ({ ...p, regId: e.target.value }))}
+                onKeyDown={onFilterEnter}
+                placeholder="Reg/ID No."
+                className="px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0B3B2E] bg-white"
+              />
+              <input
+                value={draftFilters.email}
+                onChange={(e) => setDraftFilters((p) => ({ ...p, email: e.target.value }))}
+                onKeyDown={onFilterEnter}
+                placeholder="Email"
+                className="px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0B3B2E] bg-white"
+              />
+              <input
+                value={draftFilters.phone}
+                onChange={(e) => setDraftFilters((p) => ({ ...p, phone: e.target.value }))}
+                onKeyDown={onFilterEnter}
+                placeholder="Phone"
+                className="px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0B3B2E] bg-white"
+              />
+            </div>
           </div>
         </div>
 
@@ -676,7 +742,7 @@ const Landlords = () => {
                 <thead>
                   <tr className="sticky top-0 z-10">
                     <th
-                      className="px-3 py-1 text-left font-bold text-gray-800 border border-gray-200 bg-[#addbb2]"
+                      className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]"
                       style={{ width: "50px", minWidth: "50px", maxWidth: "50px" }}
                     >
                       <input
@@ -693,7 +759,7 @@ const Landlords = () => {
                       return (
                         <th
                           key={column.key}
-                          className="relative px-3 py-1 text-left font-bold text-gray-800 border border-gray-200 bg-[#addbb2]"
+                          className="relative px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]"
                           style={{
                             width: `${width}px`,
                             minWidth: "80px",
@@ -703,11 +769,11 @@ const Landlords = () => {
                           <div className="flex items-center justify-between">
                             <span className="truncate">{column.label}</span>
                             <div
-                              className="w-2 h-4 ml-1 cursor-col-resize hover:bg-gray-300 flex items-center justify-center"
+                              className="w-2 h-4 ml-1 cursor-col-resize hover:bg-white/20 flex items-center justify-center rounded"
                               onMouseDown={(e) => startResizing(column.key, e)}
                               title="Drag to resize"
                             >
-                              <FaGripVertical className="text-gray-400 text-xs" />
+                              <FaGripVertical className="text-white/70 text-xs" />
                             </div>
                           </div>
                         </th>
@@ -748,7 +814,6 @@ const Landlords = () => {
                           {landlord.name}
                         </td>
 
-                        {/* Status */}
                         <td className="px-3 py-1 border border-gray-200 align-top">
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap border ${
@@ -830,9 +895,7 @@ const Landlords = () => {
                       >
                         <div className="flex flex-col items-center justify-center py-8">
                           <div className="text-lg font-bold text-gray-400 mb-2">No landlords found</div>
-                          <div className="text-sm text-gray-500">
-                            Click <span className="font-semibold">Add Landlord</span> to create your first record
-                          </div>
+                          <div className="text-sm text-gray-500">Use the filter fields above, then click Search</div>
                         </div>
                       </td>
                     </tr>
@@ -848,16 +911,13 @@ const Landlords = () => {
                   <div className="flex items-center gap-4">
                     <span className="font-bold">
                       Showing{" "}
-                      <span className="font-bold">
-                        {filteredLandlords.length === 0 ? 0 : startIndex + 1}
-                      </span>{" "}
-                      to{" "}
-                      <span className="font-bold">{Math.min(endIndex, filteredLandlords.length)}</span>{" "}
-                      of <span className="font-bold">{filteredLandlords.length}</span> landlords
+                      <span className="font-bold">{filteredLandlords.length === 0 ? 0 : startIndex + 1}</span> to{" "}
+                      <span className="font-bold">{Math.min(endIndex, filteredLandlords.length)}</span> of{" "}
+                      <span className="font-bold">{filteredLandlords.length}</span> landlords
                     </span>
 
                     {selectedLandlords.length > 0 && (
-                      <span className="bg-[#addbb2] text-gray-800 px-2 py-0.5 rounded-full text-xs font-bold border border-green-300">
+                      <span className="bg-[#DDEFE1] text-gray-900 px-2 py-0.5 rounded-full text-xs font-bold border border-[#0B3B2E]/30">
                         {selectedLandlords.length} selected
                       </span>
                     )}
@@ -878,14 +938,18 @@ const Landlords = () => {
                   <div className="flex items-center gap-1">
                     {[...Array(totalPages)].map((_, i) => {
                       const page = i + 1;
-                      if (page === 1 || page === totalPages || (page >= safeCurrentPage - 1 && page <= safeCurrentPage + 1)) {
+                      if (
+                        page === 1 ||
+                        page === totalPages ||
+                        (page >= safeCurrentPage - 1 && page <= safeCurrentPage + 1)
+                      ) {
                         return (
                           <button
                             key={page}
                             onClick={() => goToPage(page)}
                             className={`px-3 py-1.5 min-w-[32px] text-xs rounded-lg border transition-colors font-bold ${
                               safeCurrentPage === page
-                                ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700"
+                                ? "bg-[#0B3B2E] text-white border-[#0B3B2E] hover:bg-[#0A3127]"
                                 : "border-gray-300 hover:bg-gray-50"
                             }`}
                           >
@@ -1108,7 +1172,7 @@ const Landlords = () => {
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="px-4 py-2 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors"
+                        className={`px-4 py-2 text-xs text-white rounded-lg flex items-center gap-2 ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
                       >
                         <FaPaperclip className="text-xs" />
                         Add
@@ -1174,10 +1238,6 @@ const Landlords = () => {
                       </div>
                     )}
                   </div>
-
-                  <div className="mb-2">
-                    <h3 className="text-sm font-semibold text-gray-800">LANDLORD DETAILS</h3>
-                  </div>
                 </form>
               </div>
 
@@ -1217,7 +1277,7 @@ const Landlords = () => {
                   <button
                     type="submit"
                     form="landlordForm"
-                    className="px-6 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
+                    className={`px-6 py-2 text-sm text-white rounded-lg transition-colors flex items-center gap-2 ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
                   >
                     <FaSave /> {isEditMode ? "Save Changes" : "Save Landlord"}
                   </button>
