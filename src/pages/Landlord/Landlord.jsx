@@ -685,7 +685,9 @@ const Landlords = () => {
 
               <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
                 <FaEllipsisH className="text-xs" />
-                <span>More</span>
+                <span><strong></strong>More</span>
+
+
               </button>
             </div>
 
