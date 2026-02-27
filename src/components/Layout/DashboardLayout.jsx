@@ -10,42 +10,34 @@ const DashboardLayout = ({ children }) => {
   const [darkMode, setDarkMode] = useState(false);
 
   return (
-    <div className={`min-h-screen ${darkMode ? "dark bg-gray-900" : "bg-gray-50"}`}>
+    <div className={`min-h-screen ${darkMode ? 'dark bg-gray-900' : 'bg-white'}`}>
       <Toaster
         position="top-right"
         toastOptions={{
           duration: 4000,
           style: {
-            background: darkMode ? "#374151" : "#FFFFFF",
-            color: darkMode ? "#FFFFFF" : "#374151",
-            border: `1px solid ${darkMode ? "#4B5563" : "#E5E7EB"}`,
+            background: darkMode ? '#374151' : '#FFFFFF',
+            color: darkMode ? '#FFFFFF' : '#374151',
+            border: `1px solid ${darkMode ? '#4B5563' : '#E5E7EB'}`,
           },
         }}
       />
 
-      {/* Fixed Navbar with high z-index */}
-      <div
-        className={`fixed top-0 left-0 right-0 z-50 ${
-          darkMode ? "bg-gray-800" : "bg-white"
-        } border-b ${darkMode ? "border-gray-700" : "border-gray-200"}`}
-      >
-        <TopToolbar darkMode={darkMode} setDarkMode={setDarkMode} />
+      {/* Fixed Navbar */}
+      <div className={`fixed top-0 left-0 right-0 z-50 ${darkMode ? 'bg-gray-800' : 'bg-white'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+        <TopToolbar darkMode={darkMode} />
       </div>
 
-      {/* Tab Manager - Fixed below navbar */}
+      {/* Tabs */}
       <div className="fixed top-22 left-0 right-0 z-40">
         <TabManager darkMode={darkMode} />
       </div>
 
-      {/* Main content area with padding-top to account for fixed navbar */}
-      <div className="flex flex-1 pt-28 bg-[#a5c9b7]">
-        <main className="flex-1 pt-4 overflow-auto h-screen">
-          <div className="max-w-full">
-            {React.Children.map(children, (child) => {
-              return React.isValidElement(child)
-                ? React.cloneElement(child, { darkMode })
-                : child;
-            })}
+      {/* MAIN CONTENT: keep it white and remove h-screen */}
+      <div className="flex flex-1 pt-28 bg-white min-h-screen">
+        <main className="flex-1 pt-4 overflow-y-auto overflow-x-hidden bg-white min-h-[calc(100vh-7rem)]">
+          <div className="max-w-full min-h-[calc(100vh-7rem)]">
+            {React.Children.map(children, child => React.cloneElement(child, { darkMode }))}
           </div>
         </main>
       </div>
