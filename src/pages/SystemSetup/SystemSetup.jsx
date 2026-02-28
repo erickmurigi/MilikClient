@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { getUsers, createUser, deleteUser, toggleUserLock } from "../../redux/apiCalls";
-import { Link } from "react-router-dom";
+import { getUsers, createUser, deleteUser, toggleUserLock, deleteCompany } from "../../redux/apiCalls";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   FaBuilding,
   FaUsers,
@@ -50,47 +50,22 @@ import {
   FaUserCircle,
   FaArrowLeft,
   FaArrowRight,
+  FaTimes,
+  FaSync,
+  FaEllipsisV,
+  FaEllipsisH,
 } from "react-icons/fa";
 import StartMenu from "../../components/StartMenu/StartMenu";
+import TabManager from "../../components/Layout/TabManager";
 import { getCompanies, createCompany } from "../../redux/apiCalls";
 import AddCompanyWizard from "./AddCompanyWizard";
 import AddUserPage from "./AddUsers";
-// Sample data from the screenshots
-const initialCompanies = [
-  { id: 1, name: "ACUMEN VALUERS LTD", regNo: "", taxId: "", email: "ADMIN@ACUMEN...", country: "KENYA", phone: "", tenantCount: 276, accountsCount: 357, employeesCount: 0, propertiesCount: 0 },
-  { id: 2, name: "ADDED VALUE INTERIORS", regNo: "", taxId: "", email: "INFO@ADDEDV...", country: "KENYA", phone: "", tenantCount: 0, accountsCount: 111, employeesCount: 0, propertiesCount: 0 },
-  { id: 3, name: "ADDED VALUE PROPERTIES", regNo: "CPR/2011/44303", taxId: "P051353808X", email: "INFO@ADDEDV...", country: "KENYA", phone: "", tenantCount: 0, accountsCount: 3150, employeesCount: 3456, propertiesCount: 10 },
-  { id: 4, name: "ADLIFE PLAZA", regNo: "", taxId: "", email: "INFO@ADLIFEP...", country: "KENYA", phone: "", tenantCount: 0, accountsCount: 0, employeesCount: 61, propertiesCount: 0 },
-  { id: 5, name: "AFRI-SINE LIMITED TRADING AS NYALI GOLF VIEW RESIDENCE", regNo: "", taxId: "", email: "NYALIGOLFVIE...", country: "KENYA", phone: "", tenantCount: 0, accountsCount: 110, employeesCount: 363, propertiesCount: 0 },
-  { id: 6, name: "ANMOL MANAGEMENT PUBLIC LTD.CO", regNo: "", taxId: "", email: "", country: "", phone: "", tenantCount: 0, accountsCount: 104, employeesCount: 204, propertiesCount: 0 },
-  { id: 7, name: "ARCADE VENTURES CO.LTD.", regNo: "", taxId: "", email: "MAINAMB@YAH...", country: "KENYA", phone: "", tenantCount: 0, accountsCount: 67, employeesCount: 132, propertiesCount: 0 },
-  { id: 8, name: "BALCON HOUSING COMPANY LTD", regNo: "CPR", taxId: "P", email: "INFO@BALCON...", country: "KENYA", phone: "", tenantCount: 0, accountsCount: 1742, employeesCount: 1931, propertiesCount: 0 },
-  { id: 9, name: "BALI'S BEST BAR RESORT", regNo: "CPR/2014/150241", taxId: "P051474770K", email: "BALIBESTBARA...", country: "KENYA", phone: "", tenantCount: 0, accountsCount: 0, employeesCount: 57, propertiesCount: 48 },
-  { id: 10, name: "BEATS AND WINES", regNo: "", taxId: "P051788657B", email: "INFO@BEATSA...", country: "KENYA", phone: "", tenantCount: 0, accountsCount: 0, employeesCount: 56, propertiesCount: 6 },
-];
+import { toast } from "react-toastify";
 
-const initialUsers = [
-  { id: 1, name: "DIANA", email: "diana@CONVALUERS.CO.KE", phone: "0724383849", status: "Active", locked: "No", userControl: "Not Allowed", adminAccess: "Property Management", userProfile: "1", companies: "1", createdAt: "05/04/2024 12:00" },
-  { id: 2, name: "ABDALLA AZIZA", email: "aziza@YAHOO.COM", phone: "0795809086", status: "Active", locked: "No", userControl: "Not Allowed", adminAccess: "Property Management", userProfile: "1", companies: "1", createdAt: "14/02/2020 08:00" },
-  { id: 3, name: "ABDILATIF ABDILATIF", email: "limitdepola@gmail.com", phone: "0722750051", status: "Active", locked: "No", userControl: "Not Allowed", adminAccess: "Financial Account", userProfile: "2", companies: "1", createdAt: "17/12/2019 13:00" },
-  { id: 4, name: "ABDULAZIZ NEYU", email: "neyuaziz@GREENZONE.CO.KE", phone: "0711114444", status: "Active", locked: "No", userControl: "Not Allowed", adminAccess: "System Administration", userProfile: "1", companies: "1", createdAt: "09/01/2020 13:00" },
-  { id: 5, name: "ABEL -", email: "maritepldt@gmail.com", phone: "0700634034", status: "Active", locked: "No", userControl: "Not Allowed", adminAccess: "System Administration", userProfile: "1", companies: "1", createdAt: "22/10/2020 16:00" },
-  { id: 6, name: "ABIGAIL MWONGELA", email: "abichael@gmail.com", phone: "0722963093", status: "Active", locked: "No", userControl: "Not Allowed", adminAccess: "Human Resource", userProfile: "1", companies: "1", createdAt: "27/11/2020 16:00" },
-  { id: 7, name: "ABUBAKAR ALI", email: "abubakarali340@gmail.com", phone: "0722755567", status: "Active", locked: "No", userControl: "Not Allowed", adminAccess: "Organization Administration", userProfile: "1", companies: "1", createdAt: "09/06/2023 10:00" },
-  { id: 8, name: "AGNES TERER", email: "agnesterer@YAHOO.COM", phone: "0722951851", status: "Active", locked: "No", userControl: "Not Allowed", adminAccess: "Property Management", userProfile: "1", companies: "1", createdAt: "22/09/2023 10:00" },
-  { id: 9, name: "AHMED ABUBAKAR", email: "ahmedabukar12345@gmail.com", phone: "0784500006", status: "Active", locked: "Yes", userControl: "Not Allowed", adminAccess: "System Administration", userProfile: "1", companies: "1", createdAt: "08/03/2023 10:00" },
-  { id: 10, name: "AKICH LYNN", email: "lynnakich@gmail.com", phone: "0702495920", status: "Active", locked: "No", userControl: "Not Allowed", adminAccess: "System Administration", userProfile: "1", companies: "1", createdAt: "08/01/2023 10:00" },
-];
-
-const systemRights = [
-  { id: 1, name: "Accounting periods", status: "Disabled", privilege: "View", profile: "Property Management", module: "Financial Accounts Module" },
-  { id: 2, name: "Accounts", status: "Disabled", privilege: "View", profile: "Property Management", module: "Financial Accounts Module" },
-  { id: 3, name: "Accounts Budgeting", status: "Disabled", privilege: "View", profile: "Property Management", module: "Financial Accounts Module" },
-  { id: 4, name: "Accounts Meter Reading", status: "Disabled", privilege: "View", profile: "Property Management", module: "Financial Accounts Module" },
-  { id: 5, name: "Accounts Module Setup", status: "Disabled", privilege: "View", profile: "Property Management", module: "Financial Accounts Module" },
-  { id: 6, name: "Accounts Non Sale Inventory", status: "Disabled", privilege: "View", profile: "Property Management", module: "Financial Accounts Module" },
-  { id: 7, name: "Accounts Periods", status: "Disabled", privilege: "View", profile: "Property Management", module: "Financial Accounts Module" },
-];
+const MILIK_GREEN = "bg-[#0B3B2E]";
+const MILIK_GREEN_HOVER = "hover:bg-[#0A3127]";
+const MILIK_ORANGE = "bg-[#FF8C00]";
+const MILIK_ORANGE_HOVER = "hover:bg-[#e67e00]";
 
 const StatCard = ({ icon, label, value, color }) => (
   <div className="bg-white rounded-lg border border-slate-200 p-3 flex items-center gap-3">
@@ -108,9 +83,9 @@ const ActionButton = ({ icon, label, onClick, variant = "default" }) => {
   const baseClasses = "inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md transition";
   const variants = {
     default: "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50",
-    primary: "bg-teal-600 text-white hover:bg-teal-700",
+    primary: `${MILIK_GREEN} text-white ${MILIK_GREEN_HOVER}`,
     danger: "bg-red-50 text-red-700 hover:bg-red-100 border border-red-200",
-    warning: "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200",
+    warning: `${MILIK_ORANGE} text-white ${MILIK_ORANGE_HOVER}`,
   };
   
   return (
@@ -129,7 +104,7 @@ const SearchBar = ({ value, onChange, placeholder }) => (
       value={value}
       onChange={onChange}
       placeholder={placeholder}
-      className="w-full pl-8 pr-4 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-600"
+      className="w-full pl-8 pr-4 py-2 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-[#0B3B2E]/20 focus:border-[#0B3B2E]"
     />
   </div>
 );
@@ -163,9 +138,11 @@ const Pagination = ({ currentPage, totalPages, onPageChange, totalRecords, recor
     </div>
   </div>
 );
-const CompaniesTable = ({ companies, onEdit, onDelete, onLock, isLoading }) => {
+const CompaniesTable = ({ companies, onEdit, onDelete, onLock, onAddCompany, isLoading }) => {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedCompanies, setSelectedCompanies] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
   const recordsPerPage = 10;
 
   // Handle both array and paginated object
@@ -181,12 +158,9 @@ const CompaniesTable = ({ companies, onEdit, onDelete, onLock, isLoading }) => {
     id: company._id,
     name: company.companyName || '-',
     regNo: company.registrationNo || '-',
-    taxPIN: company.taxPIN || '-',
     email: company.email || '-',
     country: company.country || '-',
     town: company.town || '-',
-    baseCurrency: company.baseCurrency || '-',
-    taxRegime: company.taxRegime || '-',
     status: company.accountStatus || (company.isActive ? 'Active' : 'Inactive'),
   }));
 
@@ -205,6 +179,30 @@ const CompaniesTable = ({ companies, onEdit, onDelete, onLock, isLoading }) => {
     currentPage * recordsPerPage
   );
 
+  // Selection handlers
+  const handleSelectCompany = (id) => {
+    setSelectedCompanies(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleSelectAll = () => {
+    if (selectAll) {
+      const currentIds = paginatedCompanies.map(c => c.id);
+      setSelectedCompanies(prev => prev.filter(id => !currentIds.includes(id)));
+      setSelectAll(false);
+    } else {
+      const currentIds = paginatedCompanies.map(c => c.id);
+      setSelectedCompanies(prev => Array.from(new Set([...prev, ...currentIds])));
+      setSelectAll(true);
+    }
+  };
+
+  const handleCheckboxClick = (e) => e.stopPropagation();
+
+  const getRowClass = (index, companyId) => {
+    if (selectedCompanies.includes(companyId)) return "bg-[#CDE7D3] hover:bg-[#DFF1E3]";
+    return index % 2 === 0 ? "bg-white hover:bg-[#f8f8f8]" : "bg-[#f9f9f9] hover:bg-[#f0f0f0]";
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-8">
@@ -216,84 +214,139 @@ const CompaniesTable = ({ companies, onEdit, onDelete, onLock, isLoading }) => {
 
   return (
     <div className="space-y-3">
-      {/* Search and Actions */}
-      <div className="flex items-center justify-between">
-        <SearchBar 
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search companies..."
-        />
-        <div className="flex gap-2">
-          <Link to="/add-company">
-            <ActionButton icon={<FaPlus />} label="Add Company" variant="primary" />
-          </Link>
-          <ActionButton icon={<FaFileExport />} label="Export" />
+      {/* Toolbar - Search, Reset, Edit, Actions, Delete on top right */}
+      <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 p-2.5">
+        <div className="flex items-center gap-2">
+          <button className="px-3 py-1.5 text-xs bg-blue-100 text-blue-600 rounded-lg flex items-center gap-1 hover:bg-blue-200 transition-colors font-bold border border-blue-300">
+            <FaSearch className="w-3 h-3" /> Search
+          </button>
+          <button className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg flex items-center gap-1 hover:bg-gray-200 transition-colors font-bold border border-gray-300">
+            <FaSync className="w-3 h-3" /> Reset
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => {
+              if (selectedCompanies.length === 1) {
+                const company = paginatedCompanies.find(c => c.id === selectedCompanies[0]);
+                onEdit(company);
+              } else {
+                toast.info('Edit available for single selection only', { duration: 2000 });
+              }
+            }}
+            disabled={selectedCompanies.length === 0}
+            className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg flex items-center gap-1 hover:bg-blue-700 transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed border border-blue-700"
+          >
+            <FaEdit className="w-3 h-3" /> Edit
+          </button>
+          <button className="px-3 py-1.5 text-xs bg-gray-600 text-white rounded-lg flex items-center gap-1 hover:bg-gray-700 transition-colors font-bold border border-gray-700">
+            <FaEllipsisV className="w-3 h-3" /> Actions
+          </button>
+          <button 
+            onClick={() => {
+              if (selectedCompanies.length > 0) {
+                const confirmed = window.confirm(`Delete ${selectedCompanies.length} selected company(ies)?`);
+                if (confirmed) {
+                  selectedCompanies.forEach(id => onDelete(id));
+                  setSelectedCompanies([]);
+                }
+              }
+            }}
+            disabled={selectedCompanies.length === 0}
+            className="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg flex items-center gap-1 hover:bg-red-700 transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed border border-red-700"
+          >
+            <FaTrash className="w-3 h-3" /> Delete
+          </button>
+          <button className="px-3 py-1.5 text-xs bg-teal-600 text-white rounded-lg flex items-center gap-1 hover:bg-teal-700 transition-colors font-bold border border-teal-700" onClick={onAddCompany}>
+            <FaPlus className="w-3 h-3" /> Add Company
+          </button>
+          <button className="px-3 py-1.5 text-xs bg-gray-600 text-white rounded-lg flex items-center gap-1 hover:bg-gray-700 transition-colors font-bold border border-gray-700">
+            <FaFileExport className="w-3 h-3" /> Export
+          </button>
+          <button className="px-3 py-1.5 text-xs bg-gray-600 text-white rounded-lg flex items-center gap-1 hover:bg-gray-700 transition-colors font-bold border border-gray-700">
+            <FaEllipsisH className="w-3 h-3" />
+          </button>
         </div>
       </div>
 
-      {/* Horizontally scrollable table container */}
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+      {/* Table container */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs min-w-[1200px]">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-3 py-2 text-left font-semibold text-slate-700">Company Name</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-700">Reg No.</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-700">Tax PIN</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-700">Email</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-700">Country</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-700">Town</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-700">Base Currency</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-700">Tax Regime</th>
-                <th className="px-3 py-2 text-center font-semibold text-slate-700">Status</th>
-                <th className="px-3 py-2 text-center font-semibold text-slate-700">Actions</th>
+          <table className="w-full text-xs border-collapse border border-gray-200 font-bold bg-white">
+            <thead>
+              <tr className="sticky top-0 z-10">
+                <th
+                  className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]"
+                  style={{ width: "46px" }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectAll && paginatedCompanies.length > 0}
+                    onChange={handleSelectAll}
+                    onClick={handleCheckboxClick}
+                    className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                  />
+                </th>
+                <th className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]">Company Name</th>
+                <th className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]">Reg No.</th>
+                <th className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]">Email</th>
+                <th className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]">Country</th>
+                <th className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]">Town</th>
+                <th className="px-3 py-1 text-center font-bold text-white border border-gray-200 bg-[#0B3B2E]">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-gray-200">
               {paginatedCompanies.length > 0 ? (
-                paginatedCompanies.map((company) => (
-                  <tr key={company.id} className="hover:bg-slate-50">
-                    <td className="px-3 py-2 font-medium text-slate-900 max-w-[200px] truncate" title={company.name}>
+                paginatedCompanies.map((company, index) => (
+                  <tr
+                    key={company.id}
+                    className={`border-b border-gray-200 cursor-pointer transition-colors duration-150 ${getRowClass(index, company.id)}`}
+                    onClick={() => handleSelectCompany(company.id)}
+                  >
+                    <td className="px-3 py-1 border border-gray-200 align-top" onClick={handleCheckboxClick}>
+                      <input
+                        type="checkbox"
+                        checked={selectedCompanies.includes(company.id)}
+                        onChange={() => handleSelectCompany(company.id)}
+                        onClick={handleCheckboxClick}
+                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                    </td>
+                    <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top truncate" title={company.name}>
                       {company.name}
                     </td>
-                    <td className="px-3 py-2 text-slate-600">{company.regNo}</td>
-                    <td className="px-3 py-2 text-slate-600">{company.taxPIN}</td>
-                    <td className="px-3 py-2 text-slate-600 max-w-[150px] truncate" title={company.email}>
+                    <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top">{company.regNo}</td>
+                    <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top truncate" title={company.email}>
                       {company.email}
                     </td>
-                    <td className="px-3 py-2 text-slate-600">{company.country}</td>
-                    <td className="px-3 py-2 text-slate-600">{company.town}</td>
-                    <td className="px-3 py-2 text-slate-600">{company.baseCurrency}</td>
-                    <td className="px-3 py-2 text-slate-600">{company.taxRegime}</td>
-                    <td className="px-3 py-2 text-center">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                        company.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600'
+                    <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top truncate" title={company.country}>
+                      {company.country}
+                    </td>
+                    <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top truncate" title={company.town}>
+                      {company.town}
+                    </td>
+                    <td className="px-3 py-1 text-center border border-gray-200 align-top">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap border ${
+                        company.status === 'Active'
+                          ? selectedCompanies.includes(company.id)
+                            ? 'bg-white text-green-800 border-green-300'
+                            : 'bg-green-100 text-green-800 border-green-300'
+                          : selectedCompanies.includes(company.id)
+                          ? 'bg-white text-gray-800 border-gray-300'
+                          : 'bg-gray-100 text-gray-800 border-gray-300'
                       }`}>
                         {company.status}
                       </span>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => onEdit(company)} className="p-1 hover:bg-blue-50 rounded text-blue-600" title="Edit">
-                          <FaEdit />
-                        </button>
-                        <button onClick={() => onLock(company)} className="p-1 hover:bg-amber-50 rounded text-amber-600" title="Lock">
-                          <FaLock />
-                        </button>
-                        <button onClick={() => onDelete(company)} className="p-1 hover:bg-red-50 rounded text-red-600" title="Delete">
-                          <FaTrash />
-                        </button>
-                        <button className="p-1 hover:bg-slate-100 rounded text-slate-600" title="View Details">
-                          <FaEye />
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="10" className="px-3 py-4 text-center text-slate-500">
-                    No companies found.
+                  <td colSpan="8" className="px-3 py-4 text-center text-gray-500 border border-gray-200 bg-white">
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <div className="text-lg font-bold text-gray-400 mb-2">No companies found</div>
+                      <div className="text-sm text-gray-500">Click Add Company to create a new one</div>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -302,26 +355,59 @@ const CompaniesTable = ({ companies, onEdit, onDelete, onLock, isLoading }) => {
         </div>
       </div>
 
-      {/* Pagination */}
+      {/* Pagination Footer */}
       {filteredCompanies.length > 0 && (
-        <Pagination 
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          totalRecords={filteredCompanies.length}
-          recordsPerPage={recordsPerPage}
-        />
+        <div className="bg-white rounded-lg border border-gray-200 p-3 flex items-center justify-between">
+          <div className="text-xs text-gray-600 font-bold">
+            <div className="flex items-center gap-4">
+              <span>
+                Showing <span className="font-bold">{((currentPage - 1) * recordsPerPage) + 1}</span> to{" "}
+                <span className="font-bold">{Math.min(currentPage * recordsPerPage, filteredCompanies.length)}</span> of{" "}
+                <span className="font-bold">{filteredCompanies.length}</span> companies
+              </span>
+              {selectedCompanies.length > 0 && (
+                <span className="bg-[#DDEFE1] text-gray-900 px-2 py-0.5 rounded-full text-xs font-bold border border-[#0B3B2E]/30">
+                  {selectedCompanies.length} selected
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
+            >
+              <FaChevronLeft size={10} />
+              Previous
+            </button>
+            <span className="text-xs font-bold text-gray-600">
+              Page <span className="font-bold">{currentPage}</span> of <span className="font-bold">{totalPages}</span>
+            </span>
+            <button
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
+            >
+              Next
+              <FaChevronRight size={10} />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
 };
-const UsersTable = ({ users, onEdit, onLock, onDelete, isLoading, selectedCompany }) => {
+const UsersTable = ({ users, onEdit, onLock, onDelete, onAddUser, isLoading, selectedCompany }) => {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
   const recordsPerPage = 15;
+  const safeUsers = Array.isArray(users) ? users : [];
 
   // Map user data to display fields
-  const mappedUsers = users.map(user => ({
+  const mappedUsers = safeUsers.map(user => ({
     id: user._id,
     name: `${user.surname || ''} ${user.otherNames || ''}`.trim() || '-',
     email: user.email || '-',
@@ -348,6 +434,30 @@ const UsersTable = ({ users, onEdit, onLock, onDelete, isLoading, selectedCompan
     currentPage * recordsPerPage
   );
 
+  // Selection handlers
+  const handleSelectUser = (id) => {
+    setSelectedUsers(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleSelectAll = () => {
+    if (selectAll) {
+      const currentIds = paginatedUsers.map(u => u.id);
+      setSelectedUsers(prev => prev.filter(id => !currentIds.includes(id)));
+      setSelectAll(false);
+    } else {
+      const currentIds = paginatedUsers.map(u => u.id);
+      setSelectedUsers(prev => Array.from(new Set([...prev, ...currentIds])));
+      setSelectAll(true);
+    }
+  };
+
+  const handleCheckboxClick = (e) => e.stopPropagation();
+
+  const getRowClass = (index, userId) => {
+    if (selectedUsers.includes(userId)) return "bg-[#CDE7D3] hover:bg-[#DFF1E3]";
+    return index % 2 === 0 ? "bg-white hover:bg-[#f8f8f8]" : "bg-[#f9f9f9] hover:bg-[#f0f0f0]";
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-8">
@@ -359,82 +469,145 @@ const UsersTable = ({ users, onEdit, onLock, onDelete, isLoading, selectedCompan
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <SearchBar
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search users..."
-        />
-        <div className="flex gap-2">
-          <ActionButton icon={<FaPlus />} label="Add User" variant="primary" onClick={() => {}} />
-          <ActionButton icon={<FaFilter />} label="Filter" />
-          <ActionButton icon={<FaFileExport />} label="Export" />
+      {/* Toolbar - Search, Reset, Edit, Actions, Delete on top right */}
+      <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 p-2.5">
+        <div className="flex items-center gap-2">
+          <button className="px-3 py-1.5 text-xs bg-blue-100 text-blue-600 rounded-lg flex items-center gap-1 hover:bg-blue-200 transition-colors font-bold border border-blue-300">
+            <FaSearch className="w-3 h-3" /> Search
+          </button>
+          <button className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg flex items-center gap-1 hover:bg-gray-200 transition-colors font-bold border border-gray-300">
+            <FaSync className="w-3 h-3" /> Reset
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => {
+              if (selectedUsers.length === 1) {
+                const user = paginatedUsers.find(u => u.id === selectedUsers[0]);
+                onEdit(user);
+              } else {
+                toast.info('Edit available for single selection only', { duration: 2000 });
+              }
+            }}
+            disabled={selectedUsers.length === 0}
+            className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg flex items-center gap-1 hover:bg-blue-700 transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed border border-blue-700"
+          >
+            <FaEdit className="w-3 h-3" /> Edit
+          </button>
+          <button className="px-3 py-1.5 text-xs bg-gray-600 text-white rounded-lg flex items-center gap-1 hover:bg-gray-700 transition-colors font-bold border border-gray-700">
+            <FaEllipsisV className="w-3 h-3" /> Actions
+          </button>
+          <button 
+            onClick={() => {
+              if (selectedUsers.length > 0) {
+                const confirmed = window.confirm(`Delete ${selectedUsers.length} selected user(s)?`);
+                if (confirmed) {
+                  selectedUsers.forEach(id => onDelete(id));
+                  setSelectedUsers([]);
+                }
+              }
+            }}
+            disabled={selectedUsers.length === 0}
+            className="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg flex items-center gap-1 hover:bg-red-700 transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed border border-red-700"
+          >
+            <FaTrash className="w-3 h-3" /> Delete
+          </button>
+          <button className="px-3 py-1.5 text-xs bg-teal-600 text-white rounded-lg flex items-center gap-1 hover:bg-teal-700 transition-colors font-bold border border-teal-700" onClick={onAddUser}>
+            <FaPlus className="w-3 h-3" /> Add User
+          </button>
+          <button className="px-3 py-1.5 text-xs bg-gray-600 text-white rounded-lg flex items-center gap-1 hover:bg-gray-700 transition-colors font-bold border border-gray-700">
+            <FaFileExport className="w-3 h-3" /> Export
+          </button>
+          <button className="px-3 py-1.5 text-xs bg-gray-600 text-white rounded-lg flex items-center gap-1 hover:bg-gray-700 transition-colors font-bold border border-gray-700">
+            <FaEllipsisH className="w-3 h-3" />
+          </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+      {/* Table container */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs min-w-[1200px]">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-3 py-2 text-left font-semibold text-slate-700">Name</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-700">Email</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-700">Phone</th>
-                <th className="px-3 py-2 text-center font-semibold text-slate-700">Status</th>
-                <th className="px-3 py-2 text-center font-semibold text-slate-700">Locked</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-700">Admin Access</th>
-                <th className="px-3 py-2 text-center font-semibold text-slate-700">Profile</th>
-                <th className="px-3 py-2 text-center font-semibold text-slate-700">Company</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-700">Created</th>
-                <th className="px-3 py-2 text-center font-semibold text-slate-700">Actions</th>
+          <table className="w-full text-xs border-collapse border border-gray-200 font-bold bg-white">
+            <thead>
+              <tr className="sticky top-0 z-10">
+                <th
+                  className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]"
+                  style={{ width: "46px" }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectAll && paginatedUsers.length > 0}
+                    onChange={handleSelectAll}
+                    onClick={handleCheckboxClick}
+                    className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                  />
+                </th>
+                <th className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]">Name</th>
+                <th className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]">Email</th>
+                <th className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]">Phone</th>
+                <th className="px-3 py-1 text-center font-bold text-white border border-gray-200 bg-[#0B3B2E]">Status</th>
+                <th className="px-3 py-1 text-center font-bold text-white border border-gray-200 bg-[#0B3B2E]">Locked</th>
+                <th className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]">Admin Access</th>
+                <th className="px-3 py-1 text-center font-bold text-white border border-gray-200 bg-[#0B3B2E]">Profile</th>
+                <th className="px-3 py-1 text-center font-bold text-white border border-gray-200 bg-[#0B3B2E]">Company</th>
+                <th className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]">Created</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
+            <tbody className="divide-y divide-gray-200">
               {paginatedUsers.length > 0 ? (
-                paginatedUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-slate-50">
-                    <td className="px-3 py-2 font-medium text-slate-900">{user.name}</td>
-                    <td className="px-3 py-2 text-slate-600 max-w-[150px] truncate" title={user.email}>
+                paginatedUsers.map((user, index) => (
+                  <tr
+                    key={user.id}
+                    className={`border-b border-gray-200 cursor-pointer transition-colors duration-150 ${getRowClass(index, user.id)}`}
+                    onClick={() => handleSelectUser(user.id)}
+                  >
+                    <td className="px-3 py-1 border border-gray-200 align-top" onClick={handleCheckboxClick}>
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.includes(user.id)}
+                        onChange={() => handleSelectUser(user.id)}
+                        onClick={handleCheckboxClick}
+                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                      />
+                    </td>
+                    <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top">{user.name}</td>
+                    <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top truncate max-w-[150px]" title={user.email}>
                       {user.email}
                     </td>
-                    <td className="px-3 py-2 text-slate-600">{user.phone}</td>
-                    <td className="px-3 py-2 text-center">
-                      <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                        user.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600'
+                    <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top">{user.phone}</td>
+                    <td className="px-3 py-1 text-center border border-gray-200 align-top">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap border ${
+                        user.status === 'Active'
+                          ? selectedUsers.includes(user.id)
+                            ? 'bg-white text-green-800 border-green-300'
+                            : 'bg-green-100 text-green-800 border-green-300'
+                          : selectedUsers.includes(user.id)
+                          ? 'bg-white text-gray-800 border-gray-300'
+                          : 'bg-gray-100 text-gray-800 border-gray-300'
                       }`}>
                         {user.status}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-center">
+                    <td className="px-3 py-1 text-center border border-gray-200 align-top">
                       {user.locked === 'Yes' ? (
                         <FaLock className="inline text-amber-600" />
                       ) : (
-                        <FaUnlock className="inline text-slate-400" />
+                        <FaUnlock className="inline text-gray-400" />
                       )}
                     </td>
-                    <td className="px-3 py-2 text-slate-600">{user.adminAccess}</td>
-                    <td className="px-3 py-2 text-center text-slate-600">{user.userProfile}</td>
-                    <td className="px-3 py-2 text-center text-slate-600">{user.companies}</td>
-                    <td className="px-3 py-2 text-slate-600">{user.createdAt}</td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => onEdit(user)} className="p-1 hover:bg-blue-50 rounded text-blue-600" title="Edit">
-                          <FaEdit />
-                        </button>
-                        <button onClick={() => onLock(user.id)} className="p-1 hover:bg-amber-50 rounded text-amber-600" title={user.locked === 'Yes' ? 'Unlock' : 'Lock'}>
-                          {user.locked === 'Yes' ? <FaUnlock /> : <FaLock />}
-                        </button>
-                        <button onClick={() => onDelete(user.id)} className="p-1 hover:bg-red-50 rounded text-red-600" title="Delete">
-                          <FaTrash />
-                        </button>
-                      </div>
-                    </td>
+                    <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top">{user.adminAccess}</td>
+                    <td className="px-3 py-1 text-center font-bold text-gray-900 border border-gray-200 align-top">{user.userProfile}</td>
+                    <td className="px-3 py-1 text-center font-bold text-gray-900 border border-gray-200 align-top">{user.companies}</td>
+                    <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top">{user.createdAt}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="10" className="px-3 py-4 text-center text-slate-500">
-                    No users found.
+                  <td colSpan="10" className="px-3 py-4 text-center text-gray-500 border border-gray-200 bg-white">
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <div className="text-lg font-bold text-gray-400 mb-2">No users found</div>
+                      <div className="text-sm text-gray-500">Click Add User to create a new one</div>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -443,14 +616,45 @@ const UsersTable = ({ users, onEdit, onLock, onDelete, isLoading, selectedCompan
         </div>
       </div>
 
+      {/* Pagination Footer */}
       {filteredUsers.length > 0 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          totalRecords={filteredUsers.length}
-          recordsPerPage={recordsPerPage}
-        />
+        <div className="bg-white rounded-lg border border-gray-200 p-3 flex items-center justify-between">
+          <div className="text-xs text-gray-600 font-bold">
+            <div className="flex items-center gap-4">
+              <span>
+                Showing <span className="font-bold">{((currentPage - 1) * recordsPerPage) + 1}</span> to{" "}
+                <span className="font-bold">{Math.min(currentPage * recordsPerPage, filteredUsers.length)}</span> of{" "}
+                <span className="font-bold">{filteredUsers.length}</span> users
+              </span>
+              {selectedUsers.length > 0 && (
+                <span className="bg-[#DDEFE1] text-gray-900 px-2 py-0.5 rounded-full text-xs font-bold border border-[#0B3B2E]/30">
+                  {selectedUsers.length} selected
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
+            >
+              <FaChevronLeft size={10} />
+              Previous
+            </button>
+            <span className="text-xs font-bold text-gray-600">
+              Page <span className="font-bold">{currentPage}</span> of <span className="font-bold">{totalPages}</span>
+            </span>
+            <button
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+              className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
+            >
+              Next
+              <FaChevronRight size={10} />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -460,7 +664,20 @@ const SystemRightsTable = () => {
   const [enableAll, setEnableAll] = useState(false);
   const [disableAll, setDisableAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedRights, setSelectedRights] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
   const recordsPerPage = 10;
+
+  // Mock system rights data - can be replaced with API call later
+  const systemRights = [
+    { id: 1, name: "Accounting periods", status: "Disabled", privilege: "View", profile: "Property Management", module: "Financial Accounts Module" },
+    { id: 2, name: "Accounts", status: "Disabled", privilege: "View", profile: "Property Management", module: "Financial Accounts Module" },
+    { id: 3, name: "Accounts Budgeting", status: "Disabled", privilege: "View", profile: "Property Management", module: "Financial Accounts Module" },
+    { id: 4, name: "Accounts Meter Reading", status: "Disabled", privilege: "View", profile: "Property Management", module: "Financial Accounts Module" },
+    { id: 5, name: "Accounts Module Setup", status: "Disabled", privilege: "View", profile: "Property Management", module: "Financial Accounts Module" },
+    { id: 6, name: "Accounts Non Sale Inventory", status: "Disabled", privilege: "View", profile: "Property Management", module: "Financial Accounts Module" },
+    { id: 7, name: "Accounts Periods", status: "Disabled", privilege: "View", profile: "Property Management", module: "Financial Accounts Module" },
+  ];
 
   const totalPages = Math.ceil(systemRights.length / recordsPerPage);
   const paginatedRights = systemRights.slice(
@@ -468,50 +685,122 @@ const SystemRightsTable = () => {
     currentPage * recordsPerPage
   );
 
+  // Selection handlers
+  const handleSelectRight = (id) => {
+    setSelectedRights(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleSelectAll = () => {
+    if (selectAll) {
+      const currentIds = paginatedRights.map(r => r.id);
+      setSelectedRights(prev => prev.filter(id => !currentIds.includes(id)));
+      setSelectAll(false);
+    } else {
+      const currentIds = paginatedRights.map(r => r.id);
+      setSelectedRights(prev => Array.from(new Set([...prev, ...currentIds])));
+      setSelectAll(true);
+    }
+  };
+
+  const handleCheckboxClick = (e) => e.stopPropagation();
+
+  const getRowClass = (index, rightId) => {
+    if (selectedRights.includes(rightId)) return "bg-[#CDE7D3] hover:bg-[#DFF1E3]";
+    return index % 2 === 0 ? "bg-white hover:bg-[#f8f8f8]" : "bg-[#f9f9f9] hover:bg-[#f0f0f0]";
+  };
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold text-slate-700">User Rights:</span>
-        <button 
-          onClick={() => setEnableAll(true)} 
-          className="px-3 py-1 text-xs font-medium bg-green-50 text-green-700 rounded-md border border-green-200 hover:bg-green-100"
-        >
-          Enable All
-        </button>
-        <button 
-          onClick={() => setDisableAll(true)}
-          className="px-3 py-1 text-xs font-medium bg-red-50 text-red-700 rounded-md border border-red-200 hover:bg-red-100"
-        >
-          Disable All
-        </button>
+      {/* Toolbar - Search, Reset, Enable All, Disable All on top */}
+      <div className="flex items-center justify-between bg-white rounded-lg border border-gray-200 p-2.5">
+        <div className="flex items-center gap-2">
+          <button className="px-3 py-1.5 text-xs bg-blue-100 text-blue-600 rounded-lg flex items-center gap-1 hover:bg-blue-200 transition-colors font-bold border border-blue-300">
+            <FaSearch className="w-3 h-3" /> Search
+          </button>
+          <button className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg flex items-center gap-1 hover:bg-gray-200 transition-colors font-bold border border-gray-300">
+            <FaSync className="w-3 h-3" /> Reset
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setEnableAll(true)}
+            className="px-3 py-1.5 text-xs bg-green-600 text-white rounded-lg flex items-center gap-1 hover:bg-green-700 transition-colors font-bold border border-green-700"
+          >
+            <FaCheck className="w-3 h-3" /> Enable All
+          </button>
+          <button 
+            onClick={() => setDisableAll(true)}
+            className="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg flex items-center gap-1 hover:bg-red-700 transition-colors font-bold border border-red-700"
+          >
+            <FaTimes className="w-3 h-3" /> Disable All
+          </button>
+          <button className="px-3 py-1.5 text-xs bg-gray-600 text-white rounded-lg flex items-center gap-1 hover:bg-gray-700 transition-colors font-bold border border-gray-700">
+            <FaFileExport className="w-3 h-3" /> Export
+          </button>
+          <button className="px-3 py-1.5 text-xs bg-gray-600 text-white rounded-lg flex items-center gap-1 hover:bg-gray-700 transition-colors font-bold border border-gray-700">
+            <FaEllipsisH className="w-3 h-3" />
+          </button>
+        </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
+      {/* Table container */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-3 py-2 text-left font-semibold text-slate-700">System Right [Name]</th>
-                <th className="px-3 py-2 text-center font-semibold text-slate-700">Permission Status</th>
-                <th className="px-3 py-2 text-center font-semibold text-slate-700">Privilege</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-700">Profile</th>
-                <th className="px-3 py-2 text-left font-semibold text-slate-700">Module</th>
+          <table className="w-full text-xs border-collapse border border-gray-200 font-bold bg-white">
+            <thead>
+              <tr className="sticky top-0 z-10">
+                <th
+                  className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]"
+                  style={{ width: "46px" }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectAll && paginatedRights.length > 0}
+                    onChange={handleSelectAll}
+                    onClick={handleCheckboxClick}
+                    className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                  />
+                </th>
+                <th className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]">System Right [Name]</th>
+                <th className="px-3 py-1 text-center font-bold text-white border border-gray-200 bg-[#0B3B2E]">Permission Status</th>
+                <th className="px-3 py-1 text-center font-bold text-white border border-gray-200 bg-[#0B3B2E]">Privilege</th>
+                <th className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]">Profile</th>
+                <th className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]">Module</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200">
-              {paginatedRights.map((right) => (
-                <tr key={right.id} className="hover:bg-slate-50">
-                  <td className="px-3 py-2 font-medium text-slate-900">{right.name}</td>
-                  <td className="px-3 py-2 text-center">
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${
-                      right.status === 'Enabled' ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600'
+            <tbody className="divide-y divide-gray-200">
+              {paginatedRights.map((right, index) => (
+                <tr
+                  key={right.id}
+                  className={`border-b border-gray-200 cursor-pointer transition-colors duration-150 ${getRowClass(index, right.id)}`}
+                  onClick={() => handleSelectRight(right.id)}
+                >
+                  <td className="px-3 py-1 border border-gray-200 align-top" onClick={handleCheckboxClick}>
+                    <input
+                      type="checkbox"
+                      checked={selectedRights.includes(right.id)}
+                      onChange={() => handleSelectRight(right.id)}
+                      onClick={handleCheckboxClick}
+                      className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                    />
+                  </td>
+                  <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top">{right.name}</td>
+                  <td className="px-3 py-1 text-center border border-gray-200 align-top">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap border ${
+                      right.status === 'Enabled'
+                        ? selectedRights.includes(right.id)
+                          ? 'bg-white text-green-800 border-green-300'
+                          : 'bg-green-100 text-green-800 border-green-300'
+                        : selectedRights.includes(right.id)
+                        ? 'bg-white text-gray-800 border-gray-300'
+                        : 'bg-gray-100 text-gray-800 border-gray-300'
                     }`}>
                       {right.status}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-center text-slate-600">{right.privilege}</td>
-                  <td className="px-3 py-2 text-slate-600">{right.profile}</td>
-                  <td className="px-3 py-2 text-slate-600">{right.module}</td>
+                  <td className="px-3 py-1 text-center font-bold text-gray-900 border border-gray-200 align-top">{right.privilege}</td>
+                  <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top">{right.profile}</td>
+                  <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top">{right.module}</td>
                 </tr>
               ))}
             </tbody>
@@ -519,25 +808,71 @@ const SystemRightsTable = () => {
         </div>
       </div>
 
-      <Pagination 
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={setCurrentPage}
-        totalRecords={systemRights.length}
-        recordsPerPage={recordsPerPage}
-      />
+      {/* Pagination Footer */}
+      <div className="bg-white rounded-lg border border-gray-200 p-3 flex items-center justify-between">
+        <div className="text-xs text-gray-600 font-bold">
+          <div className="flex items-center gap-4">
+            <span>
+              Showing <span className="font-bold">{((currentPage - 1) * recordsPerPage) + 1}</span> to{" "}
+              <span className="font-bold">{Math.min(currentPage * recordsPerPage, systemRights.length)}</span> of{" "}
+              <span className="font-bold">{systemRights.length}</span> system rights
+            </span>
+            {selectedRights.length > 0 && (
+              <span className="bg-[#DDEFE1] text-gray-900 px-2 py-0.5 rounded-full text-xs font-bold border border-[#0B3B2E]/30">
+                {selectedRights.length} selected
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
+          >
+            <FaChevronLeft size={10} />
+            Previous
+          </button>
+          <span className="text-xs font-bold text-gray-600">
+            Page <span className="font-bold">{currentPage}</span> of <span className="font-bold">{totalPages}</span>
+          </span>
+          <button
+            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
+          >
+            Next
+            <FaChevronRight size={10} />
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
 export default function SystemSetupPage() {
   
   const dispatch = useDispatch();
+  const location = useLocation();
+  const navigate = useNavigate();
   const { companies, isFetching: companiesFetching } = useSelector((state) => state.company);
   const { users, isFetching: usersFetching } = useSelector((state) => state.user);
-  const [activeTab, setActiveTab] = useState("companies");
+  const { currentUser } = useSelector((state) => state.auth);
+  
+  const companyName = currentUser?.company?.companyName || 'Company';
+  const userName = currentUser ? `${currentUser.surname} ${currentUser.otherNames}`.trim() : 'User';
   const [showAddCompany, setShowAddCompany] = useState(false);
   const [showAddUser, setShowAddUser] = useState(false);
   const [selectedCompanyForUsers, setSelectedCompanyForUsers] = useState(null);
+
+  const sectionFromPath = location.pathname.split("/")[2];
+  const validSections = ["companies", "users", "rights", "database", "sessions", "audit"];
+  const activeTab = validSections.includes(sectionFromPath) ? sectionFromPath : "companies";
+
+  useEffect(() => {
+    if (!validSections.includes(sectionFromPath)) {
+      navigate("/system-setup/companies", { replace: true });
+    }
+  }, [sectionFromPath, navigate]);
 
   // Fetch companies on mount
   useEffect(() => {
@@ -578,22 +913,24 @@ export default function SystemSetupPage() {
 
 
   const tabs = [
-    { key: "companies", label: "COMPANIES", icon: <FaBuilding />, count: companies.length },
-    { key: "users", label: "USERS", icon: <FaUsers />, count: users.length },
-    { key: "rights", label: "SYSTEM RIGHTS", icon: <FaUserShield />, count: systemRights.length },
-    { key: "database", label: "DATABASE", icon: <FaDatabase /> },
-    { key: "sessions", label: "SESSIONS", icon: <FaUserClock /> },
-    { key: "audit", label: "AUDIT LOG", icon: <FaHistory /> },
+    { key: "companies", label: "COMPANIES", icon: <FaBuilding />, path: "/system-setup/companies" },
+    { key: "users", label: "USERS", icon: <FaUsers />, path: "/system-setup/users" },
+    { key: "rights", label: "SYSTEM RIGHTS", icon: <FaUserShield />, path: "/system-setup/rights" },
+    { key: "database", label: "DATABASE", icon: <FaDatabase />, path: "/system-setup/database" },
+    { key: "sessions", label: "SESSIONS", icon: <FaUserClock />, path: "/system-setup/sessions" },
+    { key: "audit", label: "AUDIT LOG", icon: <FaHistory />, path: "/system-setup/audit" },
   ];
 
   const handleAddCompany = async (companyData) => {
     try {
-      await createCompany(dispatch, companyData);
-      setShowAddCompany(false);
-      // No need to refetch; the company is added via createCompanySuccess
+      const result = await dispatch(createCompany(companyData));
+      if (result) {
+        setShowAddCompany(false);
+        toast.success('Company created successfully', { duration: 3000 });
+      }
     } catch (error) {
       console.error("Failed to create company:", error);
-      // Optionally show error message to user
+      toast.error('Failed to create company: ' + (error.message || 'Unknown error'), { duration: 3000 });
     }
   };
 
@@ -606,60 +943,99 @@ export default function SystemSetupPage() {
     }
   };
 
-  const handleEdit = (item) => {
-    console.log("Edit:", item);
+  const handleEdit = (company) => {
+    // Open edit modal with company data
+    console.log("Edit company:", company);
+    // TODO: Implement edit modal for company
+    toast.info('Edit feature coming soon', { duration: 3000 });
   };
 
   const handleDelete = (id) => {
-    if (window.confirm('Are you sure?')) {
-      dispatch(deleteCompany(id));
+    if (window.confirm('Are you sure you want to delete this company?')) {
+      try {
+        dispatch(deleteCompany(id));
+        toast.success('Company deleted successfully', { duration: 3000 });
+      } catch (error) {
+        console.error("Failed to delete company:", error);
+        toast.error('Failed to delete company: ' + (error.message || 'Unknown error'), { duration: 3000 });
+      }
     }
   };
 
-  const handleLock = (item) => {
-    // TODO: implement lock/unlock
-    console.log("Lock:", item);
+  const handleLock = (company) => {
+    // Toggle company lock status
+    console.log("Lock/Unlock company:", company);
+    toast.info('Lock feature coming soon', { duration: 3000 });
+    // TODO: Implement lock/unlock for company status
   };
 
   return (
     <div className="min-h-screen bg-[#dfebed]">
+      {/* Header with Logo, Company Name and Welcome */}
+      <div className="sticky top-0 z-50 bg-[#dfebed] border-b border-slate-200 shadow-sm">
+        <div className="px-5 py-3">
+          <div className="flex items-center justify-between max-w-[1400px] mx-auto">
+            {/* Left: Logo and Company Info */}
+            <div className="flex items-center space-x-4">
+              <img src="/logo.png" alt="Milik Logo" className="h-8 w-10" />
+              <div>
+                <h1 className="text-sm font-bold text-[#0B3B2E]">{companyName}</h1>
+                <p className="text-xs text-slate-600">Welcome back, {userName.split(' ')[0]}</p>
+              </div>
+            </div>
+            
+            {/* Right: User Avatar and Cancel Button */}
+            <div className="flex items-center space-x-3">
+              <div className="h-8 w-8 rounded-full bg-gradient-to-r from-[#0B3B2E] to-[#0A3127] flex items-center justify-center">
+                <span className="text-white text-xs font-semibold">
+                  {userName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
+                </span>
+              </div>
+              <button
+                onClick={() => navigate('/dashboard')}
+                title="Close System Setup"
+                className="p-2 rounded-lg hover:bg-slate-200 transition-colors text-slate-600 hover:text-slate-900"
+              >
+                <FaTimes className="text-lg" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <StartMenu />
-      <div className="mx-auto max-w-[1400px] px-4 py-5">
+      <div className="mx-auto w-full max-w-[1400px] px-4 py-5">
         {/* Header and Stats cards remain same */}
 
         {/* Tabs */}
-        <div className="bg-white/50 backdrop-blur-xl border border-white/40 rounded-lg p-1 mb-4">
+        <div className="bg-[#0A400C] border border-slate-300 rounded-lg p-1 mb-4">
           <div className="flex gap-1 overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => navigate(tab.path)}
                 className={`
-                  flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md whitespace-nowrap
+                  flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md whitespace-nowrap transition-colors
                   ${activeTab === tab.key 
-                    ? 'bg-teal-600 text-white' 
-                    : 'text-slate-700 hover:bg-white/70'
+                    ? 'bg-emerald-700 text-white' 
+                    : 'text-gray-200 hover:bg-emerald-700 hover:text-gray-100'
                   }
                 `}
               >
                 {tab.icon}
                 {tab.label}
-                {tab.count !== undefined && (
-                  <span className={`ml-1 px-1.5 py-0.5 text-xs rounded-full ${
-                    activeTab === tab.key 
-                      ? 'bg-white/20 text-white' 
-                      : 'bg-slate-200 text-slate-700'
-                  }`}>
-                    {tab.count}
-                  </span>
-                )}
               </button>
             ))}
           </div>
         </div>
 
+        {/* Tab Manager - Below Local Tabs */}
+        <div className="border-b border-slate-300 mb-4">
+          <TabManager darkMode={false} />
+        </div>
+
         {/* Tab Content */}
-        <div className="bg-white/70 backdrop-blur-xl border border-slate-200 rounded-lg p-4">
+        <div className="bg-white border border-slate-200 rounded-lg p-4">
           {activeTab === "companies" && (
             <div>
               <CompaniesTable 
@@ -667,6 +1043,7 @@ export default function SystemSetupPage() {
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onLock={handleLock}
+                onAddCompany={() => setShowAddCompany(true)}
                 isLoading={companiesFetching}
               />
               <div className="mt-3 text-right">
@@ -690,6 +1067,7 @@ export default function SystemSetupPage() {
           onEdit={handleEditUser}
           onDelete={handleDeleteUser}
           onLock={handleLockUser}
+          onAddUser={() => setShowAddUser(true)}
           isLoading={usersFetching}
           selectedCompany={selectedCompanyForUsers}
         />

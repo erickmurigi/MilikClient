@@ -52,7 +52,7 @@ const StartMenu = ({ darkMode = false }) => {
 
   const primary = useMemo(
     () => [
-      { label: "Milik Property Management System", to: "/moduleDashboard" },
+      { label: "Milik Property Management System", to: "/dashboard" },
       { label: "Financial Accounts", icon: <FaUsers />, to: "/tenants" },
       { label: "Ven-Door", icon: <FaKey />, to: "/vendors" },
       { label: "Inventory Management", icon: <FaBoxes />, to: "/inventory" },

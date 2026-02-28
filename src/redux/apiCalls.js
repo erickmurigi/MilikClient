@@ -494,7 +494,12 @@ export const getCompanies = (queryParams = {}) => async (dispatch) => {
   dispatch(getCompaniesStart());
   try {
     const res = await adminRequests.get('/companies', { params: queryParams });
-    dispatch(getCompaniesSuccess(res.data));
+    const companies = Array.isArray(res.data?.companies)
+      ? res.data.companies
+      : Array.isArray(res.data)
+        ? res.data
+        : [];
+    dispatch(getCompaniesSuccess(companies));
     return res.data;
   } catch (err) {
     dispatch(getCompaniesFailure());
@@ -507,7 +512,7 @@ export const getCompany = (id) => async (dispatch) => {
   dispatch(getCompanyStart());
   try {
     const res = await adminRequests.get(`/companies/${id}`);
-    dispatch(getCompanySuccess(res.data));
+    dispatch(getCompanySuccess(res.data?.company || res.data));
     return res.data;
   } catch (err) {
     dispatch(getCompanyFailure());
@@ -521,7 +526,7 @@ export const createCompany = (companyData) => async (dispatch) => {
   try {
     const payload = transformCompanyData(companyData);
     const res = await adminRequests.post('/companies', payload);
-    dispatch(createCompanySuccess(res.data));
+    dispatch(createCompanySuccess(res.data?.company || res.data));
     return res.data;
   } catch (err) {
     dispatch(createCompanyFailure());
@@ -535,7 +540,7 @@ export const updateCompany = (id, companyData) => async (dispatch) => {
   try {
     const payload = transformCompanyData(companyData);
     const res = await adminRequests.put(`/companies/${id}`, payload);
-    dispatch(updateCompanySuccess({ id, company: res.data }));
+    dispatch(updateCompanySuccess({ id, company: res.data?.company || res.data }));
     return res.data;
   } catch (err) {
     dispatch(updateCompanyFailure());

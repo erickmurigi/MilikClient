@@ -37,7 +37,11 @@ const DashboardLayout = ({ children }) => {
       <div className="flex flex-1 pt-28 bg-white min-h-screen">
         <main className="flex-1 pt-4 overflow-y-auto overflow-x-hidden bg-white min-h-[calc(100vh-7rem)]">
           <div className="max-w-full min-h-[calc(100vh-7rem)]">
-            {React.Children.map(children, child => React.cloneElement(child, { darkMode }))}
+            {React.Children.map(children, (child) => {
+              if (!React.isValidElement(child)) return child;
+              if (typeof child.type === "string") return child;
+              return React.cloneElement(child, { darkMode });
+            })}
           </div>
         </main>
       </div>

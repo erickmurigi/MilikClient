@@ -37,7 +37,13 @@ function App() {
 
         <Route path="/moduleDashboard" element={<ModulesDashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/system-setup" element={<SystemSetupPage />} />
+        <Route path="/system-setup" element={<Navigate to="/system-setup/companies" replace />} />
+        <Route path="/system-setup/companies" element={<SystemSetupPage />} />
+        <Route path="/system-setup/users" element={<SystemSetupPage />} />
+        <Route path="/system-setup/rights" element={<SystemSetupPage />} />
+        <Route path="/system-setup/database" element={<SystemSetupPage />} />
+        <Route path="/system-setup/sessions" element={<SystemSetupPage />} />
+        <Route path="/system-setup/audit" element={<SystemSetupPage />} />
         <Route path="/landlords" element={<Landlords />} />
         <Route path="/landlords/new" element={<AddLandlord />} />
         <Route path="/properties" element={<Properties />} />
