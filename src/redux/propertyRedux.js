@@ -9,25 +9,25 @@ export const getProperties = createAsyncThunk(
   'property/getProperties',
   async (params = {}, { getState, rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('milik_token') || localStorage.getItem('token');
       const state = getState();
-      
-      // Get business from state if not provided
-      const businessId = params.business || state.business?.currentBusiness?._id;
-      
-      // Build query params
-      const queryParams = new URLSearchParams({
-        ...params,
-        business: businessId
+
+      // Resolve business from params or current company slice
+      const resolvedBusinessId = params.business || state.company?.currentCompany?._id;
+
+      // Build query params safely (never send "undefined")
+      const queryParams = new URLSearchParams();
+      Object.entries(params || {}).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value);
+        }
       });
-      
-      // Remove business from params if we're using state
-      if (params.business) {
-        queryParams.delete('business');
+      if (resolvedBusinessId) {
+        queryParams.set('business', resolvedBusinessId);
       }
-      
+
       const response = await axios.get(
-        `${API_URL}/properties?${queryParams.toString()}`,
+        `${API_URL}/properties${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -45,16 +45,23 @@ export const createProperty = createAsyncThunk(
   'property/createProperty',
   async (propertyData, { getState, rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('milik_token') || localStorage.getItem('token');
       const state = getState();
-      
+
+      const resolvedBusinessId = propertyData.business || state.company?.currentCompany?._id;
+      if (!resolvedBusinessId) {
+        return rejectWithValue('Please select a company before creating a property.');
+      }
+
       // Add business and user info to property data
       const dataWithContext = {
         ...propertyData,
-        business: propertyData.business || state.business?.currentBusiness?._id,
+        business: resolvedBusinessId,
         createdBy: state.auth?.user?._id,
         updatedBy: state.auth?.user?._id
       };
+      
+      console.log('Creating property with data:', dataWithContext);
       
       const response = await axios.post(
         `${API_URL}/properties`,
@@ -68,6 +75,7 @@ export const createProperty = createAsyncThunk(
       );
       return response.data;
     } catch (error) {
+      console.error('Property creation error:', error.response?.data || error.message);
       return rejectWithValue(error.response?.data?.message || 'Failed to create property');
     }
   }

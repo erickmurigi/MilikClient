@@ -22,6 +22,7 @@ import {
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { getProperties, deleteProperty } from "../../redux/propertyRedux";
+import MilikConfirmDialog from "../../components/Modals/MilikConfirmDialog";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
 const MILIK_GREEN_HOVER = "hover:bg-[#0A3127]";
@@ -84,6 +85,15 @@ const Properties = () => {
 
   const [draftFilters, setDraftFilters] = useState(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
+
+  // Milik Confirm Dialog
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    isDangerous: false,
+    onConfirm: null,
+  });
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -214,39 +224,43 @@ const Properties = () => {
       return;
     }
 
-    const ok = window.confirm(
-      `Are you sure you want to delete ${selectedProperties.length} properties? This action cannot be undone.`
-    );
-    if (!ok) return;
+    setConfirmDialog({
+      isOpen: true,
+      title: "Delete Properties",
+      message: `Are you sure you want to delete ${selectedProperties.length} properties? This action cannot be undone.`,
+      isDangerous: true,
+      onConfirm: async () => {
+        try {
+          for (const propertyId of selectedProperties) {
+            // unwrap so errors are caught
+            // eslint-disable-next-line no-await-in-loop
+            await dispatch(deleteProperty(propertyId)).unwrap();
+          }
+          toast.success(`${selectedProperties.length} properties deleted successfully`);
+          setSelectedProperties([]);
+          setSelectAll(false);
 
-    try {
-      for (const propertyId of selectedProperties) {
-        // unwrap so errors are caught
-        // eslint-disable-next-line no-await-in-loop
-        await dispatch(deleteProperty(propertyId)).unwrap();
-      }
-      toast.success(`${selectedProperties.length} properties deleted successfully`);
-      setSelectedProperties([]);
-      setSelectAll(false);
-
-      // refresh
-      const params = {
-        page: currentPage,
-        limit: itemsPerPage,
-        search: "",
-        status: appliedFilters.status,
-        zone: appliedFilters.zone,
-        category: appliedFilters.category,
-        code: appliedFilters.code,
-        name: appliedFilters.name,
-        lrNumber: appliedFilters.lr,
-        landlord: appliedFilters.landlord,
-        location: appliedFilters.location,
-      };
-      dispatch(getProperties(params));
-    } catch (err) {
-      toast.error(err || "Failed to delete some properties");
-    }
+          // refresh
+          const params = {
+            page: currentPage,
+            limit: itemsPerPage,
+            search: "",
+            status: appliedFilters.status,
+            zone: appliedFilters.zone,
+            category: appliedFilters.category,
+            code: appliedFilters.code,
+            name: appliedFilters.name,
+            lrNumber: appliedFilters.lr,
+            landlord: appliedFilters.landlord,
+            location: appliedFilters.location,
+          };
+          dispatch(getProperties(params));
+        } catch (err) {
+          toast.error(err || "Failed to delete some properties");
+        }
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+      },
+    });
   };
 
   const handleExport = () => toast.info("Export feature coming soon");
@@ -873,6 +887,18 @@ const Properties = () => {
 
         {/* Resizing overlay (kept) */}
         {isResizing && <div className="fixed inset-0 z-50 cursor-col-resize" style={{ cursor: "col-resize" }} />}
+
+        {/* Milik Confirm Dialog */}
+        <MilikConfirmDialog
+          isOpen={confirmDialog.isOpen}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText="Delete"
+          cancelText="Cancel"
+          isDangerous={confirmDialog.isDangerous}
+          onConfirm={() => confirmDialog.onConfirm?.()}
+          onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        />
       </div>
     </DashboardLayout>
   );

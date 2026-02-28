@@ -23,6 +23,7 @@ import {
 } from "react-icons/fa";
 import { createProperty } from "../../redux/propertyRedux";
 import { toast } from "react-toastify";
+import MilikConfirmDialog from "../Modals/MilikConfirmDialog";
 
 /**
  * 🔥 MILIK-ish burn orange
@@ -224,6 +225,15 @@ const AddProperty = () => {
   const user = "ivorush";
 
   const [activeTab, setActiveTab] = useState("general");
+
+  // Milik Confirm Dialog state
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    isDangerous: false,
+    onConfirm: null,
+  });
 
   const initialFormData = useMemo(
     () => ({
@@ -540,20 +550,33 @@ const AddProperty = () => {
       return;
     }
 
-    // If you want Property Code optional:
-    // - allow blank and generate server-side
-    // else enforce:
-    // if (!formData.propertyCode.trim()) ...
-
     // Must have primary landlord selected/filled
     if (!formData.landlords[0]?.name?.trim()) {
       toast.error("Primary landlord is required");
       return;
     }
 
+    // Auto-generate propertyCode if not provided (backend requires it)
+    let propertyCode = formData.propertyCode?.trim();
+    if (!propertyCode) {
+      // Generate code from property name + timestamp: PROP-ACMERES-1735689600
+      const nameCode = formData.propertyName
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "")
+        .substring(0, 8);
+      propertyCode = `PROP-${nameCode}-${Date.now().toString().slice(-6)}`;
+    }
+
+    const businessId = currentCompany?._id;
+    if (!businessId) {
+      toast.error("Please select a company before creating a property");
+      return;
+    }
+
     const propertyData = {
       ...formData,
-      business: currentCompany?._id, // change to "company" if backend expects it
+      propertyCode, // Use generated or provided code
+      business: businessId,
       createdBy: user?._id || user,
       updatedBy: user?._id || user,
     };
@@ -563,16 +586,25 @@ const AddProperty = () => {
       toast.success(result?.message || "Property created successfully!");
       navigate("/properties");
     } catch (err) {
+      console.error("Property creation error:", err);
       toast.error(err?.message || err || "Failed to create property");
     }
   };
 
   // Reset form
   const handleReset = () => {
-    if (window.confirm("Are you sure you want to reset all fields?")) {
-      setFormData(initialFormData);
-      setActiveTab("general");
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: "Reset Form",
+      message: "Are you sure you want to reset all fields? This action cannot be undone.",
+      isDangerous: false,
+      onConfirm: () => {
+        setFormData(initialFormData);
+        setActiveTab("general");
+        setConfirmDialog({ ...confirmDialog, isOpen: false });
+        toast.info("Form reset successfully");
+      },
+    });
   };
 
   // Tab navigation
@@ -1572,7 +1604,8 @@ const AddProperty = () => {
   };
 
   return (
-    <DashboardLayout>
+    <>
+      <DashboardLayout>
       <style>{`
         /* Orange highlight for select dropdown options */
         select {
@@ -1749,7 +1782,20 @@ const AddProperty = () => {
           </div>
         </div>
       </div>
-    </DashboardLayout>
+      </DashboardLayout>
+
+      {/* Milik Confirm Dialog */}
+      <MilikConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmText={confirmDialog.isDangerous ? "Delete" : "Yes, Proceed"}
+        cancelText="Cancel"
+        isDangerous={confirmDialog.isDangerous}
+        onConfirm={() => confirmDialog.onConfirm?.()}
+        onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+      />
+    </>
   );
 };
 

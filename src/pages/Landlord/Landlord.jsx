@@ -24,6 +24,7 @@ import {
   FaChevronDown,
 } from "react-icons/fa";
 import { getLandlords, deleteLandlord } from "../../redux/apiCalls";
+import MilikConfirmDialog from "../../components/Modals/MilikConfirmDialog";
 
 const STORAGE_KEY = "milik_landlords_v1";
 const ITEMS_PER_PAGE = 50;
@@ -70,6 +71,15 @@ const Landlords = () => {
   const [draftFilters, setDraftFilters] = useState(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
 
+  // Milik Confirm Dialog
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    isDangerous: false,
+    onConfirm: null,
+  });
+
   // Dropdown (Archive/Restore)
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const actionMenuRef = useRef(null);
@@ -97,8 +107,6 @@ const Landlords = () => {
       { key: "code", label: "Landlord Code" },
       { key: "name", label: "Landlord Name" },
       { key: "status", label: "Status" },
-      { key: "regId", label: "Reg No./ID/PPT #" },
-      { key: "address", label: "Address" },
       { key: "location", label: "Location" },
       { key: "email", label: "Email" },
       { key: "phone", label: "Phone Nos." },
@@ -108,19 +116,6 @@ const Landlords = () => {
     ],
     []
   );
-
-  // Load from localStorage (persist across refresh)
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) setLandlords(parsed);
-      }
-    } catch (e) {
-      console.warn("Failed to load landlords from storage:", e);
-    }
-  }, []);
 
   // Fetch landlords from backend on mount
   useEffect(() => {
@@ -323,24 +318,29 @@ const Landlords = () => {
   const deleteSelected = async () => {
     if (selectedLandlords.length === 0) return;
     
-    const ok = window.confirm(
-      selectedLandlords.length === 1
+    const isSingleDelete = selectedLandlords.length === 1;
+    setConfirmDialog({
+      isOpen: true,
+      title: isSingleDelete ? "Delete Landlord" : "Delete Landlords",
+      message: isSingleDelete
         ? "Delete this landlord? This cannot be undone."
-        : `Delete ${selectedLandlords.length} landlords? This cannot be undone.`
-    );
-    if (!ok) return;
-
-    try {
-      for (const id of selectedLandlords) {
-        await dispatch(deleteLandlord(id));
-      }
-      setSelectedLandlords([]);
-      setSelectAll(false);
-      setCurrentPage(1);
-    } catch (err) {
-      console.error('Delete error:', err);
-      alert(err?.message || "Failed to delete landlord(s)");
-    }
+        : `Delete ${selectedLandlords.length} landlords? This cannot be undone.`,
+      isDangerous: true,
+      onConfirm: async () => {
+        try {
+          for (const id of selectedLandlords) {
+            await dispatch(deleteLandlord(id));
+          }
+          setSelectedLandlords([]);
+          setSelectAll(false);
+          setCurrentPage(1);
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        } catch (err) {
+          console.error('Delete error:', err);
+          alert(err?.message || "Failed to delete landlord(s)");
+        }
+      },
+    });
   };
 
   // Archive/Restore functions (placeholder for now)
@@ -967,6 +967,18 @@ const Landlords = () => {
 
         {/* TODO: Edit Landlord Modal (will be converted to separate page later) */}
         {/* Temporarily disabled - edit functionality will use a dedicated page like Add */}
+
+        {/* Milik Confirm Dialog */}
+        <MilikConfirmDialog
+          isOpen={confirmDialog.isOpen}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText="Delete"
+          cancelText="Cancel"
+          isDangerous={confirmDialog.isDangerous}
+          onConfirm={() => confirmDialog.onConfirm?.()}
+          onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        />
       </div>
     </DashboardLayout>
   );

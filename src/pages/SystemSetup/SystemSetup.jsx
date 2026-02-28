@@ -61,6 +61,7 @@ import { getCompanies, createCompany } from "../../redux/apiCalls";
 import AddCompanyWizard from "./AddCompanyWizard";
 import AddUserPage from "./AddUsers";
 import { toast } from "react-toastify";
+import MilikConfirmDialog from "../../components/Modals/MilikConfirmDialog";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
 const MILIK_GREEN_HOVER = "hover:bg-[#0A3127]";
@@ -198,7 +199,7 @@ const CompaniesTable = ({ companies, onEdit, onDelete, onLock, onAddCompany, isL
 
   const handleCheckboxClick = (e) => e.stopPropagation();
 
-  const getRowClass = (index, companyId) => {
+  const getCompanyRowClass = (index, companyId) => {
     if (selectedCompanies.includes(companyId)) return "bg-[#CDE7D3] hover:bg-[#DFF1E3]";
     return index % 2 === 0 ? "bg-white hover:bg-[#f8f8f8]" : "bg-[#f9f9f9] hover:bg-[#f0f0f0]";
   };
@@ -245,11 +246,17 @@ const CompaniesTable = ({ companies, onEdit, onDelete, onLock, onAddCompany, isL
           <button 
             onClick={() => {
               if (selectedCompanies.length > 0) {
-                const confirmed = window.confirm(`Delete ${selectedCompanies.length} selected company(ies)?`);
-                if (confirmed) {
-                  selectedCompanies.forEach(id => onDelete(id));
-                  setSelectedCompanies([]);
-                }
+                setConfirmDialog({
+                  isOpen: true,
+                  title: "Delete Companies",
+                  message: `Are you sure you want to delete ${selectedCompanies.length} selected company(ies)? This action cannot be undone.`,
+                  isDangerous: true,
+                  onConfirm: () => {
+                    selectedCompanies.forEach(id => onDelete(id));
+                    setSelectedCompanies([]);
+                    setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                  },
+                });
               }
             }}
             disabled={selectedCompanies.length === 0}
@@ -300,7 +307,10 @@ const CompaniesTable = ({ companies, onEdit, onDelete, onLock, onAddCompany, isL
                 paginatedCompanies.map((company, index) => (
                   <tr
                     key={company.id}
-                    className={`border-b border-gray-200 cursor-pointer transition-colors duration-150 ${getRowClass(index, company.id)}`}
+                    className={[
+                      "border-b border-gray-200 cursor-pointer transition-colors duration-150",
+                      getCompanyRowClass(index, company.id),
+                    ].join(" ")}
                     onClick={() => handleSelectCompany(company.id)}
                   >
                     <td className="px-3 py-1 border border-gray-200 align-top" onClick={handleCheckboxClick}>
@@ -326,15 +336,18 @@ const CompaniesTable = ({ companies, onEdit, onDelete, onLock, onAddCompany, isL
                       {company.town}
                     </td>
                     <td className="px-3 py-1 text-center border border-gray-200 align-top">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap border ${
-                        company.status === 'Active'
-                          ? selectedCompanies.includes(company.id)
-                            ? 'bg-white text-green-800 border-green-300'
-                            : 'bg-green-100 text-green-800 border-green-300'
-                          : selectedCompanies.includes(company.id)
-                          ? 'bg-white text-gray-800 border-gray-300'
-                          : 'bg-gray-100 text-gray-800 border-gray-300'
-                      }`}>
+                      <span
+                        className={[
+                          "inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap border",
+                          company.status === "Active"
+                            ? selectedCompanies.includes(company.id)
+                              ? "bg-white text-green-800 border-green-300"
+                              : "bg-green-100 text-green-800 border-green-300"
+                            : selectedCompanies.includes(company.id)
+                            ? "bg-white text-gray-800 border-gray-300"
+                            : "bg-gray-100 text-gray-800 border-gray-300",
+                        ].join(" ")}
+                      >
                         {company.status}
                       </span>
                     </td>
@@ -453,7 +466,7 @@ const UsersTable = ({ users, onEdit, onLock, onDelete, onAddUser, isLoading, sel
 
   const handleCheckboxClick = (e) => e.stopPropagation();
 
-  const getRowClass = (index, userId) => {
+  const getUserRowClass = (index, userId) => {
     if (selectedUsers.includes(userId)) return "bg-[#CDE7D3] hover:bg-[#DFF1E3]";
     return index % 2 === 0 ? "bg-white hover:bg-[#f8f8f8]" : "bg-[#f9f9f9] hover:bg-[#f0f0f0]";
   };
@@ -500,11 +513,17 @@ const UsersTable = ({ users, onEdit, onLock, onDelete, onAddUser, isLoading, sel
           <button 
             onClick={() => {
               if (selectedUsers.length > 0) {
-                const confirmed = window.confirm(`Delete ${selectedUsers.length} selected user(s)?`);
-                if (confirmed) {
-                  selectedUsers.forEach(id => onDelete(id));
-                  setSelectedUsers([]);
-                }
+                setConfirmDialog({
+                  isOpen: true,
+                  title: "Delete Users",
+                  message: `Are you sure you want to delete ${selectedUsers.length} selected user(s)? This action cannot be undone.`,
+                  isDangerous: true,
+                  onConfirm: () => {
+                    selectedUsers.forEach(id => onDelete(id));
+                    setSelectedUsers([]);
+                    setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                  },
+                });
               }
             }}
             disabled={selectedUsers.length === 0}
@@ -558,7 +577,10 @@ const UsersTable = ({ users, onEdit, onLock, onDelete, onAddUser, isLoading, sel
                 paginatedUsers.map((user, index) => (
                   <tr
                     key={user.id}
-                    className={`border-b border-gray-200 cursor-pointer transition-colors duration-150 ${getRowClass(index, user.id)}`}
+                    className={[
+                      "border-b border-gray-200 cursor-pointer transition-colors duration-150",
+                      getUserRowClass(index, user.id),
+                    ].join(" ")}
                     onClick={() => handleSelectUser(user.id)}
                   >
                     <td className="px-3 py-1 border border-gray-200 align-top" onClick={handleCheckboxClick}>
@@ -576,15 +598,18 @@ const UsersTable = ({ users, onEdit, onLock, onDelete, onAddUser, isLoading, sel
                     </td>
                     <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top">{user.phone}</td>
                     <td className="px-3 py-1 text-center border border-gray-200 align-top">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap border ${
-                        user.status === 'Active'
-                          ? selectedUsers.includes(user.id)
-                            ? 'bg-white text-green-800 border-green-300'
-                            : 'bg-green-100 text-green-800 border-green-300'
-                          : selectedUsers.includes(user.id)
-                          ? 'bg-white text-gray-800 border-gray-300'
-                          : 'bg-gray-100 text-gray-800 border-gray-300'
-                      }`}>
+                      <span
+                        className={[
+                          "inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap border",
+                          user.status === "Active"
+                            ? selectedUsers.includes(user.id)
+                              ? "bg-white text-green-800 border-green-300"
+                              : "bg-green-100 text-green-800 border-green-300"
+                            : selectedUsers.includes(user.id)
+                            ? "bg-white text-gray-800 border-gray-300"
+                            : "bg-gray-100 text-gray-800 border-gray-300",
+                        ].join(" ")}
+                      >
                         {user.status}
                       </span>
                     </td>
@@ -704,7 +729,7 @@ const SystemRightsTable = () => {
 
   const handleCheckboxClick = (e) => e.stopPropagation();
 
-  const getRowClass = (index, rightId) => {
+  const getRightRowClass = (index, rightId) => {
     if (selectedRights.includes(rightId)) return "bg-[#CDE7D3] hover:bg-[#DFF1E3]";
     return index % 2 === 0 ? "bg-white hover:bg-[#f8f8f8]" : "bg-[#f9f9f9] hover:bg-[#f0f0f0]";
   };
@@ -772,7 +797,10 @@ const SystemRightsTable = () => {
               {paginatedRights.map((right, index) => (
                 <tr
                   key={right.id}
-                  className={`border-b border-gray-200 cursor-pointer transition-colors duration-150 ${getRowClass(index, right.id)}`}
+                  className={[
+                    "border-b border-gray-200 cursor-pointer transition-colors duration-150",
+                    getRightRowClass(index, right.id),
+                  ].join(" ")}
                   onClick={() => handleSelectRight(right.id)}
                 >
                   <td className="px-3 py-1 border border-gray-200 align-top" onClick={handleCheckboxClick}>
@@ -786,15 +814,18 @@ const SystemRightsTable = () => {
                   </td>
                   <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top">{right.name}</td>
                   <td className="px-3 py-1 text-center border border-gray-200 align-top">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap border ${
-                      right.status === 'Enabled'
-                        ? selectedRights.includes(right.id)
-                          ? 'bg-white text-green-800 border-green-300'
-                          : 'bg-green-100 text-green-800 border-green-300'
-                        : selectedRights.includes(right.id)
-                        ? 'bg-white text-gray-800 border-gray-300'
-                        : 'bg-gray-100 text-gray-800 border-gray-300'
-                    }`}>
+                    <span
+                      className={[
+                        "inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap border",
+                        right.status === "Enabled"
+                          ? selectedRights.includes(right.id)
+                            ? "bg-white text-green-800 border-green-300"
+                            : "bg-green-100 text-green-800 border-green-300"
+                          : selectedRights.includes(right.id)
+                          ? "bg-white text-gray-800 border-gray-300"
+                          : "bg-gray-100 text-gray-800 border-gray-300",
+                      ].join(" ")}
+                    >
                       {right.status}
                     </span>
                   </td>
@@ -864,6 +895,15 @@ export default function SystemSetupPage() {
   const [showAddUser, setShowAddUser] = useState(false);
   const [selectedCompanyForUsers, setSelectedCompanyForUsers] = useState(null);
 
+  // Milik Confirm Dialog state
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    isDangerous: false,
+    onConfirm: null,
+  });
+
   const sectionFromPath = location.pathname.split("/")[2];
   const validSections = ["companies", "users", "rights", "database", "sessions", "audit"];
   const activeTab = validSections.includes(sectionFromPath) ? sectionFromPath : "companies";
@@ -896,9 +936,16 @@ export default function SystemSetupPage() {
   
 
   const handleDeleteUser = (userId) => {
-    if (window.confirm("Are you sure you want to delete this user?")) {
-      dispatch(deleteUser(userId));
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: "Delete User",
+      message: "Are you sure you want to delete this user? This action cannot be undone.",
+      isDangerous: true,
+      onConfirm: () => {
+        dispatch(deleteUser(userId));
+        setConfirmDialog({ ...confirmDialog, isOpen: false });
+      },
+    });
   };
 
   const handleLockUser = (userId) => {
@@ -951,15 +998,22 @@ export default function SystemSetupPage() {
   };
 
   const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this company?')) {
-      try {
-        dispatch(deleteCompany(id));
-        toast.success('Company deleted successfully', { duration: 3000 });
-      } catch (error) {
-        console.error("Failed to delete company:", error);
-        toast.error('Failed to delete company: ' + (error.message || 'Unknown error'), { duration: 3000 });
-      }
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: "Delete Company",
+      message: "Are you sure you want to delete this company? This action cannot be undone.",
+      isDangerous: true,
+      onConfirm: () => {
+        try {
+          dispatch(deleteCompany(id));
+          toast.success('Company deleted successfully', { duration: 3000 });
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          console.error("Failed to delete company:", error);
+          toast.error('Failed to delete company: ' + (error.message || 'Unknown error'), { duration: 3000 });
+        }
+      },
+    });
   };
 
   const handleLock = (company) => {
@@ -1129,6 +1183,18 @@ export default function SystemSetupPage() {
           companies={companies} // pass real companies list
         />
       )}
+
+      {/* Milik Confirm Dialog */}
+      <MilikConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDangerous={confirmDialog.isDangerous}
+        onConfirm={() => confirmDialog.onConfirm?.()}
+        onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+      />
     </div>
   );
 }
