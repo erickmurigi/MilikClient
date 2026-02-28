@@ -4,8 +4,10 @@ import "./App.css";
 
 import Home from "./pages/Home/Home";
 import Login from "./pages/Login/Login";
+import SetupAdmin from "./pages/Login/SetupAdmin";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import Landlords from "./pages/Landlord/Landlord";
+import AddLandlord from "./components/Landlord/AddLandlord";
 import Properties from "./pages/Properties/Properties";
 import Units from "./pages/Units/Units";
 import Tenants from "./pages/Tenants/Tenants";
@@ -31,11 +33,13 @@ function App() {
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="/home" element={<Home />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/setup-admin" element={<SetupAdmin />} />
 
         <Route path="/moduleDashboard" element={<ModulesDashboard />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/system-setup" element={<SystemSetupPage />} />
         <Route path="/landlords" element={<Landlords />} />
+        <Route path="/landlords/new" element={<AddLandlord />} />
         <Route path="/properties" element={<Properties />} />
         <Route path="/units" element={<Units />} />
         <Route path="/tenants" element={<Tenants />} />

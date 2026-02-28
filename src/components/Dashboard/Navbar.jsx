@@ -1,15 +1,28 @@
 import React from 'react';
+import { useSelector } from 'react-redux';
 import {
   FaBars,
   FaBell,
   FaSignOutAlt,
-  FaExclamationTriangle,
   FaMoon,
   FaSun
 } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Navbar = ({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode }) => {
+  const navigate = useNavigate();
+  const { currentUser } = useSelector((state) => state.auth);
+  
+  const companyName = currentUser?.company?.companyName || 'Company';
+  const userName = currentUser ? `${currentUser.surname} ${currentUser.otherNames}` : 'User';
+  const profile = currentUser?.profile || 'User';
+
+  const handleLogout = () => {
+    localStorage.removeItem('milik_token');
+    localStorage.removeItem('milik_user');
+    navigate('/login');
+  };
+
   return (
     <nav className={`sticky top-0 z-20 ${darkMode ? 'bg-[#dfebed] text-white' : 'bg-[#dfebed] text-gray-900'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'} shadow-sm`}>
       <div className="px-5 py-1">
@@ -25,10 +38,10 @@ const Navbar = ({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode }) => {
             
             <div>
               <h1 className={`text-sm font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                Bosco Property Management
+                {companyName}
               </h1>
               <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                Welcome back, Erick
+                Welcome back, {userName.split(' ')[0]}
               </p>
             </div>
           </div>
@@ -54,36 +67,28 @@ const Navbar = ({ sidebarOpen, setSidebarOpen, darkMode, setDarkMode }) => {
               <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full"></span>
             </button>
 
-            {/* Demo Warning 
-            <div className={`hidden md:flex items-center space-x-2 px-3 py-2 rounded-lg
-                          ${darkMode 
-                            ? 'bg-amber-900/20 border border-amber-800' 
-                            : 'bg-amber-50 border border-amber-200'
-                          }`}>
-              <FaExclamationTriangle className={darkMode ? 'text-amber-400' : 'text-amber-600'} />
-              <span className={`text-sm font-medium ${darkMode ? 'text-amber-300' : 'text-amber-800'}`}>
-                Demo Account
-              </span>
-            </div>*/}
-
             {/* User Profile */}
             <div className="flex items-center space-x-3">
               <div className="h-6 w-6 rounded-full bg-gradient-to-r from-[#369519] to-[#0b570b] flex items-center justify-center">
-                <span className="text-white text-xs font-semibold">EM</span>
+                <span className="text-white text-xs font-semibold">
+                  {userName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
+                </span>
               </div>
               <div className="hidden md:block text-right">
-                <p className={`font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Erick Murigi
+                <p className={`font-semibold text-sm ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  {userName}
                 </p>
                 <p className={`text-xs ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                  Admin
+                  {profile}
                 </p>
               </div>
-              <Link to="/home">
-                <button className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}>
-                  <FaSignOutAlt className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'}`} />
-                </button>
-              </Link>
+              <button
+                onClick={handleLogout}
+                className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
+                title="Logout"
+              >
+                <FaSignOutAlt className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'}`} />
+              </button>
             </div>
           </div>
         </div>

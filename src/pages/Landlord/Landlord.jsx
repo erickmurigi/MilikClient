@@ -1,5 +1,7 @@
 // pages/Landlord/Landlord.jsx
 import React, { useMemo, useRef, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import DashboardLayout from "../../components/Layout/DashboardLayout";
 import {
   FaPlus,
@@ -21,6 +23,7 @@ import {
   FaUndo,
   FaChevronDown,
 } from "react-icons/fa";
+import { getLandlords, deleteLandlord } from "../../redux/apiCalls";
 
 const STORAGE_KEY = "milik_landlords_v1";
 const ITEMS_PER_PAGE = 50;
@@ -31,19 +34,23 @@ const MILIK_ORANGE = "bg-[#FF8C00]";
 const MILIK_ORANGE_HOVER = "hover:bg-[#e67e00]";
 
 const Landlords = () => {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  
+  // Redux state
+  const landlordState = useSelector((state) => state.landlord);
+  const landlords = landlordState?.landlords || [];
+  const isFetching = landlordState?.isFetching || false;
+  
   // Table + UI state
   const [selectedLandlords, setSelectedLandlords] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isResizing, setIsResizing] = useState(false);
 
-  // Modals
-  const [showAddLandlordModal, setShowAddLandlordModal] = useState(false);
+  // Modals (keeping edit mode for future edit functionality)
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingId, setEditingId] = useState(null);
-
-  // Data
-  const [landlords, setLandlords] = useState([]);
 
   // ---- NEW: Draft filters (typed) + Applied filters (used for searching) ----
   const emptyFilters = {
@@ -66,24 +73,6 @@ const Landlords = () => {
   // Dropdown (Archive/Restore)
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const actionMenuRef = useRef(null);
-
-  // Modal form state
-  const [formData, setFormData] = useState({
-    landlordCode: "",
-    landlordType: "Individual",
-    landlordName: "",
-    regId: "",
-    taxPin: "",
-    postalAddress: "",
-    email: "",
-    phoneNumber: "",
-    location: "",
-    portalAccess: "Disabled",
-    status: "Active",
-  });
-
-  const [attachments, setAttachments] = useState([]);
-  const fileInputRef = useRef(null);
 
   // Column widths (FIXED KEYS)
   const [columnWidths, setColumnWidths] = useState({
@@ -133,14 +122,10 @@ const Landlords = () => {
     }
   }, []);
 
-  // Save to localStorage
+  // Fetch landlords from backend on mount
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(landlords));
-    } catch (e) {
-      console.warn("Failed to save landlords to storage:", e);
-    }
-  }, [landlords]);
+    dispatch(getLandlords());
+  }, [dispatch]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -234,12 +219,12 @@ const Landlords = () => {
 
   const matchesTypedFields = (l) => {
     return (
-      matchesText(l.code, appliedFilters.code) &&
-      matchesText(l.name, appliedFilters.name) &&
+      matchesText(l.landlordCode || l.code, appliedFilters.code) &&
+      matchesText(l.landlordName || l.name, appliedFilters.name) &&
       matchesText(l.regId, appliedFilters.regId) &&
-      matchesText(l.pin, appliedFilters.pin) &&
+      matchesText(l.taxPin || l.pin, appliedFilters.pin) &&
       matchesText(l.email, appliedFilters.email) &&
-      matchesText(l.phone, appliedFilters.phone)
+      matchesText(l.phoneNumber || l.phone, appliedFilters.phone)
     );
   };
 
@@ -276,11 +261,11 @@ const Landlords = () => {
 
   const handleSelectAll = () => {
     if (selectAll) {
-      const currentIds = currentLandlords.map((l) => l.id);
+      const currentIds = currentLandlords.map((l) => l._id);
       setSelectedLandlords((prev) => prev.filter((id) => !currentIds.includes(id)));
       setSelectAll(false);
     } else {
-      const currentIds = currentLandlords.map((l) => l.id);
+      const currentIds = currentLandlords.map((l) => l._id);
       setSelectedLandlords((prev) => Array.from(new Set([...prev, ...currentIds])));
       setSelectAll(true);
     }
@@ -334,25 +319,42 @@ const Landlords = () => {
     if (page >= 1 && page <= totalPages) setCurrentPage(page);
   };
 
+  // Delete selected landlords
+  const deleteSelected = async () => {
+    if (selectedLandlords.length === 0) return;
+    
+    const ok = window.confirm(
+      selectedLandlords.length === 1
+        ? "Delete this landlord? This cannot be undone."
+        : `Delete ${selectedLandlords.length} landlords? This cannot be undone.`
+    );
+    if (!ok) return;
+
+    try {
+      for (const id of selectedLandlords) {
+        await dispatch(deleteLandlord(id));
+      }
+      setSelectedLandlords([]);
+      setSelectAll(false);
+      setCurrentPage(1);
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert(err?.message || "Failed to delete landlord(s)");
+    }
+  };
+
+  // Archive/Restore functions (placeholder for now)
+  const archiveSelected = () => {
+    alert("Archive functionality coming soon!");
+  };
+
+  const restoreSelected = () => {
+    alert("Restore functionality coming soon!");
+  };
+
   // --- MODAL / FORM ---
   const openAddModal = () => {
-    setIsEditMode(false);
-    setEditingId(null);
-    setFormData({
-      landlordCode: "",
-      landlordType: "Individual",
-      landlordName: "",
-      regId: "",
-      taxPin: "",
-      postalAddress: "",
-      email: "",
-      phoneNumber: "",
-      location: "",
-      portalAccess: "Disabled",
-      status: "Active",
-    });
-    setAttachments([]);
-    setShowAddLandlordModal(true);
+    navigate('/landlords/new');
   };
 
   const openEditModal = () => {
@@ -361,6 +363,8 @@ const Landlords = () => {
     const l = landlords.find((x) => x.id === id);
     if (!l) return;
 
+    // TODO: Navigate to edit page in the future
+    // For now, keeping modal-based edit (can convert to page later)
     setIsEditMode(true);
     setEditingId(id);
     setFormData({
@@ -377,7 +381,8 @@ const Landlords = () => {
       status: l.status || "Active",
     });
     setAttachments((l.attachments || []).map((a) => ({ ...a, file: null })));
-    setShowAddLandlordModal(true);
+    // setShowAddLandlordModal(true); // Disabled until edit page is created
+    alert("Edit functionality will be converted to a separate page soon!");
   };
 
   const handleInputChange = (e) => {
@@ -498,48 +503,12 @@ const Landlords = () => {
     setCurrentPage(1);
   };
 
-  // --- TOP BAR ACTIONS ---
-  const archiveSelected = () => {
-    if (selectedLandlords.length === 0) return;
-    setLandlords((prev) =>
-      prev.map((l) =>
-        selectedLandlords.includes(l.id) ? { ...l, status: "Archived", updatedAt: new Date().toISOString() } : l
-      )
-    );
-    setActionMenuOpen(false);
-  };
-
-  const restoreSelected = () => {
-    if (selectedLandlords.length === 0) return;
-    setLandlords((prev) =>
-      prev.map((l) =>
-        selectedLandlords.includes(l.id) ? { ...l, status: "Active", updatedAt: new Date().toISOString() } : l
-      )
-    );
-    setActionMenuOpen(false);
-  };
-
-  const deleteSelected = () => {
-    if (selectedLandlords.length === 0) return;
-    const ok = window.confirm(
-      selectedLandlords.length === 1
-        ? "Delete this landlord? This cannot be undone."
-        : `Delete ${selectedLandlords.length} landlords? This cannot be undone.`
-    );
-    if (!ok) return;
-
-    setLandlords((prev) => prev.filter((l) => !selectedLandlords.includes(l.id)));
-    setSelectedLandlords([]);
-    setSelectAll(false);
-    setCurrentPage(1);
-  };
-
   const selectedCount = selectedLandlords.length;
   const canEdit = selectedCount === 1;
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col h-full p-0 bg-gray-50">
+      <div className="flex flex-col h-full bg-white">
         {/* Filters Row */}
         <div className="flex-shrink-0 pt-2 px-2">
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2">
@@ -685,9 +654,9 @@ const Landlords = () => {
 
               <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
                 <FaEllipsisH className="text-xs" />
-                <span><strong></strong>More</span>
-
-
+                <span>
+                  <strong></strong>More
+                </span>
               </button>
             </div>
 
@@ -733,9 +702,10 @@ const Landlords = () => {
         </div>
 
         {/* Table */}
-        <div className="flex-1 px-2 pb-2 overflow-hidden relative">
+        <div className="flex-1 px-2 pb-2 overflow-hidden">
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm h-full flex flex-col">
-            <div className="overflow-x-auto overflow-y-auto flex-1 pb-16">
+            {/* Make THIS the scroll area so the footer stays visible */}
+            <div className="overflow-x-auto overflow-y-auto flex-1">
               <table
                 className="min-w-full text-xs border-collapse border border-gray-200 font-bold bg-white"
                 ref={tableRef}
@@ -788,12 +758,12 @@ const Landlords = () => {
                   {currentLandlords.length > 0 ? (
                     currentLandlords.map((landlord, index) => (
                       <tr
-                        key={landlord.id}
+                        key={landlord._id}
                         className={`border-b border-gray-200 cursor-pointer transition-colors duration-150 ${getRowClass(
                           index,
-                          landlord.id
+                          landlord._id
                         )}`}
-                        onClick={() => handleSelectLandlord(landlord.id)}
+                        onClick={() => handleSelectLandlord(landlord._id)}
                       >
                         <td
                           className="px-3 py-1 border border-gray-200 align-top"
@@ -802,28 +772,28 @@ const Landlords = () => {
                         >
                           <input
                             type="checkbox"
-                            checked={selectedLandlords.includes(landlord.id)}
-                            onChange={() => handleSelectLandlord(landlord.id)}
+                            checked={selectedLandlords.includes(landlord._id)}
+                            onChange={() => handleSelectLandlord(landlord._id)}
                             onClick={handleCheckboxClick}
                             className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                           />
                         </td>
 
                         <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                          {landlord.code}
+                          {landlord.landlordCode || landlord.code}
                         </td>
                         <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                          {landlord.name}
+                          {landlord.landlordName || landlord.name}
                         </td>
 
                         <td className="px-3 py-1 border border-gray-200 align-top">
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap border ${
                               String(landlord.status || "Active") === "Active"
-                                ? selectedLandlords.includes(landlord.id)
+                                ? selectedLandlords.includes(landlord._id)
                                   ? "bg-white text-green-800 border-green-300"
                                   : "bg-green-100 text-green-800 border-green-300"
-                                : selectedLandlords.includes(landlord.id)
+                                : selectedLandlords.includes(landlord._id)
                                 ? "bg-white text-gray-800 border-gray-300"
                                 : "bg-gray-100 text-gray-800 border-gray-300"
                             }`}
@@ -833,42 +803,42 @@ const Landlords = () => {
                         </td>
 
                         <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                          {landlord.regId}
+                          {landlord.regId || "—"}
                         </td>
                         <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                          {landlord.address}
+                          {landlord.postalAddress || landlord.address || "—"}
                         </td>
                         <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                          {landlord.location}
+                          {landlord.location || "—"}
                         </td>
                         <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                          {landlord.email}
+                          {landlord.email || "—"}
                         </td>
                         <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                          {landlord.phone}
+                          {landlord.phoneNumber || landlord.phone || "—"}
                         </td>
 
                         <td className="px-3 py-1 text-center font-bold text-gray-900 border border-gray-200 align-top">
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${
-                              selectedLandlords.includes(landlord.id)
+                              selectedLandlords.includes(landlord._id)
                                 ? "bg-white text-green-800 border-green-300"
                                 : "bg-green-100 text-green-800 border-green-300"
                             }`}
                           >
-                            {landlord.activeProperties ?? "0"}
+                            {landlord.propertyCount ?? "0"}
                           </span>
                         </td>
 
                         <td className="px-3 py-1 text-center font-bold text-gray-900 border border-gray-200 align-top">
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${
-                              selectedLandlords.includes(landlord.id)
+                              selectedLandlords.includes(landlord._id)
                                 ? "bg-white text-gray-800 border-gray-300"
                                 : "bg-gray-100 text-gray-800 border-gray-300"
                             }`}
                           >
-                            {landlord.archivedProperties ?? "0"}
+                            {landlord.unitsCount ?? "0"}
                           </span>
                         </td>
 
@@ -876,10 +846,10 @@ const Landlords = () => {
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap border ${
                               landlord.portalAccess === "Enabled"
-                                ? selectedLandlords.includes(landlord.id)
+                                ? selectedLandlords.includes(landlord._id)
                                   ? "bg-white text-green-800 border-green-300"
                                   : "bg-green-100 text-green-800 border-green-300"
-                                : selectedLandlords.includes(landlord.id)
+                                : selectedLandlords.includes(landlord._id)
                                 ? "bg-white text-gray-800 border-gray-300"
                                 : "bg-gray-100 text-gray-800 border-gray-300"
                             }`}
@@ -898,6 +868,14 @@ const Landlords = () => {
                         <div className="flex flex-col items-center justify-center py-8">
                           <div className="text-lg font-bold text-gray-400 mb-2">No landlords found</div>
                           <div className="text-sm text-gray-500">Use the filter fields above, then click Search</div>
+                          <button
+                            onClick={openAddModal}
+                            className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
+                            title="Add your first landlord"
+                          >
+                            <FaPlus className="text-xs" />
+                            <span>Add New Landlord</span>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -906,8 +884,8 @@ const Landlords = () => {
               </table>
             </div>
 
-            {/* Footer */}
-            <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-20 shadow-sm">
+            {/* Footer (STICKY bottom inside the card) */}
+            <div className="sticky bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-20 shadow-sm">
               <div className="flex items-center justify-between px-3 py-2">
                 <div className="text-xs text-gray-600">
                   <div className="flex items-center gap-4">
@@ -987,307 +965,8 @@ const Landlords = () => {
         {/* Resizing overlay */}
         {isResizing && <div className="fixed inset-0 z-50 cursor-col-resize" style={{ cursor: "col-resize" }} />}
 
-        {/* Add/Edit Landlord Modal */}
-        {showAddLandlordModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-md backdrop-saturate-300 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-              {/* Header */}
-              <div className="flex justify-between items-center p-4 border-b">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-800">
-                    {isEditMode ? "Edit Landlord" : "Add New Landlord"}
-                  </h2>
-                  <p className="text-xs text-gray-600">Fill in the landlord details below</p>
-                </div>
-                <button
-                  onClick={() => setShowAddLandlordModal(false)}
-                  className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100"
-                >
-                  <FaTimes />
-                </button>
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 overflow-y-auto p-6">
-                <form onSubmit={handleAddOrEditSubmit} id="landlordForm">
-                  {/* General */}
-                  <div className="mb-6">
-                    <h3 className="text-sm font-semibold text-gray-800 mb-4 pb-2 border-b">General Information</h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Landlord Code</label>
-                        <input
-                          type="text"
-                          name="landlordCode"
-                          value={formData.landlordCode}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="Leave blank to auto-generate (LL001...)"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Landlord Type *</label>
-                        <select
-                          name="landlordType"
-                          value={formData.landlordType}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
-                          required
-                        >
-                          <option value="Individual">Individual</option>
-                          <option value="Company">Company</option>
-                          <option value="Partnership">Partnership</option>
-                          <option value="Trust">Trust</option>
-                        </select>
-                      </div>
-
-                      <div className="md:col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Landlord Name *</label>
-                        <input
-                          type="text"
-                          name="landlordName"
-                          value={formData.landlordName}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="Enter landlord name"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Reg/ID NO. *</label>
-                        <input
-                          type="text"
-                          name="regId"
-                          value={formData.regId}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="ID number or registration number"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Tax/PIN NO. *</label>
-                        <input
-                          type="text"
-                          name="taxPin"
-                          value={formData.taxPin}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="e.g., A123456789X"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
-                        <select
-                          name="status"
-                          value={formData.status}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
-                        >
-                          <option value="Active">Active</option>
-                          <option value="Archived">Archived</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Portal Access</label>
-                        <select
-                          name="portalAccess"
-                          value={formData.portalAccess}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white"
-                        >
-                          <option value="Enabled">Enabled</option>
-                          <option value="Disabled">Disabled</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Address */}
-                  <div className="mb-6">
-                    <h3 className="text-sm font-semibold text-gray-800 mb-4 pb-2 border-b">Address Information</h3>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="md:col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Postal Address</label>
-                        <input
-                          type="text"
-                          name="postalAddress"
-                          value={formData.postalAddress}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="Physical or postal address"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
-                        <input
-                          type="email"
-                          name="email"
-                          value={formData.email}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="Email address"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Phone Number *</label>
-                        <input
-                          type="tel"
-                          name="phoneNumber"
-                          value={formData.phoneNumber}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="+254 XXX XXX XXX"
-                          required
-                        />
-                      </div>
-
-                      <div className="md:col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Location</label>
-                        <input
-                          type="text"
-                          name="location"
-                          value={formData.location}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="e.g., Nairobi CBD, Westlands, etc."
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Attachments */}
-                  <div className="mb-6">
-                    <h3 className="text-sm font-semibold text-gray-800 mb-4 pb-2 border-b">Attachments</h3>
-
-                    <div className="flex gap-2 mb-4">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`px-4 py-2 text-xs text-white rounded-lg flex items-center gap-2 ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
-                      >
-                        <FaPaperclip className="text-xs" />
-                        Add
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setAttachments([])}
-                        className="px-4 py-2 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors"
-                      >
-                        <FaTrashAlt className="text-xs" />
-                        Delete All
-                      </button>
-
-                      <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" multiple />
-                    </div>
-
-                    {attachments.length > 0 ? (
-                      <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                        <table className="min-w-full text-xs">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Name</th>
-                              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Size</th>
-                              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Date & Time</th>
-                              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {attachments.map((attachment) => (
-                              <tr key={attachment.id} className="hover:bg-gray-50">
-                                <td className="px-3 py-2 border-b">{attachment.name}</td>
-                                <td className="px-3 py-2 border-b">{attachment.size}</td>
-                                <td className="px-3 py-2 border-b">{attachment.dateTime}</td>
-                                <td className="px-3 py-2 border-b">
-                                  <div className="flex gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDownload(attachment)}
-                                      className="text-blue-600 hover:text-blue-800"
-                                      title="Download"
-                                    >
-                                      <FaDownloadIcon />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteAttachment(attachment.id)}
-                                      className="text-red-600 hover:text-red-800"
-                                      title="Delete"
-                                    >
-                                      <FaTrash />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-gray-500 text-sm border border-gray-200 rounded-lg">
-                        No attachments added yet
-                      </div>
-                    )}
-                  </div>
-                </form>
-              </div>
-
-              {/* Footer */}
-              <div className="flex justify-between items-center p-4 border-t bg-gray-50">
-                <div className="text-xs text-gray-500">Fields marked with * are required</div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddLandlordModal(false)}
-                    className="px-6 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFormData({
-                        landlordCode: "",
-                        landlordType: "Individual",
-                        landlordName: "",
-                        regId: "",
-                        taxPin: "",
-                        postalAddress: "",
-                        email: "",
-                        phoneNumber: "",
-                        location: "",
-                        portalAccess: "Disabled",
-                        status: "Active",
-                      });
-                      setAttachments([]);
-                    }}
-                    className="px-6 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Reset
-                  </button>
-                  <button
-                    type="submit"
-                    form="landlordForm"
-                    className={`px-6 py-2 text-sm text-white rounded-lg transition-colors flex items-center gap-2 ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
-                  >
-                    <FaSave /> {isEditMode ? "Save Changes" : "Save Landlord"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* TODO: Edit Landlord Modal (will be converted to separate page later) */}
+        {/* Temporarily disabled - edit functionality will use a dedicated page like Add */}
       </div>
     </DashboardLayout>
   );

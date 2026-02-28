@@ -1,757 +1,1118 @@
 // pages/AddProperty.js
-import React, { useState, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
-import DashboardLayout from '../../components/Layout/DashboardLayout';
-import { 
-  FaSave, FaTimes, FaPlus, FaTrash, FaFileInvoice,
-  FaBuilding, FaCalculator, FaChartBar, FaShieldAlt, FaCog,
-  FaBell, FaStickyNote, FaHome, FaWarehouse, FaSpinner
-} from 'react-icons/fa';
-import { createProperty } from '../../redux/propertyRedux';
-import { toast } from 'react-toastify';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import DashboardLayout from "../../components/Layout/DashboardLayout";
+import {
+  FaSave,
+  FaTimes,
+  FaPlus,
+  FaTrash,
+  FaFileInvoice,
+  FaBuilding,
+  FaCalculator,
+  FaChartBar,
+  FaShieldAlt,
+  FaCog,
+  FaBell,
+  FaStickyNote,
+  FaHome,
+  FaWarehouse,
+  FaSpinner,
+  FaChevronDown,
+} from "react-icons/fa";
+import { createProperty } from "../../redux/propertyRedux";
+import { toast } from "react-toastify";
+
+/**
+ * 🔥 MILIK-ish burn orange
+ * - Used for dropdown highlight + selected state + focus accents
+ */
+const MILIK_ORANGE_BG = "bg-orange-600";
+const MILIK_ORANGE_BG_HOVER = "hover:bg-orange-700";
+const MILIK_ORANGE_RING = "focus:ring-orange-500/30";
+const MILIK_ORANGE_BORDER_FOCUS = "focus:border-orange-700";
+
+/**
+ * Simple reusable modal (local) for Add Property page.
+ * NOTE:
+ * - If you already have a global "AddLandlordModal" used on Landlords page,
+ *   you can replace this with an import and keep the same props.
+ */
+function Modal({ open, title, onClose, children, maxWidthClass = "max-w-lg" }) {
+  const panelRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") onClose?.();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => {
+        panelRef.current?.querySelector("input,select,textarea,button")?.focus?.();
+      }, 0);
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[9999]">
+      <div
+        className="absolute inset-0 bg-black/40"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        <div
+          ref={panelRef}
+          className={`w-full ${maxWidthClass} rounded-xl bg-white shadow-2xl border border-slate-200 overflow-hidden`}
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+            <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
+              {title}
+            </h3>
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-9 w-9 rounded-md border border-slate-300 bg-white hover:bg-slate-50 transition"
+              aria-label="Close"
+            >
+              <FaTimes className="mx-auto text-slate-700" />
+            </button>
+          </div>
+
+          <div className="p-4">{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Custom dropdown so we can control highlight color (native <select> highlight is OS-controlled).
+ * - Searchable
+ * - Keyboard-light (Esc closes, Enter selects when focused via click)
+ */
+function MilikSelect({
+  label,
+  required,
+  placeholder = "Select...",
+  items = [],
+  value,
+  onChange,
+  getLabel,
+  getValue,
+  disabled,
+  className = "",
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  const selectedItem = useMemo(
+    () => items.find((it) => getValue(it) === value) || null,
+    [items, value, getValue]
+  );
+
+  useEffect(() => {
+    const onClickOutside = (e) => {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open]);
+
+  return (
+    <div className={`${className} relative`} ref={wrapRef}>
+      {label ? (
+        <label className="block text-sm font-bold text-slate-800 mb-1 tracking-tight">
+          {label} {required ? "*" : ""}
+        </label>
+      ) : null}
+
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen((s) => !s)}
+        className={[
+          "w-full h-10 px-3 rounded-md bg-white text-slate-900 shadow-sm border border-slate-300",
+          "transition-all duration-200 ease-out hover:border-slate-400",
+          "focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-700",
+          "flex items-center justify-between gap-2",
+          disabled ? "opacity-50 cursor-not-allowed" : "",
+        ].join(" ")}
+      >
+        <span className="text-sm font-semibold truncate">
+          {selectedItem ? getLabel(selectedItem) : <span className="text-slate-400">{placeholder}</span>}
+        </span>
+        <FaChevronDown className="text-slate-600" />
+      </button>
+
+      {open && !disabled && (
+        <div className="absolute z-50 mt-1 w-full rounded-lg border border-slate-200 bg-white shadow-lg overflow-hidden">
+          <div className="max-h-56 overflow-auto">
+            {items.length === 0 ? (
+              <div className="px-3 py-3 text-sm text-slate-500">No items</div>
+            ) : (
+              items.map((it) => {
+                const v = getValue(it);
+                const isSelected = v === value;
+                return (
+                  <button
+                    type="button"
+                    key={v}
+                    onClick={() => {
+                      onChange?.(v, it);
+                      setOpen(false);
+                    }}
+                    className={[
+                      "w-full text-left px-3 py-2 text-sm font-semibold transition-colors",
+                      isSelected
+                        ? `${MILIK_ORANGE_BG} text-white`
+                        : "text-slate-800 hover:bg-orange-50",
+                    ].join(" ")}
+                  >
+                    {getLabel(it)}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const AddProperty = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { loading, error, success } = useSelector((state) => state.property);
-  const { currentBusiness } = useSelector((state) => state.business);
- 
+
+  const { loading, error } = useSelector((state) => state.property);
+  const { currentCompany } = useSelector((state) => state.company);
+
+  /**
+   * ✅ Landlords list (from DB)
+   * This is intentionally defensive so it won't crash if your slice shape differs.
+   * Update this selector to match your actual landlord slice when you connect.
+   */
+  const landlordsFromStore =
+    useSelector((state) => state?.landlord?.landlords) ||
+    useSelector((state) => state?.landlords?.items) ||
+    useSelector((state) => state?.landlords?.landlords) ||
+    [];
+
+  // TODO: replace with real authenticated user
   const user = "ivorush";
-  const [activeTab, setActiveTab] = useState('general');
-  const [formData, setFormData] = useState({
-    // General Information
-    dateAcquired: '',
-    letManage: 'Managing',
-    landlords: [{ name: '', contact: '', isPrimary: true }],
-    propertyCode: '',
-    propertyName: '',
-    lrNumber: '',
-    category: '',
-    propertyType: '',
-    specification: '',
-    multiStoreyType: '',
-    numberOfFloors: '',
-    country: 'Kenya',
-    townCityState: '',
-    estateArea: '',
-    roadStreet: '',
-    zoneRegion: '',
-    address: '',
-    
-    // Accounting & Billing
-    accountLedgerType: 'Property Control Ledger In GL',
-    primaryBank: '',
-    alternativeTaxPin: '',
-    invoicePrefix: '',
-    invoicePaymentTerms: 'Please pay your invoice before due date to avoid penalty.',
-    mpesaPaybill: true,
-    disableMpesaStkPush: false,
-    mpesaNarration: '',
-    
-    // Standing Charges
-    standingCharges: [],
-    securityDeposits: [],
-    
-    // SMS & Email Exemptions
-    smsExemptions: {
-      all: false,
-      invoice: false,
-      general: false,
-      receipt: false,
-      balance: false
-    },
-    emailExemptions: {
-      all: false,
-      invoice: false,
-      general: false,
-      receipt: false,
-      balance: false
-    },
-    
-    // Other Preferences
-    excludeFeeSummary: false,
-    
-    // Banking Details
-    drawerBank: '',
-    bankBranch: '',
-    accountName: '',
-    accountNumber: '',
-    
-    // Notes
-    notes: '',
-    specificContactInfo: '',
-    description: '',
-    
-    // Status
-    status: 'active',
-    images: []
+
+  const [activeTab, setActiveTab] = useState("general");
+
+  const initialFormData = useMemo(
+    () => ({
+      // General Information
+      dateAcquired: "",
+      letManage: "Managing",
+      landlords: [{ name: "", contact: "", isPrimary: true }], // we will store selected landlordId in landlords[0].landlordId
+      propertyCode: "",
+      propertyName: "",
+      lrNumber: "",
+      propertyType: "",
+      specification: "",
+      multiStoreyType: "",
+      numberOfFloors: "",
+      country: "Kenya",
+      townCityState: "",
+      estateArea: "",
+      roadStreet: "",
+      zoneRegion: "",
+      address: "",
+
+      // Space/Units
+      grossLettableArea: "",
+      netLettableArea: "",
+      unitMeasurement: "Sq Ft",
+      rentPerMeasure: "",
+      rentCurrency: "Kenyan Shilling [KES]",
+
+      // Accounting & Billing
+      accountLedgerType: "Property Control Ledger In GL",
+      primaryBank: "",
+      alternativeTaxPin: "",
+      invoicePrefix: "",
+      invoicePaymentTerms: "Please pay your invoice before due date to avoid penalty.",
+      mpesaPaybill: true,
+      disableMpesaStkPush: false,
+      mpesaNarration: "",
+
+      // Standing Charges
+      standingCharges: [],
+      securityDeposits: [],
+
+      // SMS & Email Exemptions
+      smsExemptions: {
+        all: false,
+        invoice: false,
+        general: false,
+        receipt: false,
+        balance: false,
+      },
+      emailExemptions: {
+        all: false,
+        invoice: false,
+        general: false,
+        receipt: false,
+        balance: false,
+      },
+
+      // Other Preferences
+      excludeFeeSummary: false,
+
+      // Banking Details
+      drawerBank: "",
+      bankBranch: "",
+      accountName: "",
+      accountNumber: "",
+
+      // Notes
+      notes: "",
+      specificContactInfo: "",
+      description: "",
+
+      // Status
+      status: "active",
+      images: [],
+    }),
+    []
+  );
+
+  const [formData, setFormData] = useState(initialFormData);
+
+  // Add Landlord modal state (Add Property page)
+  const [openAddLandlordModal, setOpenAddLandlordModal] = useState(false);
+  const [newLandlord, setNewLandlord] = useState({
+    fullName: "",
+    email: "",
+    phone: "",
   });
 
-  
-    const tabs = [
-    { id: 'general', label: 'General Info', icon: <FaHome /> },
-    { id: 'space', label: 'Space/Units', icon: <FaWarehouse /> },
-    { id: 'accounting', label: 'Accounting', icon: <FaCalculator /> },
-    { id: 'charges', label: 'Standing Charges', icon: <FaChartBar /> },
-    { id: 'deposit', label: 'Security Deposit', icon: <FaShieldAlt /> },
-    { id: 'preferences', label: 'Preferences', icon: <FaCog /> },
-    { id: 'communications', label: 'Communications', icon: <FaBell /> },
-    { id: 'banking', label: 'Banking', icon: <FaFileInvoice /> },
-    { id: 'notes', label: 'Notes', icon: <FaStickyNote /> }
+  const tabs = [
+    { id: "general", label: "General Info", icon: <FaHome /> },
+    { id: "space", label: "Space/Units", icon: <FaWarehouse /> },
+    { id: "accounting", label: "Accounting", icon: <FaCalculator /> },
+    { id: "charges", label: "Standing Charges", icon: <FaChartBar /> },
+    { id: "communications", label: "Communications", icon: <FaBell /> },
+    { id: "banking", label: "Banking", icon: <FaFileInvoice /> },
+    { id: "notes", label: "Notes", icon: <FaStickyNote /> },
   ];
 
   const propertyTypes = [
-    'Residential',
-    'Commercial',
-    'Mixed Use',
-    'Industrial',
-    'Agricultural',
-    'Special Purpose'
+    "Residential",
+    "Commercial",
+    "Mixed Use",
+    "Industrial",
+    "Agricultural",
+    "Special Purpose",
   ];
 
   const buildingTypes = [
-    'Multi-Unit/Multi-Spa',
-    'Single Storey',
-    'Multi Storey',
-    'High Rise',
-    'Complex',
-    'Estate'
+    "Multi-Unit/Multi-Spa",
+    "Single Storey",
+    "Multi Storey",
+    "High Rise",
+    "Complex",
+    "Estate",
   ];
 
   const zones = [
-    'Nairobi CBD', 'Westlands', 'Kilimani', 'Karen', 'Mombasa Road',
-    'Thika Road', 'Kiambu', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret'
+    "Nairobi CBD",
+    "Westlands",
+    "Kilimani",
+    "Karen",
+    "Mombasa Road",
+    "Thika Road",
+    "Kiambu",
+    "Mombasa",
+    "Kisumu",
+    "Nakuru",
+    "Eldoret",
   ];
 
+  // ✅ Corporate clean styling (same as you have now)
+  const labelClass = "block text-sm font-bold text-slate-800 mb-1 tracking-tight";
+  const helperLabelClass = "block text-xs font-medium text-slate-600 mb-1";
+
+  // Border darker only on focus + subtle shadow + smooth transition + taller
+  const baseField =
+    "w-full rounded-md bg-white text-slate-900 placeholder:text-slate-400 " +
+    "border border-slate-300 shadow-sm " +
+    "transition-all duration-200 ease-out " +
+    `focus:outline-none focus:border-slate-700 focus:ring-2 ${MILIK_ORANGE_RING} ` +
+    "hover:border-slate-400";
+
+  const inputClass = `${baseField} h-10 px-3 text-sm font-semibold`;
+  const selectClass = `${baseField} h-10 px-3 text-sm font-semibold`;
+  const textareaClass = `${baseField} min-h-[96px] px-3 py-2 text-sm font-semibold`;
+
+  const sectionCard = "bg-white border border-slate-200 rounded-lg shadow-sm";
+  const sectionHeader = "text-sm font-bold text-slate-900 tracking-tight";
 
   // Handle form field changes
   const handleChange = (e, section = null, index = null) => {
     const { name, value, type, checked } = e.target;
-    
-    if (section === 'landlords' && index !== null) {
+
+    if (section === "landlords" && index !== null) {
       const updatedLandlords = [...formData.landlords];
       updatedLandlords[index] = {
         ...updatedLandlords[index],
         [name]: value,
-        isPrimary: index === 0
+        isPrimary: index === 0,
       };
-      setFormData(prev => ({ ...prev, landlords: updatedLandlords }));
-    } else if (section === 'smsExemptions' || section === 'emailExemptions') {
-      setFormData(prev => ({
+      setFormData((prev) => ({ ...prev, landlords: updatedLandlords }));
+      return;
+    }
+
+    if (section === "smsExemptions" || section === "emailExemptions") {
+      setFormData((prev) => ({
         ...prev,
         [section]: {
           ...prev[section],
-          [name]: type === 'checkbox' ? checked : value
-        }
+          [name]: type === "checkbox" ? checked : value,
+        },
       }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value
-      }));
+      return;
     }
-  };
 
-  // Add/remove landlords
-  const addLandlord = () => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      landlords: [...prev.landlords, { name: '', contact: '', isPrimary: false }]
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
-  const removeLandlord = (index) => {
-    const updatedLandlords = formData.landlords.filter((_, i) => i !== index);
-    // Ensure first landlord is primary
-    if (index === 0 && updatedLandlords.length > 0) {
-      updatedLandlords[0].isPrimary = true;
-    }
-    setFormData(prev => ({ ...prev, landlords: updatedLandlords }));
-  };
-
-  // Add/remove standing charges
+  // Standing charges / deposits
   const addStandingCharge = () => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      standingCharges: [...prev.standingCharges, {
-        serviceCharge: '',
-        chargeMode: 'Monthly',
-        billingCurrency: 'KES',
-        costPerArea: '',
-        chargeValue: '',
-        vatRate: '16%',
-        escalatesWithRent: false
-      }]
+      standingCharges: [
+        ...prev.standingCharges,
+        {
+          serviceCharge: "",
+          chargeMode: "Monthly",
+          billingCurrency: "KES",
+          costPerArea: "",
+          chargeValue: "",
+          vatRate: "16%",
+          escalatesWithRent: false,
+        },
+      ],
     }));
   };
 
   const removeStandingCharge = (index) => {
     const updatedCharges = formData.standingCharges.filter((_, i) => i !== index);
-    setFormData(prev => ({ ...prev, standingCharges: updatedCharges }));
+    setFormData((prev) => ({ ...prev, standingCharges: updatedCharges }));
   };
 
-  // Add/remove security deposits
   const addSecurityDeposit = () => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      securityDeposits: [...prev.securityDeposits, {
-        depositType: '',
-        amount: '',
-        currency: 'KES',
-        refundable: true,
-        terms: ''
-      }]
+      securityDeposits: [
+        ...prev.securityDeposits,
+        {
+          depositType: "",
+          chargeMode: "Fixed Amount",
+          amount: "",
+          currency: "KES",
+          refundable: true,
+          terms: "",
+        },
+      ],
     }));
   };
 
   const removeSecurityDeposit = (index) => {
     const updatedDeposits = formData.securityDeposits.filter((_, i) => i !== index);
-    setFormData(prev => ({ ...prev, securityDeposits: updatedDeposits }));
+    setFormData((prev) => ({ ...prev, securityDeposits: updatedDeposits }));
   };
 
-  // Handle form submission
+  /**
+   * ✅ When landlord selected:
+   * - Save landlordId in landlords[0].landlordId
+   * - Autofill Landlord Name + Contact Information
+   */
+  const handleSelectLandlord = (landlordId, landlordObj) => {
+    const updated = [...formData.landlords];
+    const primary = updated[0] || { isPrimary: true };
+
+    const displayName =
+      landlordObj?.fullName ||
+      landlordObj?.name ||
+      landlordObj?.landlordName ||
+      "";
+    const contact =
+      landlordObj?.email ||
+      landlordObj?.phone ||
+      landlordObj?.contact ||
+      "";
+
+    updated[0] = {
+      ...primary,
+      landlordId,
+      name: displayName,
+      contact: contact,
+      isPrimary: true,
+    };
+
+    setFormData((prev) => ({ ...prev, landlords: updated }));
+  };
+
+  /**
+   * ✅ Add Landlord from Add Property page
+   * Requirement:
+   * - Open the SAME modal as Landlords page.
+   *
+   * Since we don’t have that component here, this local modal is a safe drop-in.
+   * When you hook DB:
+   * - Replace this handler with your real action (e.g. dispatch(createLandlord(payload)))
+   * - Then refetch landlords list (e.g. dispatch(fetchLandlords()))
+   * - Finally auto-select the created landlord and autofill fields (done below).
+   */
+  const saveNewLandlordFromModal = async () => {
+    if (!newLandlord.fullName.trim()) {
+      toast.error("Landlord full name is required");
+      return;
+    }
+    if (!newLandlord.email.trim()) {
+      toast.error("Landlord email is required");
+      return;
+    }
+
+    try {
+      /**
+       * ✅ TODO (DB wiring):
+       * Example:
+       * const created = await dispatch(createLandlord({ ...newLandlord, company: currentCompany?._id })).unwrap();
+       * await dispatch(fetchLandlords(currentCompany?._id));
+       * handleSelectLandlord(created._id, created);
+       */
+
+      // TEMP (until wired): create a local "landlord" object and select it
+      const tempId = `temp-${Date.now()}`;
+      const created = {
+        _id: tempId,
+        fullName: newLandlord.fullName,
+        email: newLandlord.email,
+        phone: newLandlord.phone,
+      };
+
+      handleSelectLandlord(created._id, created);
+      toast.success("Landlord added (temporary). Connect DB to persist.");
+      setOpenAddLandlordModal(false);
+      setNewLandlord({ fullName: "", email: "", phone: "" });
+    } catch (err) {
+      toast.error(err?.message || "Failed to add landlord");
+    }
+  };
+
+  // Handle property submit
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Validate required fields
-    if (!formData.propertyCode.trim() || !formData.propertyName.trim() || !formData.lrNumber.trim()) {
-      toast.error('Please fill all required fields (*)');
+    e?.preventDefault?.();
+
+    if (!formData.propertyName.trim() || !formData.lrNumber.trim()) {
+      toast.error("Please fill all required fields (*)");
       return;
     }
 
-    if (!formData.landlords[0]?.name.trim()) {
-      toast.error('Primary landlord name is required');
+    // If you want Property Code optional:
+    // - allow blank and generate server-side
+    // else enforce:
+    // if (!formData.propertyCode.trim()) ...
+
+    // Must have primary landlord selected/filled
+    if (!formData.landlords[0]?.name?.trim()) {
+      toast.error("Primary landlord is required");
       return;
     }
 
-    // Prepare data for API
     const propertyData = {
       ...formData,
-      business: currentBusiness?._id || user?.business,
-      createdBy: user?._id,
-      updatedBy: user?._id
+      business: currentCompany?._id, // change to "company" if backend expects it
+      createdBy: user?._id || user,
+      updatedBy: user?._id || user,
     };
-    console.log(propertyData)
+
     try {
       const result = await dispatch(createProperty(propertyData)).unwrap();
-      toast.success(result.message || 'Property created successfully!');
-      navigate('/properties'); // Redirect to properties list
+      toast.success(result?.message || "Property created successfully!");
+      navigate("/properties");
     } catch (err) {
-      toast.error(err || 'Failed to create property');
+      toast.error(err?.message || err || "Failed to create property");
     }
   };
 
   // Reset form
   const handleReset = () => {
-    if (window.confirm('Are you sure you want to reset all fields?')) {
-      setFormData({
-        dateAcquired: '',
-        letManage: 'Managing',
-        landlords: [{ name: '', contact: '', isPrimary: true }],
-        propertyCode: '',
-        propertyName: '',
-        lrNumber: '',
-        category: '',
-        propertyType: '',
-        specification: '',
-        multiStoreyType: '',
-        numberOfFloors: '',
-        country: 'Kenya',
-        townCityState: '',
-        estateArea: '',
-        roadStreet: '',
-        zoneRegion: '',
-        address: '',
-        accountLedgerType: 'Property Control Ledger In GL',
-        primaryBank: '',
-        alternativeTaxPin: '',
-        invoicePrefix: '',
-        invoicePaymentTerms: 'Please pay your invoice before due date to avoid penalty.',
-        mpesaPaybill: true,
-        disableMpesaStkPush: false,
-        mpesaNarration: '',
-        standingCharges: [],
-        securityDeposits: [],
-        smsExemptions: {
-          all: false,
-          invoice: false,
-          general: false,
-          receipt: false,
-          balance: false
-        },
-        emailExemptions: {
-          all: false,
-          invoice: false,
-          general: false,
-          receipt: false,
-          balance: false
-        },
-        excludeFeeSummary: false,
-        drawerBank: '',
-        bankBranch: '',
-        accountName: '',
-        accountNumber: '',
-        notes: '',
-        specificContactInfo: '',
-        description: '',
-        status: 'active',
-        images: []
-      });
+    if (window.confirm("Are you sure you want to reset all fields?")) {
+      setFormData(initialFormData);
+      setActiveTab("general");
     }
   };
 
+  // Tab navigation
+  const handleNextTab = () => {
+    const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
+    if (currentIndex < tabs.length - 1) {
+      setActiveTab(tabs[currentIndex + 1].id);
+    }
+  };
 
+  const handlePreviousTab = () => {
+    const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
+    if (currentIndex > 0) {
+      setActiveTab(tabs[currentIndex - 1].id);
+    }
+  };
+
+  const isFirstTab = tabs.findIndex((tab) => tab.id === activeTab) === 0;
+  const isLastTab = tabs.findIndex((tab) => tab.id === activeTab) === tabs.length - 1;
 
   // Show error toast
   useEffect(() => {
-    if (error) {
-      toast.error(error);
-    }
+    if (error) toast.error(error);
   }, [error]);
 
-  // ... rest of the component code (render functions) remains the same ...
-  const renderGeneralInfo = () => (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Date Acquired *
-          </label>
-          <input
-            type="date"
-            name="dateAcquired"
-            value={formData.dateAcquired}
-            onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            required
-          />
+  // ---------- RENDERS ----------
+  const renderGeneralInfo = () => {
+    // Normalize landlords list items for dropdown
+    const landlordItems = Array.isArray(landlordsFromStore) ? landlordsFromStore : [];
+
+    const getLandlordId = (l) => l?._id || l?.id || l?.landlordId || "";
+    const getLandlordLabel = (l) =>
+      l?.fullName || l?.name || l?.landlordName || l?.email || "Unnamed";
+
+    const selectedLandlordId = formData.landlords?.[0]?.landlordId || "";
+
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div>
+            <label className={labelClass}>Date Acquired *</label>
+            <input
+              type="date"
+              name="dateAcquired"
+              value={formData.dateAcquired}
+              onChange={handleChange}
+              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+              required
+            />
+          </div>
+
+          <div>
+            <MilikSelect
+              label="Let/Manage"
+              required
+              placeholder="Select..."
+              items={["Managing", "Letting", "Both"]}
+              value={formData.letManage}
+              onChange={(val) => handleChange({ target: { name: "letManage", value: val } })}
+              getLabel={(x) => x}
+              getValue={(x) => x}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Property Code *</label>
+            <input
+              type="text"
+              name="propertyCode"
+              value={formData.propertyCode}
+              onChange={handleChange}
+              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+              placeholder="Generated by the system if left blank"
+            />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className={labelClass}>Property Name *</label>
+            <input
+              type="text"
+              name="propertyName"
+              value={formData.propertyName}
+              onChange={handleChange}
+              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+              placeholder="e.g., KITUI HEIGHTS RESIDENTIAL COMPLEX"
+              required
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>LR Number *</label>
+            <input
+              type="text"
+              name="lrNumber"
+              value={formData.lrNumber}
+              onChange={handleChange}
+              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+              placeholder="e.g., 209/1201"
+              required
+            />
+          </div>
+
+          <div>
+            <MilikSelect
+              label="Property Type"
+              placeholder="Select Type"
+              items={propertyTypes}
+              value={formData.propertyType}
+              onChange={(val) => handleChange({ target: { name: "propertyType", value: val } })}
+              getLabel={(x) => x}
+              getValue={(x) => x}
+            />
+          </div>
+
+          <div>
+            <MilikSelect
+              label="Specification"
+              placeholder="Select Specification"
+              items={buildingTypes}
+              value={formData.specification}
+              onChange={(val) => handleChange({ target: { name: "specification", value: val } })}
+              getLabel={(x) => x}
+              getValue={(x) => x}
+            />
+          </div>
+
+          <div>
+            <MilikSelect
+              label="Multi Storey Type"
+              placeholder="Select Type"
+              items={[
+                { value: "Low Rise", label: "Low Rise (1-4 floors)" },
+                { value: "Mid Rise", label: "Mid Rise (5-9 floors)" },
+                { value: "High Rise", label: "High Rise (10+ floors)" },
+              ]}
+              value={formData.multiStoreyType}
+              onChange={(val) => handleChange({ target: { name: "multiStoreyType", value: val } })}
+              getLabel={(x) => x.label}
+              getValue={(x) => x.value}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>No. Of Floors</label>
+            <input
+              type="number"
+              name="numberOfFloors"
+              value={formData.numberOfFloors}
+              onChange={handleChange}
+              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+              min="0"
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Country</label>
+            <input
+              type="text"
+              name="country"
+              value={formData.country}
+              onChange={handleChange}
+              className={`${inputClass} bg-slate-50 ${MILIK_ORANGE_BORDER_FOCUS}`}
+              readOnly
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Town/City/State</label>
+            <input
+              type="text"
+              name="townCityState"
+              value={formData.townCityState}
+              onChange={handleChange}
+              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+              placeholder="e.g., Nairobi"
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Estate/Area</label>
+            <input
+              type="text"
+              name="estateArea"
+              value={formData.estateArea}
+              onChange={handleChange}
+              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+              placeholder="e.g., Westlands"
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Road/Street</label>
+            <input
+              type="text"
+              name="roadStreet"
+              value={formData.roadStreet}
+              onChange={handleChange}
+              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+              placeholder="e.g., Moi Avenue"
+            />
+          </div>
+
+          <div>
+            <MilikSelect
+              label="Zone/Region"
+              placeholder="Select Zone"
+              items={zones}
+              value={formData.zoneRegion}
+              onChange={(val) => handleChange({ target: { name: "zoneRegion", value: val } })}
+              getLabel={(x) => x}
+              getValue={(x) => x}
+            />
+          </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Let/Manage *
-          </label>
-          <select
-            name="letManage"
-            value={formData.letManage}
-            onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-          >
-            <option value="Managing">Managing</option>
-            <option value="Letting">Letting</option>
-            <option value="Both">Both</option>
-          </select>
-        </div>
+        {/* Landlords Section (Add Property page) */}
+        <div className={`${sectionCard} p-4`}>
+          <div className="flex justify-between items-center mb-3">
+            <h3 className={sectionHeader}>Landlords *</h3>
+            <button
+              type="button"
+              onClick={() => setOpenAddLandlordModal(true)}
+              className={`h-9 px-3 text-sm font-semibold ${MILIK_ORANGE_BG} text-white rounded-md flex items-center gap-2 ${MILIK_ORANGE_BG_HOVER} transition-colors`}
+            >
+              <FaPlus /> Add Landlord
+            </button>
+          </div>
 
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Property Code *
-          </label>
-          <input
-            type="text"
-            name="propertyCode"
-            value={formData.propertyCode}
-            onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            placeholder="e.g., A00213A"
-            required
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Property Name *
-          </label>
-          <input
-            type="text"
-            name="propertyName"
-            value={formData.propertyName}
-            onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            placeholder="e.g., KITUI HEIGHTS RESIDENTIAL COMPLEX"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            LR Number *
-          </label>
-          <input
-            type="text"
-            name="lrNumber"
-            value={formData.lrNumber}
-            onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            placeholder="e.g., 209/1201"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Category
-          </label>
-          <input
-            type="text"
-            name="category"
-            value={formData.category}
-            onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            placeholder="e.g., Residential"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Property Type
-          </label>
-          <select
-            name="propertyType"
-            value={formData.propertyType}
-            onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-          >
-            <option value="">Select Type</option>
-            {propertyTypes.map(type => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Specification
-          </label>
-          <select
-            name="specification"
-            value={formData.specification}
-            onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-          >
-            <option value="">Select Specification</option>
-            {buildingTypes.map(type => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Multi Storey Type
-          </label>
-          <select
-            name="multiStoreyType"
-            value={formData.multiStoreyType}
-            onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-          >
-            <option value="">Select Type</option>
-            <option value="Low Rise">Low Rise (1-4 floors)</option>
-            <option value="Mid Rise">Mid Rise (5-9 floors)</option>
-            <option value="High Rise">High Rise (10+ floors)</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            No. Of Floors
-          </label>
-          <input
-            type="number"
-            name="numberOfFloors"
-            value={formData.numberOfFloors}
-            onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            min="0"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Country
-          </label>
-          <input
-            type="text"
-            name="country"
-            value={formData.country}
-            onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            readOnly
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Town/City/State
-          </label>
-          <input
-            type="text"
-            name="townCityState"
-            value={formData.townCityState}
-            onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            placeholder="e.g., Nairobi"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Estate/Area
-          </label>
-          <input
-            type="text"
-            name="estateArea"
-            value={formData.estateArea}
-            onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            placeholder="e.g., Westlands"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Road/Street
-          </label>
-          <input
-            type="text"
-            name="roadStreet"
-            value={formData.roadStreet}
-            onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-            placeholder="e.g., Moi Avenue"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Zone/Region
-          </label>
-          <select
-            name="zoneRegion"
-            value={formData.zoneRegion}
-            onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-          >
-            <option value="">Select Zone</option>
-            {zones.map(zone => (
-              <option key={zone} value={zone}>{zone}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Landlords Section */}
-      <div className="border border-gray-200 rounded-lg p-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-sm font-semibold text-gray-800">Landlords *</h3>
-          <button
-            type="button"
-            onClick={addLandlord}
-            className="px-3 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors"
-          >
-            <FaPlus /> Add Landlord
-          </button>
-        </div>
-        
-        <div className="space-y-2">
-          {formData.landlords.map((landlord, index) => (
-            <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-1 items-end">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Landlord Name {index === 0 ? '*' : ''}
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={landlord.name}
-                  onChange={(e) => handleChange(e, 'landlords', index)}
-                  className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                  placeholder="Full Name"
-                  required={index === 0}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Contact Information
-                </label>
-                <input
-                  type="text"
-                  name="contact"
-                  value={landlord.contact}
-                  onChange={(e) => handleChange(e, 'landlords', index)}
-                  className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                  placeholder="Phone/Email"
-                />
-              </div>
-              
-              <div className="flex gap-2">
-                {index === 0 ? (
-                  <div className="flex-1 text-xs text-gray-500 italic">
-                    Primary landlord
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => removeLandlord(index)}
-                    className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded-lg flex items-center gap-2 hover:bg-red-200 transition-colors"
-                  >
-                    <FaTrash /> Remove
-                  </button>
-                )}
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+            {/* Landlord Name -> dropdown */}
+            <div>
+              <MilikSelect
+                label="Landlord Name"
+                required
+                placeholder={landlordItems.length ? "Select landlord" : "No landlords loaded"}
+                items={landlordItems}
+                value={selectedLandlordId}
+                disabled={loading}
+                getLabel={getLandlordLabel}
+                getValue={getLandlordId}
+                onChange={(id, obj) => handleSelectLandlord(id, obj)}
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Select an existing landlord (fetched from database once connected).
+              </p>
             </div>
-          ))}
+
+            {/* Contact Information -> autofill */}
+            <div>
+              <label className={labelClass}>Contact Information</label>
+              <input
+                type="text"
+                name="contact"
+                value={formData.landlords?.[0]?.contact || ""}
+                onChange={(e) => {
+                  // allow manual edit but will autofill on selection
+                  const updated = [...formData.landlords];
+                  updated[0] = { ...(updated[0] || { isPrimary: true }), contact: e.target.value, isPrimary: true };
+                  setFormData((p) => ({ ...p, landlords: updated }));
+                }}
+                className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+                placeholder="Phone/Email"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Autofills from selected landlord (email/phone).
+              </p>
+            </div>
+
+            {/* Primary landlord badge */}
+            <div className="flex items-center">
+              <div className="text-xs text-slate-500 italic">Primary landlord</div>
+            </div>
+          </div>
         </div>
+
+        {/* Add Landlord Modal (for Add Property page) */}
+        <Modal
+          open={openAddLandlordModal}
+          title="Add Landlord"
+          onClose={() => setOpenAddLandlordModal(false)}
+        >
+          <div className="space-y-3">
+            <div>
+              <label className={labelClass}>Full Name *</label>
+              <input
+                value={newLandlord.fullName}
+                onChange={(e) => setNewLandlord((p) => ({ ...p, fullName: e.target.value }))}
+                className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+                placeholder="e.g., John Doe"
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Email *</label>
+              <input
+                value={newLandlord.email}
+                onChange={(e) => setNewLandlord((p) => ({ ...p, email: e.target.value }))}
+                className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+                placeholder="e.g., john@example.com"
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Phone</label>
+              <input
+                value={newLandlord.phone}
+                onChange={(e) => setNewLandlord((p) => ({ ...p, phone: e.target.value }))}
+                className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+                placeholder="e.g., +2547..."
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setOpenAddLandlordModal(false)}
+                className="h-10 px-4 text-sm font-semibold border border-slate-300 rounded-md bg-white hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveNewLandlordFromModal}
+                className={`h-10 px-4 text-sm font-semibold ${MILIK_ORANGE_BG} text-white rounded-md ${MILIK_ORANGE_BG_HOVER} transition`}
+              >
+                Save Landlord
+              </button>
+            </div>
+
+            <div className="text-xs text-slate-500 pt-1">
+              Note: This modal is ready for DB wiring. When you connect it to the Landlords page modal/action,
+              it will auto-select the new landlord and autofill contact fields.
+            </div>
+          </div>
+        </Modal>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderAccountingBilling = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Account Ledger Type
-          </label>
-          <input
-            type="text"
-            name="accountLedgerType"
+          <MilikSelect
+            label="Account Ledger Type"
+            placeholder="Select Ledger Type"
+            items={[
+              "Property Control Ledger In GL",
+              "OFF-GL (Property GL)",
+            ]}
             value={formData.accountLedgerType}
-            onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            onChange={(val) => handleChange({ target: { name: "accountLedgerType", value: val } })}
+            getLabel={(x) => x}
+            getValue={(x) => x}
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Primary Bank/Cash (Operating Account)
-          </label>
+          <label className={labelClass}>Primary Bank/Cash (Operating Account)</label>
           <input
             type="text"
             name="primaryBank"
             value={formData.primaryBank}
             onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
             placeholder="Bank name and account"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Alternative Tax PIN
-          </label>
+          <label className={labelClass}>Alternative Tax PIN</label>
           <input
             type="text"
             name="alternativeTaxPin"
             value={formData.alternativeTaxPin}
             onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
             placeholder="e.g., A001234567Z"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Property Invoicing No. Prefix
-          </label>
+          <label className={labelClass}>Property Invoicing No. Prefix</label>
           <input
             type="text"
             name="invoicePrefix"
             value={formData.invoicePrefix}
             onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
             placeholder="e.g., INV"
           />
         </div>
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">
-          Invoice Payment Terms
-        </label>
+        <label className={labelClass}>Invoice Payment Terms</label>
         <textarea
           name="invoicePaymentTerms"
           value={formData.invoicePaymentTerms}
           onChange={handleChange}
-          rows="3"
-          className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+          rows={4}
+          className={`${textareaClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
         />
       </div>
 
-      <div className="border border-gray-200 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-gray-800 mb-4">M-PESA RECEIPTING PREFERENCE</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className={`${sectionCard} p-4`}>
+        <h3 className={sectionHeader}>M-PESA RECEIPTING PREFERENCE</h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
           <div className="flex items-center gap-3">
-            <label className="text-xs font-medium text-gray-700">
-              M-Pesa Property Paybill:
-            </label>
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1">
+            <label className={helperLabelClass}>M-Pesa Property Paybill:</label>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm text-slate-700 font-semibold">
                 <input
                   type="radio"
                   name="mpesaPaybill"
                   checked={formData.mpesaPaybill}
-                  onChange={() => setFormData(prev => ({ ...prev, mpesaPaybill: true }))}
-                  className="text-emerald-600 focus:ring-emerald-500"
+                  onChange={() => setFormData((p) => ({ ...p, mpesaPaybill: true }))}
                 />
-                <span className="text-xs">Yes</span>
+                Yes
               </label>
-              <label className="flex items-center gap-1">
+              <label className="flex items-center gap-2 text-sm text-slate-700 font-semibold">
                 <input
                   type="radio"
                   name="mpesaPaybill"
                   checked={!formData.mpesaPaybill}
-                  onChange={() => setFormData(prev => ({ ...prev, mpesaPaybill: false }))}
-                  className="text-emerald-600 focus:ring-emerald-500"
+                  onChange={() => setFormData((p) => ({ ...p, mpesaPaybill: false }))}
                 />
-                <span className="text-xs">No</span>
+                No
               </label>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <label className="text-xs font-medium text-gray-700">
-              Disable Mpesa STK Push?:
-            </label>
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1">
+            <label className={helperLabelClass}>Disable Mpesa STK Push?:</label>
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-sm text-slate-700 font-semibold">
                 <input
                   type="radio"
                   name="disableMpesaStkPush"
                   checked={formData.disableMpesaStkPush}
-                  onChange={() => setFormData(prev => ({ ...prev, disableMpesaStkPush: true }))}
-                  className="text-emerald-600 focus:ring-emerald-500"
+                  onChange={() => setFormData((p) => ({ ...p, disableMpesaStkPush: true }))}
                 />
-                <span className="text-xs">Yes</span>
+                Yes
               </label>
-              <label className="flex items-center gap-1">
+              <label className="flex items-center gap-2 text-sm text-slate-700 font-semibold">
                 <input
                   type="radio"
                   name="disableMpesaStkPush"
                   checked={!formData.disableMpesaStkPush}
-                  onChange={() => setFormData(prev => ({ ...prev, disableMpesaStkPush: false }))}
-                  className="text-emerald-600 focus:ring-emerald-500"
+                  onChange={() => setFormData((p) => ({ ...p, disableMpesaStkPush: false }))}
                 />
-                <span className="text-xs">No</span>
+                No
               </label>
             </div>
           </div>
         </div>
 
         <div className="mt-4">
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Disable Mpesa STK Push Narration
-          </label>
+          <label className={labelClass}>Disable Mpesa STK Push Narration</label>
           <input
             type="text"
             name="mpesaNarration"
             value={formData.mpesaNarration}
             onChange={handleChange}
-            className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSpaceUnits = () => (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div>
+          <label className={labelClass}>Gross Lettable Area</label>
+          <input
+            type="number"
+            name="grossLettableArea"
+            value={formData.grossLettableArea}
+            onChange={handleChange}
+            className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+            placeholder="0"
+            step="0.01"
+          />
+        </div>
+
+        <div>
+          <label className={labelClass}>Net Lettable Area</label>
+          <input
+            type="number"
+            name="netLettableArea"
+            value={formData.netLettableArea}
+            onChange={handleChange}
+            className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+            placeholder="0"
+            step="0.01"
+          />
+        </div>
+
+        <div>
+          <MilikSelect
+            label="Unit Measurement"
+            placeholder="Select Measurement"
+            items={["Sq Ft", "Sq M", "Acres", "Hectares"]}
+            value={formData.unitMeasurement}
+            onChange={(val) => handleChange({ target: { name: "unitMeasurement", value: val } })}
+            getLabel={(x) => x}
+            getValue={(x) => x}
+          />
+        </div>
+
+        <div>
+          <label className={labelClass}>Rent Per Measure</label>
+          <input
+            type="number"
+            name="rentPerMeasure"
+            value={formData.rentPerMeasure}
+            onChange={handleChange}
+            className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+            placeholder="0.00"
+            step="0.01"
+          />
+        </div>
+
+        <div>
+          <MilikSelect
+            label="Rent Currency"
+            placeholder="Select Currency"
+            items={[
+              "Kenyan Shilling [KES]",
+              "US Dollar [USD]",
+              "Euro [EUR]",
+              "British Pound [GBP]",
+            ]}
+            value={formData.rentCurrency}
+            onChange={(val) => handleChange({ target: { name: "rentCurrency", value: val } })}
+            getLabel={(x) => x}
+            getValue={(x) => x}
           />
         </div>
       </div>
@@ -760,149 +1121,138 @@ const AddProperty = () => {
 
   const renderStandingCharges = () => (
     <div className="space-y-6">
-      <div className="border border-gray-200 rounded-lg p-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-sm font-semibold text-gray-800">DEFAULT STANDING CHARGES</h3>
+      <div className={`${sectionCard} p-4`}>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className={sectionHeader}>DEFAULT STANDING CHARGES</h3>
           <button
             type="button"
             onClick={addStandingCharge}
-            className="px-3 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors"
+            className={`h-9 px-3 text-sm font-semibold ${MILIK_ORANGE_BG} text-white rounded-md flex items-center gap-2 ${MILIK_ORANGE_BG_HOVER} transition-colors`}
           >
             <FaPlus /> Add Standing Charge
           </button>
         </div>
-        
-        <div className="space-y-4">
+
+        <div className="space-y-3">
           {formData.standingCharges.map((charge, index) => (
-            <div key={index} className="grid grid-cols-1 md:grid-cols-7 gap-2 items-end p-3 border border-gray-100 rounded-lg">
+            <div
+              key={index}
+              className="grid grid-cols-1 md:grid-cols-7 gap-3 items-end p-3 border border-slate-200 rounded-lg bg-slate-50/40"
+            >
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Service Charge/Utility
-                </label>
-                <input
-                  type="text"
+                <MilikSelect
+                  label="Service Charge/Utility"
+                  placeholder="Select Type"
+                  items={["Water", "Garbage", "Electricity", "Service Charge", "Security", "Others"]}
                   value={charge.serviceCharge}
-                  onChange={(e) => {
-                    const updatedCharges = [...formData.standingCharges];
-                    updatedCharges[index].serviceCharge = e.target.value;
-                    setFormData(prev => ({ ...prev, standingCharges: updatedCharges }));
+                  onChange={(val) => {
+                    const updated = [...formData.standingCharges];
+                    updated[index].serviceCharge = val;
+                    setFormData((p) => ({ ...p, standingCharges: updated }));
                   }}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                  placeholder="e.g., Water"
+                  getLabel={(x) => x}
+                  getValue={(x) => x}
                 />
               </div>
-              
+
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Charge Mode
-                </label>
-                <select
+                <MilikSelect
+                  label="Charge Mode"
+                  placeholder="Select Mode"
+                  items={["Monthly", "Quarterly", "Annual", "One-time"]}
                   value={charge.chargeMode}
-                  onChange={(e) => {
-                    const updatedCharges = [...formData.standingCharges];
-                    updatedCharges[index].chargeMode = e.target.value;
-                    setFormData(prev => ({ ...prev, standingCharges: updatedCharges }));
+                  onChange={(val) => {
+                    const updated = [...formData.standingCharges];
+                    updated[index].chargeMode = val;
+                    setFormData((p) => ({ ...p, standingCharges: updated }));
                   }}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                >
-                  <option value="Monthly">Monthly</option>
-                  <option value="Quarterly">Quarterly</option>
-                  <option value="Annual">Annual</option>
-                  <option value="One-time">One-time</option>
-                </select>
+                  getLabel={(x) => x}
+                  getValue={(x) => x}
+                />
               </div>
-              
+
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Billing Currency
-                </label>
-                <select
+                <MilikSelect
+                  label="Billing Currency"
+                  placeholder="Select Currency"
+                  items={["KES", "USD"]}
                   value={charge.billingCurrency}
-                  onChange={(e) => {
-                    const updatedCharges = [...formData.standingCharges];
-                    updatedCharges[index].billingCurrency = e.target.value;
-                    setFormData(prev => ({ ...prev, standingCharges: updatedCharges }));
+                  onChange={(val) => {
+                    const updated = [...formData.standingCharges];
+                    updated[index].billingCurrency = val;
+                    setFormData((p) => ({ ...p, standingCharges: updated }));
                   }}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                >
-                  <option value="KES">KES</option>
-                  <option value="USD">USD</option>
-                </select>
+                  getLabel={(x) => x}
+                  getValue={(x) => x}
+                />
               </div>
-              
+
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Cost Per Area
-                </label>
+                <label className={labelClass}>Cost Per Area</label>
                 <input
                   type="text"
                   value={charge.costPerArea}
                   onChange={(e) => {
-                    const updatedCharges = [...formData.standingCharges];
-                    updatedCharges[index].costPerArea = e.target.value;
-                    setFormData(prev => ({ ...prev, standingCharges: updatedCharges }));
+                    const updated = [...formData.standingCharges];
+                    updated[index].costPerArea = e.target.value;
+                    setFormData((p) => ({ ...p, standingCharges: updated }));
                   }}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                  className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
                   placeholder="e.g., 50"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Charge Value
-                </label>
+                <label className={labelClass}>Charge Value</label>
                 <input
                   type="number"
                   value={charge.chargeValue}
                   onChange={(e) => {
-                    const updatedCharges = [...formData.standingCharges];
-                    updatedCharges[index].chargeValue = e.target.value;
-                    setFormData(prev => ({ ...prev, standingCharges: updatedCharges }));
+                    const updated = [...formData.standingCharges];
+                    updated[index].chargeValue = e.target.value;
+                    setFormData((p) => ({ ...p, standingCharges: updated }));
                   }}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                  className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
                   placeholder="0.00"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  VAT Rate
-                </label>
-                <select
+                <MilikSelect
+                  label="VAT Rate"
+                  placeholder="Select Rate"
+                  items={["0%", "8%", "16%"]}
                   value={charge.vatRate}
-                  onChange={(e) => {
-                    const updatedCharges = [...formData.standingCharges];
-                    updatedCharges[index].vatRate = e.target.value;
-                    setFormData(prev => ({ ...prev, standingCharges: updatedCharges }));
+                  onChange={(val) => {
+                    const updated = [...formData.standingCharges];
+                    updated[index].vatRate = val;
+                    setFormData((p) => ({ ...p, standingCharges: updated }));
                   }}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                >
-                  <option value="0%">0%</option>
-                  <option value="8%">8%</option>
-                  <option value="16%">16%</option>
-                </select>
+                  getLabel={(x) => x}
+                  getValue={(x) => x}
+                />
               </div>
-              
-              <div className="flex gap-2">
-                <div className="flex items-center gap-1">
+
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                   <input
                     type="checkbox"
                     checked={charge.escalatesWithRent}
                     onChange={(e) => {
-                      const updatedCharges = [...formData.standingCharges];
-                      updatedCharges[index].escalatesWithRent = e.target.checked;
-                      setFormData(prev => ({ ...prev, standingCharges: updatedCharges }));
+                      const updated = [...formData.standingCharges];
+                      updated[index].escalatesWithRent = e.target.checked;
+                      setFormData((p) => ({ ...p, standingCharges: updated }));
                     }}
-                    className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                   />
-                  <span className="text-xs text-gray-700">Escalates?</span>
-                </div>
-                
+                  Escalates?
+                </label>
+
                 {index > 0 && (
                   <button
                     type="button"
                     onClick={() => removeStandingCharge(index)}
-                    className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors ml-2"
+                    className="h-9 w-9 flex items-center justify-center rounded-md bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                    title="Remove"
                   >
                     <FaTrash />
                   </button>
@@ -913,92 +1263,117 @@ const AddProperty = () => {
         </div>
       </div>
 
-      <div className="border border-gray-200 rounded-lg p-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-sm font-semibold text-gray-800">DEFAULT SECURITY DEPOSIT</h3>
+      <div className={`${sectionCard} p-4`}>
+        <div className="flex justify-between items-center mb-3">
+          <h3 className={sectionHeader}>DEFAULT SECURITY DEPOSIT</h3>
           <button
             type="button"
             onClick={addSecurityDeposit}
-            className="px-3 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors"
+            className={`h-9 px-3 text-sm font-semibold ${MILIK_ORANGE_BG} text-white rounded-md flex items-center gap-2 ${MILIK_ORANGE_BG_HOVER} transition-colors`}
           >
             <FaPlus /> Add Security Deposit
           </button>
         </div>
-        
-        <div className="space-y-4">
+
+        <div className="space-y-3">
           {formData.securityDeposits.map((deposit, index) => (
-            <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end p-3 border border-gray-100 rounded-lg">
+            <div
+              key={index}
+              className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end p-3 border border-slate-200 rounded-lg bg-slate-50/40">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Deposit Type
-                </label>
-                <input
-                  type="text"
+                <MilikSelect
+                  label="Deposit Type"
+                  placeholder="Select Type"
+                  items={[
+                    "Rent Security Deposit",
+                    "Water Security Deposit",
+                    "Electricity Security Deposit",
+                    "Others"
+                  ]}
                   value={deposit.depositType}
-                  onChange={(e) => {
-                    const updatedDeposits = [...formData.securityDeposits];
-                    updatedDeposits[index].depositType = e.target.value;
-                    setFormData(prev => ({ ...prev, securityDeposits: updatedDeposits }));
+                  onChange={(val) => {
+                    const updated = [...formData.securityDeposits];
+                    updated[index].depositType = val;
+                    setFormData((p) => ({ ...p, securityDeposits: updated }));
                   }}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                  placeholder="e.g., Rent Deposit"
+                  getLabel={(x) => x}
+                  getValue={(x) => x}
                 />
               </div>
-              
+
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Amount
+                <MilikSelect
+                  label="Charge Mode"
+                  placeholder="Select Mode"
+                  items={["Percentage", "Fixed Amount"]}
+                  value={deposit.chargeMode}
+                  onChange={(val) => {
+                    const updated = [...formData.securityDeposits];
+                    updated[index].chargeMode = val;
+                    setFormData((p) => ({ ...p, securityDeposits: updated }));
+                  }}
+                  getLabel={(x) => x}
+                  getValue={(x) => x}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>
+                  {deposit.chargeMode === "Percentage" ? "Percentage (% of rent)" : "Amount"}
                 </label>
                 <input
                   type="number"
                   value={deposit.amount}
                   onChange={(e) => {
-                    const updatedDeposits = [...formData.securityDeposits];
-                    updatedDeposits[index].amount = e.target.value;
-                    setFormData(prev => ({ ...prev, securityDeposits: updatedDeposits }));
+                    const updated = [...formData.securityDeposits];
+                    updated[index].amount = e.target.value;
+                    setFormData((p) => ({ ...p, securityDeposits: updated }));
                   }}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                  placeholder="0.00"
+                  className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+                  placeholder={deposit.chargeMode === "Percentage" ? "e.g., 100 (for 100%)" : "0.00"}
+                  step={deposit.chargeMode === "Percentage" ? "1" : "0.01"}
+                  min="0"
+                  max={deposit.chargeMode === "Percentage" ? "1000" : undefined}
                 />
               </div>
-              
+
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Currency
-                </label>
-                <select
+                <MilikSelect
+                  label="Currency"
+                  placeholder="Select Currency"
+                  items={["KES", "USD"]}
                   value={deposit.currency}
-                  onChange={(e) => {
-                    const updatedDeposits = [...formData.securityDeposits];
-                    updatedDeposits[index].currency = e.target.value;
-                    setFormData(prev => ({ ...prev, securityDeposits: updatedDeposits }));
+                  onChange={(val) => {
+                    const updated = [...formData.securityDeposits];
+                    updated[index].currency = val;
+                    setFormData((p) => ({ ...p, securityDeposits: updated }));
                   }}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                >
-                  <option value="KES">KES</option>
-                  <option value="USD">USD</option>
-                </select>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={deposit.refundable}
-                  onChange={(e) => {
-                    const updatedDeposits = [...formData.securityDeposits];
-                    updatedDeposits[index].refundable = e.target.checked;
-                    setFormData(prev => ({ ...prev, securityDeposits: updatedDeposits }));
-                  }}
-                  className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                  getLabel={(x) => x}
+                  getValue={(x) => x}
                 />
-                <span className="text-xs text-gray-700">Refundable</span>
               </div>
-              
-              <div className="flex gap-2">
+
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={deposit.refundable}
+                    onChange={(e) => {
+                      const updated = [...formData.securityDeposits];
+                      updated[index].refundable = e.target.checked;
+                      setFormData((p) => ({ ...p, securityDeposits: updated }));
+                    }}
+                  />
+                  Refundable
+                </label>
+              </div>
+
+              <div className="flex">
                 <button
                   type="button"
                   onClick={() => removeSecurityDeposit(index)}
-                  className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                  className="h-9 w-9 flex items-center justify-center rounded-md bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                  title="Remove"
                 >
                   <FaTrash />
                 </button>
@@ -1011,45 +1386,39 @@ const AddProperty = () => {
   );
 
   const renderCommunications = () => (
-    <div className="space-y-6">
-      <div className="border border-gray-200 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-gray-800 mb-4">SMSING EXEMPTION</h3>
-        
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+    <div className="space-y-5">
+      <div className={`${sectionCard} p-4`}>
+        <h3 className={sectionHeader}>SMSING EXEMPTION</h3>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-3">
           {Object.entries(formData.smsExemptions).map(([key, value]) => (
-            <div key={key} className="flex items-center gap-2">
+            <label key={key} className="flex items-center gap-2 text-sm font-semibold text-slate-700">
               <input
                 type="checkbox"
                 name={key}
                 checked={value}
-                onChange={(e) => handleChange(e, 'smsExemptions')}
-                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                onChange={(e) => handleChange(e, "smsExemptions")}
               />
-              <span className="text-xs text-gray-700 capitalize">
-                {key === 'all' ? 'Exempt All SMS' : `Exempt ${key} SMS`}
-              </span>
-            </div>
+              {key === "all" ? "Exempt All SMS" : `Exempt ${key} SMS`}
+            </label>
           ))}
         </div>
       </div>
 
-      <div className="border border-gray-200 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-gray-800 mb-4">EMAILING EXEMPTION</h3>
-        
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className={`${sectionCard} p-4`}>
+        <h3 className={sectionHeader}>EMAILING EXEMPTION</h3>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-3">
           {Object.entries(formData.emailExemptions).map(([key, value]) => (
-            <div key={key} className="flex items-center gap-2">
+            <label key={key} className="flex items-center gap-2 text-sm font-semibold text-slate-700">
               <input
                 type="checkbox"
                 name={key}
                 checked={value}
-                onChange={(e) => handleChange(e, 'emailExemptions')}
-                className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                onChange={(e) => handleChange(e, "emailExemptions")}
               />
-              <span className="text-xs text-gray-700 capitalize">
-                {key === 'all' ? 'Exempt All Email' : `Exempt ${key} Email`}
-              </span>
-            </div>
+              {key === "all" ? "Exempt All Email" : `Exempt ${key} Email`}
+            </label>
           ))}
         </div>
       </div>
@@ -1057,63 +1426,55 @@ const AddProperty = () => {
   );
 
   const renderBanking = () => (
-    <div className="space-y-6">
-      <div className="border border-gray-200 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-gray-800 mb-4">LANDLORD DRAWER BANKING DETAILS</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="space-y-5">
+      <div className={`${sectionCard} p-4`}>
+        <h3 className={sectionHeader}>LANDLORD DRAWER BANKING DETAILS</h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Drawer Bank
-            </label>
+            <label className={labelClass}>Drawer Bank</label>
             <input
               type="text"
               name="drawerBank"
               value={formData.drawerBank}
               onChange={handleChange}
-              className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
               placeholder="Bank Name"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Bank Branch
-            </label>
+            <label className={labelClass}>Bank Branch</label>
             <input
               type="text"
               name="bankBranch"
               value={formData.bankBranch}
               onChange={handleChange}
-              className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
               placeholder="Branch Name"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Account Name
-            </label>
+            <label className={labelClass}>Account Name</label>
             <input
               type="text"
               name="accountName"
               value={formData.accountName}
               onChange={handleChange}
-              className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
               placeholder="Account Holder Name"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Account Number
-            </label>
+            <label className={labelClass}>Account Number</label>
             <input
               type="text"
               name="accountNumber"
               value={formData.accountNumber}
               onChange={handleChange}
-              className="w-full px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
               placeholder="Account Number"
             />
           </div>
@@ -1123,88 +1484,88 @@ const AddProperty = () => {
   );
 
   const renderNotes = () => (
-    <div className="space-y-6">
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">
-          Exclude In Fee Summary Report:
-        </label>
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-1">
-            <input
-              type="radio"
-              name="excludeFeeSummary"
-              checked={formData.excludeFeeSummary}
-              onChange={() => setFormData(prev => ({ ...prev, excludeFeeSummary: true }))}
-              className="text-emerald-600 focus:ring-emerald-500"
-            />
-            <span className="text-xs">Yes</span>
-          </label>
-          <label className="flex items-center gap-1">
-            <input
-              type="radio"
-              name="excludeFeeSummary"
-              checked={!formData.excludeFeeSummary}
-              onChange={() => setFormData(prev => ({ ...prev, excludeFeeSummary: false }))}
-              className="text-emerald-600 focus:ring-emerald-500"
-            />
-            <span className="text-xs">No</span>
-          </label>
+    <div className="space-y-5">
+      <div className={`${sectionCard} p-4`}>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <label className={labelClass}>Exclude In Fee Summary Report:</label>
+            <p className="text-xs text-slate-600">
+              Choose whether to exclude this property in fee summary reports.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-5">
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <input
+                type="radio"
+                name="excludeFeeSummary"
+                checked={formData.excludeFeeSummary}
+                onChange={() => setFormData((p) => ({ ...p, excludeFeeSummary: true }))}
+              />
+              Yes
+            </label>
+
+            <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <input
+                type="radio"
+                name="excludeFeeSummary"
+                checked={!formData.excludeFeeSummary}
+                onChange={() => setFormData((p) => ({ ...p, excludeFeeSummary: false }))}
+              />
+              No
+            </label>
+          </div>
         </div>
-      </div>
 
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">
-          Notes/Description
-        </label>
-        <textarea
-          name="notes"
-          value={formData.notes}
-          onChange={handleChange}
-          rows="5"
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-          placeholder="Enter any additional notes or descriptions about the property..."
-        />
-      </div>
+        <div className="mt-4">
+          <label className={labelClass}>Notes/Description</label>
+          <textarea
+            name="notes"
+            value={formData.notes}
+            onChange={handleChange}
+            rows={5}
+            className={`${textareaClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+            placeholder="Enter any additional notes or descriptions about the property..."
+          />
+        </div>
 
-      <div>
-        <label className="block text-xs font-medium text-gray-700 mb-1">
-          Specific Contact Info
-        </label>
-        <textarea
-          name="specificContactInfo"
-          value={formData.specificContactInfo}
-          onChange={handleChange}
-          rows="3"
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-          placeholder="Enter specific contact information..."
-        />
+        <div className="mt-4">
+          <label className={labelClass}>Specific Contact Info</label>
+          <textarea
+            name="specificContactInfo"
+            value={formData.specificContactInfo}
+            onChange={handleChange}
+            rows={3}
+            className={`${textareaClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+            placeholder="Enter specific contact information..."
+          />
+        </div>
       </div>
     </div>
   );
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'general':
+      case "general":
         return renderGeneralInfo();
-      case 'accounting':
+      case "space":
+        return renderSpaceUnits();
+      case "accounting":
         return renderAccountingBilling();
-      case 'charges':
+      case "charges":
         return renderStandingCharges();
-      case 'communications':
+      case "communications":
         return renderCommunications();
-      case 'banking':
+      case "banking":
         return renderBanking();
-      case 'notes':
+      case "notes":
         return renderNotes();
-      case 'space':
-      case 'deposit':
-      case 'preferences':
       default:
         return (
-          <div className="text-center py-12 text-gray-500">
-            <FaBuilding className="text-4xl mx-auto mb-4 text-gray-300" />
-            <p className="text-sm">This section is under development</p>
-            <p className="text-xs mt-2">Coming soon...</p>
+          <div className={`${sectionCard} p-10 text-center`}>
+            <FaBuilding className="text-4xl mx-auto mb-3 text-slate-300" />
+            <p className="text-sm font-semibold text-slate-700">This section is under development</p>
+            <p className="text-xs mt-1 text-slate-500">Coming soon...</p>
           </div>
         );
     }
@@ -1212,106 +1573,184 @@ const AddProperty = () => {
 
   return (
     <DashboardLayout>
-      <div className="p-1 w-full h-full overflow-y-auto bg-gray-50">
+      <style>{`
+        /* Orange highlight for select dropdown options */
+        select {
+          accent-color: #ea580c;
+        }
+        
+        /* Orange checkboxes */
+        input[type="checkbox"] {
+          accent-color: #ea580c;
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+        }
+        
+        /* All option states - orange background */
+        select option {
+          background-color: white;
+          color: #1e293b;
+        }
+        
+        select option:hover,
+        select option:focus,
+        select option:active,
+        select option:checked {
+          background-color: #ea580c !important;
+          background: #ea580c !important;
+          color: white !important;
+          outline: none !important;
+        }
+        
+        /* Firefox specific */
+        select option:hover {
+          background-color: #ea580c !important;
+          background: #ea580c;
+          color: white;
+        }
+        
+        /* Webkit/Chrome specific */
+        select option:checked,
+        select option:checked:hover {
+          background: linear-gradient(#ea580c, #ea580c) !important;
+          background-color: #ea580c !important;
+          color: white !important;
+        }
+        
+        /* Force orange on all interactive states */
+        select:focus option:hover,
+        select:active option:hover,
+        select option[selected],
+        select option:not(:checked):hover {
+          background: #ea580c !important;
+          background-color: #ea580c !important;
+          color: white !important;
+        }
+      `}</style>
+      <div className="p-3 w-full h-full overflow-y-auto bg-slate-50">
         {/* Header */}
-        <div className="flex justify-between items-center mb-1">
+        <div className="flex justify-between items-center mb-3">
           <div>
-            <h1 className="text-sm font-bold text-gray-800">Add New Property</h1>
-            <p className="text-xs text-gray-600">Fill in the property details below</p>
+            <h1 className="text-lg font-extrabold text-slate-900 tracking-tight">
+              Add New Property
+            </h1>
+            <p className="text-sm text-slate-600">Fill in the property details below</p>
           </div>
+
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigate(-1)}
-              className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors"
+              className="h-10 px-4 text-sm font-semibold border border-slate-300 rounded-md bg-white hover:bg-slate-50 transition-colors"
               disabled={loading}
             >
-              <FaTimes /> Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={loading}
-              className="px-4 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <>
-                  <FaSpinner className="animate-spin" /> Saving...
-                </>
-              ) : (
-                <>
-                  <FaSave /> Save Property
-                </>
-              )}
+              <FaTimes className="inline-block mr-2" />
+              Cancel
             </button>
           </div>
         </div>
 
         {/* Tabs Navigation */}
-        <div className="border-b border-gray-200 mb-1">
-          <div className="flex flex-wrap gap-1">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                disabled={loading}
-                className={`px-4 py-2 text-xs font-medium flex items-center gap-2 rounded-t-lg transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-emerald-600 text-white border-b-2 border-emerald-700'
-                    : 'text-gray-600 hover:bg-gray-100'
-                } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
-            ))}
+        <div className="border-b border-slate-200 mb-3">
+          <div className="flex flex-wrap gap-2">
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  disabled={loading}
+                  className={[
+                    "h-10 px-4 text-sm font-bold flex items-center gap-2 rounded-t-md transition-all duration-200",
+                    isActive
+                      ? `${MILIK_ORANGE_BG} text-white shadow-sm border-b-2 border-orange-700`
+                      : "text-slate-700 hover:bg-slate-100",
+                    loading ? "opacity-50 cursor-not-allowed" : "",
+                  ].join(" ")}
+                >
+                  <span className="text-base">{tab.icon}</span>
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Form Content */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div className="p-3">
-            <form onSubmit={handleSubmit}>
-              {renderContent()}
-            </form>
+        <div className={`${sectionCard}`}>
+          <div className="p-4">
+            <form onSubmit={handleSubmit}>{renderContent()}</form>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-between items-center mt-6">
-          <div className="text-xs text-gray-500">
-            Fields marked with * are required
-          </div>
+        <div className="flex justify-between items-center mt-4">
+          <div className="text-xs text-slate-500">Fields marked with * are required</div>
+
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => navigate(-1)}
               disabled={loading}
-              className="px-6 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="h-10 px-5 text-sm font-semibold border border-slate-300 rounded-md bg-white hover:bg-slate-50 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
+
             <button
               type="button"
               onClick={handleReset}
               disabled={loading}
-              className="px-6 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              className="h-10 px-5 text-sm font-semibold border border-slate-300 rounded-md bg-white hover:bg-slate-50 transition-colors disabled:opacity-50"
             >
               Reset
             </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-             
-              className="px-6 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-             Property
-             
-            </button>
+
+            {!isFirstTab && (
+              <button
+                type="button"
+                onClick={handlePreviousTab}
+                disabled={loading}
+                className="h-10 px-5 text-sm font-semibold border border-slate-300 rounded-md bg-white hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Previous
+              </button>
+            )}
+
+            {!isLastTab ? (
+              <button
+                type="button"
+                onClick={handleNextTab}
+                disabled={loading}
+                className={`h-10 px-5 text-sm font-semibold ${MILIK_ORANGE_BG} text-white rounded-md ${MILIK_ORANGE_BG_HOVER} transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={loading}
+                className="h-10 px-5 text-sm font-semibold bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <FaSpinner className="inline-block mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <FaSave className="inline-block mr-2" />
+                    Save Property
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>
     </DashboardLayout>
   );
 };
-
 
 export default AddProperty;

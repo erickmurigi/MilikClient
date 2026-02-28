@@ -18,14 +18,24 @@ export const adminRequests = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    transformRequest: [(data, headers) => {
+});
+
+// Add request interceptor to attach token to every request
+adminRequests.interceptors.request.use(
+    (config) => {
+        const directToken = localStorage.getItem('milik_token');
+        if (directToken) {
+            config.headers['Authorization'] = `Bearer ${directToken}`;
+            return config;
+        }
+
         const encryptedUser = localStorage.getItem(localStorageKey);
         if (encryptedUser) {
             try {
                 const decryptedUser = AES.decrypt(encryptedUser, 'DecryptBetterBiz').toString(Utf8);
                 const user = JSON.parse(decryptedUser);
                 if (user.token) {
-                    headers['Authorization'] = `Bearer ${user.token}`;
+                    config.headers['Authorization'] = `Bearer ${user.token}`;
                 } else {
                     console.warn("No token found in decrypted user:", user);
                 }
@@ -33,6 +43,9 @@ export const adminRequests = axios.create({
                 console.error('Failed to decrypt user for request:', error);
             }
         }
-        return JSON.stringify(data);
-    }],
-});
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);

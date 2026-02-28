@@ -4,6 +4,18 @@ import {adminRequests} from "../utils/requestMethods"
 
 
 import {
+  loginStart,
+  loginSuccess,
+  loginFailure,
+  logoutStart,
+  logoutSuccess,
+  logoutFailure,
+  getCurrentUserStart,
+  getCurrentUserSuccess,
+  getCurrentUserFailure,
+} from "../redux/authSlice";
+
+import {
   getLandlordsStart,
   getLandlordsSuccess,
   getLandlordsFailure,
@@ -307,6 +319,85 @@ export const toggleUserLock = (id) => async (dispatch) => {
 };
 
 
+// ========== LANDLORDS SECTION ==========
+
+// Get all landlords
+export const getLandlords = (query = {}) => async (dispatch) => {
+  dispatch(getLandlordsStart());
+  try {
+    const params = new URLSearchParams();
+    if (query.search) params.append('search', query.search);
+    if (query.status) params.append('status', query.status);
+    if (query.company) params.append('company', query.company);
+    
+    const res = await adminRequests.get(`/landlords?${params.toString()}`);
+    const landlords = Array.isArray(res.data) ? res.data : (res.data.data || []);
+    dispatch(getLandlordsSuccess(landlords));
+    return landlords;
+  } catch (err) {
+    dispatch(getLandlordsFailure());
+    throw err;
+  }
+};
+
+// Get single landlord
+export const getLandlord = (id) => async (dispatch) => {
+  dispatch(getLandlordsStart());
+  try {
+    const res = await adminRequests.get(`/landlords/${id}`);
+    const landlord = res.data.data || res.data;
+    dispatch(getLandlordsSuccess([landlord]));
+    return landlord;
+  } catch (err) {
+    dispatch(getLandlordsFailure());
+    throw err;
+  }
+};
+
+// Create landlord
+export const createLandlord = (landlordData) => async (dispatch) => {
+  dispatch(createLandlordStart());
+  try {
+    const res = await adminRequests.post('/landlords', landlordData);
+    const savedLandlord = res.data.data || res.data;
+    dispatch(createLandlordSuccess(savedLandlord));
+    return savedLandlord;
+  } catch (err) {
+    console.error('Create landlord error:', err);
+    dispatch(createLandlordFailure());
+    throw err;
+  }
+};
+
+// Update landlord
+export const updateLandlord = (id, landlordData) => async (dispatch) => {
+  dispatch(updateLandlordStart());
+  try {
+    const res = await adminRequests.put(`/landlords/${id}`, landlordData);
+    const updatedLandlord = res.data.data || res.data;
+    dispatch(updateLandlordSuccess(updatedLandlord));
+    return updatedLandlord;
+  } catch (err) {
+    console.error('Update landlord error:', err);
+    dispatch(updateLandlordFailure());
+    throw err;
+  }
+};
+
+// Delete landlord
+export const deleteLandlord = (id) => async (dispatch) => {
+  dispatch(deleteLandlordStart());
+  try {
+    await adminRequests.delete(`/landlords/${id}`);
+    dispatch(deleteLandlordSuccess(id));
+  } catch (err) {
+    console.error('Delete landlord error:', err);
+    dispatch(deleteLandlordFailure());
+    throw err;
+  }
+};
+
+
 //Printers section
 // Getting all printers
 export const getPrinters = async (dispatch, businessId) => {
@@ -460,77 +551,6 @@ export const deleteCompany = (id) => async (dispatch) => {
     dispatch(deleteCompanySuccess(id));
   } catch (err) {
     dispatch(deleteCompanyFailure());
-    throw err;
-  }
-};
-
-// Get all landlords
-export const getLandlords = async (dispatch, business) => {
-  dispatch(getLandlordsStart());
-  try {
-    const res = await adminRequests.get(`/landlords?business=${business}`);
-    dispatch(getLandlordsSuccess(res.data));
-  } catch (err) {
-    dispatch(getLandlordsFailure());
-  }
-};
-
-// Get single landlord
-export const getLandlord = async (dispatch, id) => {
-  dispatch(getLandlordsStart());
-  try {
-    const res = await adminRequests.get(`/landlords/${id}`);
-    dispatch(getLandlordsSuccess([res.data]));
-  } catch (err) {
-    dispatch(getLandlordsFailure());
-  }
-};
-
-// Create landlord
-export const createLandlord = async (dispatch, landlordData) => {
-  dispatch(createLandlordStart());
-  try {
-    const res = await adminRequests.post("/landlords", landlordData);
-    dispatch(createLandlordSuccess(res.data));
-    return res.data;
-  } catch (err) {
-    dispatch(createLandlordFailure());
-    throw err;
-  }
-};
-
-// Update landlord
-export const updateLandlord = async (dispatch, id, landlordData) => {
-  dispatch(updateLandlordStart());
-  try {
-    const res = await adminRequests.put(`/landlords/${id}`, landlordData);
-    dispatch(updateLandlordSuccess(res.data));
-    return res.data;
-  } catch (err) {
-    dispatch(updateLandlordFailure());
-    throw err;
-  }
-};
-
-// Delete landlord
-export const deleteLandlord = async (dispatch, id) => {
-  dispatch(deleteLandlordStart());
-  try {
-    await adminRequests.delete(`/landlords/${id}`);
-    dispatch(deleteLandlordSuccess(id));
-    return true;
-  } catch (err) {
-    dispatch(deleteLandlordFailure());
-    throw err;
-  }
-};
-
-// Get landlord stats
-export const getLandlordStats = async (id) => {
-  try {
-    const res = await adminRequests.get(`/landlords/stats/${id}`);
-    return res.data;
-  } catch (err) {
     throw err;
   }
 };
@@ -1335,3 +1355,82 @@ export const getTenantTotalDue = async (tenantId) => {
   }
 };
 
+// ========== AUTH API CALLS ==========
+
+export const loginUser = (email, password) => async (dispatch) => {
+  dispatch(loginStart());
+  try {
+    const res = await adminRequests.post('/auth/login', {
+      email,
+      password
+    });
+    
+    const { user, token } = res.data;
+    
+    // Save to localStorage
+    localStorage.setItem('milik_token', token);
+    localStorage.setItem('milik_user', JSON.stringify(user));
+    
+    dispatch(loginSuccess({ user, token }));
+    return { user, token };
+  } catch (err) {
+    dispatch(loginFailure());
+    throw err;
+  }
+};
+
+export const logoutUser = () => async (dispatch) => {
+  dispatch(logoutStart());
+  try {
+    // Call logout endpoint
+    await adminRequests.post('/auth/logout');
+    
+    // Clear localStorage
+    localStorage.removeItem('milik_token');
+    localStorage.removeItem('milik_user');
+    
+    dispatch(logoutSuccess());
+    return true;
+  } catch (err) {
+    dispatch(logoutFailure());
+    throw err;
+  }
+};
+
+export const getCurrentUser = () => async (dispatch) => {
+  dispatch(getCurrentUserStart());
+  try {
+    const res = await adminRequests.get('/auth/me');
+    dispatch(getCurrentUserSuccess(res.data.user));
+    return res.data.user;
+  } catch (err) {
+    dispatch(getCurrentUserFailure());
+    throw err;
+  }
+};
+
+export const registerUser = (userData) => async (dispatch) => {
+  try {
+    const res = await adminRequests.post('/auth', userData);
+    return res.data.user;
+  } catch (err) {
+    throw err;
+  }
+};
+
+export const createSuperAdmin = (adminData) => async (dispatch) => {
+  dispatch(loginStart());
+  try {
+    const res = await adminRequests.post('/auth/super-admin', adminData);
+    const { user, token } = res.data;
+    
+    localStorage.setItem('milik_token', token);
+    localStorage.setItem('milik_user', JSON.stringify(user));
+    
+    dispatch(loginSuccess({ user, token }));
+    return { user, token };
+  } catch (err) {
+    dispatch(loginFailure());
+    throw err;
+  }
+};

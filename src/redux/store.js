@@ -1,5 +1,6 @@
 import {configureStore,combineReducers} from "@reduxjs/toolkit"
 import userReducer from "./userRedux"
+import authReducer from "./authSlice"
 import {persistStore,persistReducer,FLUSH,REHYDRATE,PAUSE,PERSIST,PURGE,REGISTER, createTransform,} from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
@@ -48,6 +49,7 @@ const peristConfig = {key:"root",version:1,storage, transforms: [Encryptor],}
 
 
 const rootReducer = combineReducers({
+  auth: authReducer,
   company: companiesRedux,
   user: userReducer,
   printer: printerRedux,

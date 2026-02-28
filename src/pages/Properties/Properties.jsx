@@ -751,7 +751,7 @@ const Properties = () => {
                             className="px-3 py-4 text-center text-gray-500 border border-gray-200 bg-white"
                           >
                             <div className="flex flex-col items-center justify-center py-8">
-                              <FaBuilding className="text-4xl text-gray-300 mb-4" />
+                            
                               <div className="text-lg font-bold text-gray-400 mb-2">No properties found</div>
                               <div className="text-sm text-gray-500 mb-4">Use the filter fields above, then click Search</div>
                               <Link to="/properties/new">
