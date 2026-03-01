@@ -365,7 +365,8 @@ export const createLandlord = (landlordData) => async (dispatch) => {
   } catch (err) {
     console.error('Create landlord error:', err);
     dispatch(createLandlordFailure());
-    throw err;
+    const message = err?.response?.data?.message || 'Failed to create landlord';
+    throw new Error(message);
   }
 };
 
