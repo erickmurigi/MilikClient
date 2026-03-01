@@ -1378,6 +1378,12 @@ export const loginUser = (email, password) => async (dispatch) => {
     localStorage.setItem('milik_user', JSON.stringify(user));
     
     dispatch(loginSuccess({ user, token }));
+    
+    // Initialize company in Redux if user has company
+    if (user && user.company) {
+      dispatch(getCompanySuccess(user.company));
+    }
+    
     return { user, token };
   } catch (err) {
     dispatch(loginFailure());

@@ -1,7 +1,14 @@
 // TabManager.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FaTimes, FaHome, FaPlus, FaWindowClose } from 'react-icons/fa';
+
+// Unique ID generator to avoid duplicate keys
+let tabIdCounter = 0;
+const generateUniqueTabId = (prefix = 'tab') => {
+  tabIdCounter += 1;
+  return `${prefix}-${Date.now()}-${tabIdCounter}`;
+};
 
 const TabManager = ({ darkMode }) => {
   const location = useLocation();
@@ -104,7 +111,7 @@ const TabManager = ({ darkMode }) => {
       setActiveTab(existingTab.id);
     } else {
       // Create new tab
-      const newTabId = `tab-${Date.now()}`;
+      const newTabId = generateUniqueTabId('tab');
       const newTab = {
         id: newTabId,
         title: getPageTitle(currentPath),
@@ -183,7 +190,7 @@ const TabManager = ({ darkMode }) => {
 
   // Add a new dashboard tab
   const addNewDashboardTab = () => {
-    const newTabId = `dashboard-${Date.now()}`;
+    const newTabId = generateUniqueTabId('dashboard');
     const newTab = {
       id: newTabId,
       title: 'Dashboard',

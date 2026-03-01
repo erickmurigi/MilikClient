@@ -22,6 +22,7 @@ import {
   FaChevronDown,
 } from "react-icons/fa";
 import { createProperty } from "../../redux/propertyRedux";
+import { getLandlords } from "../../redux/apiCalls";
 import { toast } from "react-toastify";
 import MilikConfirmDialog from "../Modals/MilikConfirmDialog";
 
@@ -209,6 +210,7 @@ const AddProperty = () => {
 
   const { loading, error } = useSelector((state) => state.property);
   const { currentCompany } = useSelector((state) => state.company);
+  const { currentUser } = useSelector((state) => state.auth);
 
   /**
    * ✅ Landlords list (from DB)
@@ -220,9 +222,6 @@ const AddProperty = () => {
     useSelector((state) => state?.landlords?.items) ||
     useSelector((state) => state?.landlords?.landlords) ||
     [];
-
-  // TODO: replace with real authenticated user
-  const user = "ivorush";
 
   const [activeTab, setActiveTab] = useState("general");
 
@@ -315,6 +314,7 @@ const AddProperty = () => {
 
   const [formData, setFormData] = useState(initialFormData);
   const [fieldErrors, setFieldErrors] = useState({});
+  const [generalError, setGeneralError] = useState("");
 
   // Add Landlord modal state (Add Property page)
   const [openAddLandlordModal, setOpenAddLandlordModal] = useState(false);
@@ -391,6 +391,11 @@ const AddProperty = () => {
 
     if (fieldErrors[name]) {
       setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+    
+    // Clear general error when user makes changes
+    if (generalError) {
+      setGeneralError("");
     }
 
     if (section === "landlords" && index !== null) {
@@ -513,6 +518,9 @@ const AddProperty = () => {
     if (!formData.lrNumber?.trim()) {
       errors.lrNumber = "LR number is required.";
     }
+    if (!formData.propertyType?.trim()) {
+      errors.propertyType = "Property type is required.";
+    }
     if (!formData.landlords?.[0]?.name?.trim()) {
       errors.landlord = "Primary landlord is required.";
     }
@@ -576,7 +584,9 @@ const AddProperty = () => {
     const validationErrors = validatePropertyForm();
     if (Object.keys(validationErrors).length > 0) {
       setFieldErrors(validationErrors);
-      toast.error(Object.values(validationErrors)[0] || "Please fix highlighted fields.");
+      const errorMsg = Object.values(validationErrors)[0] || "Please fix highlighted fields.";
+      setGeneralError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
@@ -599,16 +609,26 @@ const AddProperty = () => {
       return;
     }
 
+    // Clean up optional enum fields - remove empty strings to avoid validation errors
+    const cleanedFormData = { ...formData };
+    const optionalEnumFields = ['specification', 'multiStoreyType', 'category'];
+    optionalEnumFields.forEach(field => {
+      if (cleanedFormData[field] === '') {
+        delete cleanedFormData[field];
+      }
+    });
+
     const propertyData = {
-      ...formData,
+      ...cleanedFormData,
       propertyCode, // Use generated or provided code
       business: businessId,
-      createdBy: user?._id || user,
-      updatedBy: user?._id || user,
+      createdBy: currentUser?._id,
+      updatedBy: currentUser?._id,
     };
 
     try {
       setFieldErrors({});
+      setGeneralError("");
       const result = await dispatch(createProperty(propertyData)).unwrap();
       toast.success(result?.message || "Property created successfully!");
       navigate("/properties");
@@ -625,6 +645,7 @@ const AddProperty = () => {
         setFieldErrors((prev) => ({ ...prev, ...err.fieldErrors }));
       }
 
+      setGeneralError(backendMessage);
       toast.error(backendMessage);
     }
   };
@@ -667,6 +688,14 @@ const AddProperty = () => {
   useEffect(() => {
     if (error) toast.error(error);
   }, [error]);
+
+  // Fetch landlords when component mounts with company context
+  useEffect(() => {
+    if (currentCompany?._id) {
+      console.log('Fetching landlords for company:', currentCompany._id);
+      dispatch(getLandlords({ company: currentCompany._id }));
+    }
+  }, [currentCompany, dispatch]);
 
   // ---------- RENDERS ----------
   const renderGeneralInfo = () => {
@@ -751,13 +780,16 @@ const AddProperty = () => {
           <div>
             <MilikSelect
               label="Property Type"
+              required
               placeholder="Select Type"
               items={propertyTypes}
               value={formData.propertyType}
               onChange={(val) => handleChange({ target: { name: "propertyType", value: val } })}
               getLabel={(x) => x}
               getValue={(x) => x}
+              className={fieldErrors.propertyType ? "border-red-500" : ""}
             />
+            {fieldErrors.propertyType && <p className="mt-1 text-xs text-red-600">{fieldErrors.propertyType}</p>}
           </div>
 
           <div>
@@ -1843,6 +1875,33 @@ const AddProperty = () => {
         onConfirm={() => confirmDialog.onConfirm?.()}
         onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
       />
+
+      {/* Fixed Error Display - Bottom Left */}
+      {generalError && (
+        <div className="fixed bottom-4 left-4 z-50 max-w-md animate-in slide-in-from-left-5">
+          <div className="bg-red-50 border-l-4 border-red-500 rounded-md shadow-lg p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0">
+                <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-red-800">Error</h3>
+                <p className="mt-1 text-sm text-red-700">{generalError}</p>
+              </div>
+              <button
+                onClick={() => setGeneralError("")}
+                className="flex-shrink-0 text-red-500 hover:text-red-700 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

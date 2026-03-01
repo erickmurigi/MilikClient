@@ -57,8 +57,8 @@ export const createProperty = createAsyncThunk(
       const dataWithContext = {
         ...propertyData,
         business: resolvedBusinessId,
-        createdBy: state.auth?.user?._id,
-        updatedBy: state.auth?.user?._id
+        createdBy: state.auth?.currentUser?._id,
+        updatedBy: state.auth?.currentUser?._id
       };
       
       console.log('Creating property with data:', dataWithContext);
@@ -85,13 +85,13 @@ export const updateProperty = createAsyncThunk(
   'property/updateProperty',
   async ({ id, propertyData }, { getState, rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('milik_token');
       const state = getState();
       
       // Add updatedBy info
       const dataWithContext = {
         ...propertyData,
-        updatedBy: state.auth?.user?._id
+        updatedBy: state.auth?.currentUser?._id
       };
       
       const response = await axios.put(
@@ -115,7 +115,7 @@ export const deleteProperty = createAsyncThunk(
   'property/deleteProperty',
   async (id, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('milik_token');
       const response = await axios.delete(
         `${API_URL}/properties/${id}`,
         {
@@ -135,7 +135,7 @@ export const getPropertyById = createAsyncThunk(
   'property/getPropertyById',
   async (id, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('milik_token');
       const response = await axios.get(
         `${API_URL}/properties/${id}`,
         {

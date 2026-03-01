@@ -1,5 +1,7 @@
 // pages/Units.js
 import React, { useMemo, useRef, useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../../components/Layout/DashboardLayout";
 import {
   FaPlus,
@@ -18,6 +20,8 @@ import {
   FaArchive,
   FaUndo,
 } from "react-icons/fa";
+import { getUnits } from "../../redux/unitRedux";
+import { getProperties } from "../../redux/propertyRedux";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
 const MILIK_GREEN_HOVER = "hover:bg-[#0A3127]";
@@ -27,6 +31,13 @@ const MILIK_ORANGE_HOVER = "hover:bg-[#e67e00]";
 const ITEMS_PER_PAGE = 50;
 
 const Units = () => {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  
+  const { currentCompany } = useSelector((state) => state.company);
+  const { units: unitsData, isFetching } = useSelector((state) => state.unit);
+  const { properties } = useSelector((state) => state.property);
+
   // ---------------------------
   // UI STATE
   // ---------------------------
@@ -123,85 +134,40 @@ const Units = () => {
   const [services, setServices] = useState([{ service: "", costPerArea: "", totalCost: "", checked: false }]);
   const [extraMeters, setExtraMeters] = useState([{ meterNo: "", readingSetup: false }]);
 
-  // ---------------------------
-  // MOCK DATA (your generator)
-  // ---------------------------
-  const generateUnitsData = () => {
-    const baseUnits = [
-      // A1
-      { id: "4423425", unitNo: "SERVICE CHA...", property: "A1", tenant: "R.R", area: "0.00", rentUnit: "Ksh 0.00", marketRent: "Ksh 0.00", currentRent: "Ksh 0.00", unitType: "Commercial", status: "Occupied", vacantFrom: "-", propertyId: "property-1" },
-      { id: "4423424", unitNo: "WATER", property: "A1", tenant: "MAN VICTOR", area: "0.00", rentUnit: "Ksh 0.00", marketRent: "Ksh 0.00", currentRent: "Ksh 0.00", unitType: "Utility", status: "Occupied", vacantFrom: "-", propertyId: "property-1" },
-
-      // AAA
-      { id: "3778019", unitNo: "√", property: "AAA", tenant: "MATOBORI DENNIS", area: "0.00", rentUnit: "Ksh 15,000", marketRent: "Ksh 16,000", currentRent: "Ksh 15,000", unitType: "Residential", status: "Occupied", vacantFrom: "-", propertyId: "property-2" },
-      { id: "3778018", unitNo: "ZA", property: "AAA", tenant: "BLACK RAVEN", area: "0.00", rentUnit: "Ksh 12,500", marketRent: "Ksh 13,500", currentRent: "Ksh 12,500", unitType: "Commercial", status: "Occupied", vacantFrom: "-", propertyId: "property-2" },
-
-      // ALL PURPOSE
-      { id: "5180166", unitNo: "6", property: "ALL PURPOSE APARTMENT", tenant: "IAN WAWERU", area: "0.00", rentUnit: "Ksh 20,000", marketRent: "Ksh 22,000", currentRent: "Ksh 20,000", unitType: "Residential", status: "Occupied", vacantFrom: "-", propertyId: "property-3" },
-      { id: "5180167", unitNo: "7", property: "ALL PURPOSE APARTMENT", tenant: "EDTR JANE", area: "0.00", rentUnit: "Ksh 18,500", marketRent: "Ksh 20,000", currentRent: "Ksh 18,500", unitType: "Residential", status: "Occupied", vacantFrom: "-", propertyId: "property-3" },
-
-      // ALPHA
-      { id: "5070726", unitNo: "24", property: "ALPHA APARTMENT", tenant: "-", area: "0.00", rentUnit: "Ksh 25,000", marketRent: "Ksh 27,000", currentRent: "Ksh 0.00", unitType: "Residential", status: "Vacant", vacantFrom: "2023-11-01", propertyId: "property-4" },
-      { id: "5070727", unitNo: "25", property: "ALPHA APARTMENT", tenant: "FREEMAN MORGAN", area: "0.00", rentUnit: "Ksh 22,000", marketRent: "Ksh 24,000", currentRent: "Ksh 22,000", unitType: "Residential", status: "Occupied", vacantFrom: "-", propertyId: "property-4" },
-      { id: "5070728", unitNo: "27", property: "ALPHA APARTMENT", tenant: "DDEWWT MACHUNGO", area: "0.00", rentUnit: "Ksh 21,500", marketRent: "Ksh 23,500", currentRent: "Ksh 21,500", unitType: "Residential", status: "Occupied", vacantFrom: "-", propertyId: "property-4" },
-    ];
-
-    // Add more random units (same spirit as your code)
-    const properties = [
-      { name: "A1", id: "property-1" },
-      { name: "AAA", id: "property-2" },
-      { name: "ALL PURPOSE APARTMENT", id: "property-3" },
-      { name: "ALPHA APARTMENT", id: "property-4" },
-      { name: "BASIL TOWERS", id: "property-5" },
-      { name: "BLUE SKY PLAZA", id: "property-6" },
-      { name: "CAMON COURT", id: "property-7" },
-      { name: "CITE TOWERS", id: "property-8" },
-    ];
-
-    const unitTypes = ["Residential", "Commercial", "Utility", "Mixed Use"];
-    const statuses = ["Occupied", "Vacant", "Maintenance"];
-    const tenants = ["R.R", "MAN VICTOR", "MATOBORI DENNIS", "BLACK RAVEN", "IAN WAWERU", "EDTR JANE", "FREEMAN MORGAN", "DDEWWT MACHUNGO", "-"];
-
-    let allUnits = [...baseUnits];
-    let currentId = 6000000;
-
-    for (let i = 9; i <= 25; i++) {
-      const p = properties[i % properties.length];
-      const unitCount = Math.floor(Math.random() * 8) + 2;
-
-      for (let j = 1; j <= unitCount; j++) {
-        const area = (Math.random() * 200 + 50).toFixed(2);
-        const marketRent = Math.floor(Math.random() * 50000) + 10000;
-        const status = statuses[Math.floor(Math.random() * statuses.length)];
-        const currentRent = status === "Vacant" ? 0 : Math.floor(marketRent * 0.9);
-
-        allUnits.push({
-          id: String(currentId++),
-          unitNo: `U-${Math.floor(Math.random() * 100) + 100}`,
-          property: p.name,
-          tenant: tenants[Math.floor(Math.random() * tenants.length)],
-          area,
-          rentUnit: `Ksh ${(marketRent / parseFloat(area)).toFixed(2)}`,
-          marketRent: `Ksh ${marketRent.toLocaleString()}`,
-          currentRent: `Ksh ${currentRent.toLocaleString()}`,
-          unitType: unitTypes[Math.floor(Math.random() * unitTypes.length)],
-          status,
-          vacantFrom: status === "Vacant" ? "2024-01-15" : "-",
-          propertyId: p.id,
-        });
-      }
+  // Fetch units on mount
+  useEffect(() => {
+    if (currentCompany?._id) {
+      dispatch(getUnits({ business: currentCompany._id }));
+      dispatch(getProperties({ business: currentCompany._id }));
     }
+  }, [dispatch, currentCompany]);
 
-    return allUnits;
-  };
-
-  const unitsData = useMemo(() => generateUnitsData(), []);
+  // Transform units data to match the table structure
+  const transformedUnits = useMemo(() => {
+    return (unitsData || []).map((unit) => {
+      const property = properties.find((p) => p._id === unit.property);
+      return {
+        id: unit._id,
+        unitNo: unit.unitNumber,
+        property: property?.propertyCode || property?.propertyName || "N/A",
+        tenant: unit.lastTenant?.name || "-",
+        area: "0.00", // TODO: Add area field to unit model
+        rentUnit: `Ksh ${unit.rent?.toLocaleString() || 0}`,
+        marketRent: `Ksh ${unit.rent?.toLocaleString() || 0}`,
+        currentRent: unit.isVacant ? "Ksh 0" : `Ksh ${unit.rent?.toLocaleString() || 0}`,
+        unitType: unit.unitType || "N/A",
+        status: unit.status || "vacant",
+        vacantFrom: unit.vacantSince ? new Date(unit.vacantSince).toLocaleDateString() : "-",
+        propertyId: unit.property,
+      };
+    });
+  }, [unitsData, properties]);
 
   // For filter dropdown property list
   const uniqueProperties = useMemo(() => {
-    const set = new Set(unitsData.map((u) => u.property).filter(Boolean));
-    return ["any", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
-  }, [unitsData]);
+    const propertyNames = properties.map((p) => p.propertyCode || p.propertyName);
+    return ["any", ...Array.from(new Set(propertyNames)).sort((a, b) => a.localeCompare(b))];
+  }, [properties]);
 
   // ---------------------------
   // FILTER + GROUP (Units under Property)
@@ -209,7 +175,7 @@ const Units = () => {
   const normalize = (v) => String(v ?? "").toLowerCase().trim();
 
   const filteredUnits = useMemo(() => {
-    return unitsData.filter((u) => {
+    return transformedUnits.filter((u) => {
       if (appliedFilters.property !== "any" && u.property !== appliedFilters.property) return false;
       if (appliedFilters.status !== "any" && u.status !== appliedFilters.status) return false;
       if (appliedFilters.unitType !== "any" && u.unitType !== appliedFilters.unitType) return false;
@@ -219,7 +185,7 @@ const Units = () => {
 
       return unitNoOk && tenantOk;
     });
-  }, [unitsData, appliedFilters]);
+  }, [transformedUnits, appliedFilters]);
 
   const propertiesGrouped = useMemo(() => {
     const map = new Map();
@@ -291,6 +257,14 @@ const Units = () => {
     }
   };
 
+  // Fetch units on mount
+  useEffect(() => {
+    if (currentCompany?._id) {
+      dispatch(getUnits({ business: currentCompany._id }));
+      dispatch(getProperties({ business: currentCompany._id }));
+    }
+  }, [dispatch, currentCompany]);
+
   const handleCheckboxClick = (e) => e.stopPropagation();
 
   const selectedCount = selectedUnits.length;
@@ -308,14 +282,11 @@ const Units = () => {
     window.alert("Restore feature coming soon (wire to backend later).");
   };
   const deleteSelected = () => {
-    if (selectedUnits.length === 0) return;
-    const ok = window.confirm(
-      selectedUnits.length === 1
-        ? "Delete this unit? This cannot be undone."
-        : `Delete ${selectedUnits.length} units? This cannot be undone.`
-    );
-    if (!ok) return;
-    window.alert("Delete feature coming soon (wire to backend later).");
+    if (window.confirm(`Delete ${selectedCount} selected unit(s)?`)) {
+      window.alert("Delete action - wire later");
+      setSelectedUnits([]);
+      setSelectAll(false);
+    }
   };
 
   // ---------------------------
@@ -575,7 +546,7 @@ const Units = () => {
               </button>
 
               <button
-                onClick={() => setShowAddUnitModal(true)}
+                onClick={() => navigate("/units/new")}
                 className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
               >
                 <FaPlus className="text-xs" />

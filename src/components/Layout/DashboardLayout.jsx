@@ -299,11 +299,12 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
     }
   };
 
-  const renderMenuItem = (item) => {
+  let separatorCounter = 0;
+  const renderMenuItem = (item, index) => {
     if (item.type === "separator") {
       return (
         <div
-          key={`sep-${Math.random()}`}
+          key={`sep-${index}`}
           className={`h-px ${darkMode ? "bg-gray-700" : "bg-gray-200"} my-1`}
         />
       );
@@ -351,11 +352,11 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
     );
   };
 
-  const renderNestedMenuItem = (item) => {
+  const renderNestedMenuItem = (item, index) => {
     if (item.type === "separator") {
       return (
         <div
-          key={`sep-${Math.random()}`}
+          key={`sep-nested-${index}`}
           className={`h-px ${darkMode ? "bg-gray-700" : "bg-gray-200"} my-1`}
         />
       );
@@ -422,7 +423,7 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
                 }`}
               >
                 {item.submenu.map((subItem, index) => (
-                  <React.Fragment key={subItem.id || index}>{renderMenuItem(subItem)}</React.Fragment>
+                  <React.Fragment key={subItem.id || `submenu-${item.id}-${index}`}>{renderMenuItem(subItem, index)}</React.Fragment>
                 ))}
               </div>
             )}
@@ -435,8 +436,8 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
                 }`}
               >
                 {nestedSubmenus[activeSubMenu].map((nestedItem, nestedIndex) => (
-                  <React.Fragment key={nestedItem.id || nestedIndex}>
-                    {renderNestedMenuItem(nestedItem)}
+                  <React.Fragment key={nestedItem.id || `nested-${activeSubMenu}-${nestedIndex}`}>
+                    {renderNestedMenuItem(nestedItem, nestedIndex)}
                   </React.Fragment>
                 ))}
               </div>

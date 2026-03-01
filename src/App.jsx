@@ -1,5 +1,8 @@
 // App.js
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { getCompanySuccess } from "./redux/companiesRedux";
 import "./App.css";
 
 import Home from "./pages/Home/Home";
@@ -10,6 +13,7 @@ import Landlords from "./pages/Landlord/Landlord";
 import AddLandlord from "./components/Landlord/AddLandlord";
 import Properties from "./pages/Properties/Properties";
 import Units from "./pages/Units/Units";
+import AddUnit from "./components/Units/AddUnit";
 import Tenants from "./pages/Tenants/Tenants";
 import Leases from "./pages/Lease/Lease";
 import Vacants from "./pages/Vacants/Vacants";
@@ -23,7 +27,20 @@ import CompanySetupPage from "./pages/companySetup/CompanySetupPage";
 import SystemSetupPage from "./pages/SystemSetup/SystemSetup";
 import AddCompanyWizard from "./pages/SystemSetup/AddCompanyWizard";
 import AddUserPage from "./pages/SystemSetup/AddUsers";
+
 function App() {
+  const dispatch = useDispatch();
+  const { currentUser } = useSelector((state) => state.auth);
+  const { currentCompany } = useSelector((state) => state.company);
+
+  // Initialize company from logged-in user on mount/rehydration
+  useEffect(() => {
+    if (currentUser?.company && !currentCompany) {
+      console.log('Initializing company from user data:', currentUser.company);
+      dispatch(getCompanySuccess(currentUser.company));
+    }
+  }, [currentUser, currentCompany, dispatch]);
+
   return (
     <BrowserRouter>
       {/* Global Start Menu (must be inside BrowserRouter for useNavigate) */}
@@ -48,6 +65,7 @@ function App() {
         <Route path="/landlords/new" element={<AddLandlord />} />
         <Route path="/properties" element={<Properties />} />
         <Route path="/units" element={<Units />} />
+        <Route path="/units/new" element={<AddUnit />} />
         <Route path="/tenants" element={<Tenants />} />
         <Route path="/leases" element={<Leases />} />
         <Route path="/vacants" element={<Vacants />} />

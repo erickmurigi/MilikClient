@@ -1,5 +1,56 @@
 // redux/unitSlice.js
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { adminRequests } from "../utils/requestMethods";
+
+// Async thunks for API calls
+export const createUnit = createAsyncThunk(
+  'unit/create',
+  async (unitData, { rejectWithValue }) => {
+    try {
+      const response = await adminRequests.post("/units", unitData);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || { message: error.message });
+    }
+  }
+);
+
+export const getUnits = createAsyncThunk(
+  'unit/getAll',
+  async (params, { rejectWithValue }) => {
+    try {
+      const queryString = new URLSearchParams(params).toString();
+      const response = await adminRequests.get(`/units?${queryString}`);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || { message: error.message });
+    }
+  }
+);
+
+export const updateUnit = createAsyncThunk(
+  'unit/update',
+  async ({ id, unitData }, { rejectWithValue }) => {
+    try {
+      const response = await adminRequests.put(`/units/${id}`, unitData);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || { message: error.message });
+    }
+  }
+);
+
+export const deleteUnit = createAsyncThunk(
+  'unit/delete',
+  async (id, { rejectWithValue }) => {
+    try {
+      await adminRequests.delete(`/units/${id}`);
+      return id;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || { message: error.message });
+    }
+  }
+);
 
 const initialState = {
   units: [],
@@ -117,6 +168,62 @@ export const unitSlice = createSlice({
       state.isFetching = false;
       state.error = true;
     },
+  },
+  extraReducers: (builder) => {
+    builder
+      // Create unit
+      .addCase(createUnit.pending, (state) => {
+        state.isFetching = true;
+        state.error = false;
+      })
+      .addCase(createUnit.fulfilled, (state, action) => {
+        state.isFetching = false;
+        state.units.push(action.payload);
+      })
+      .addCase(createUnit.rejected, (state) => {
+        state.isFetching = false;
+        state.error = true;
+      })
+      // Get units
+      .addCase(getUnits.pending, (state) => {
+        state.isFetching = true;
+        state.error = false;
+      })
+      .addCase(getUnits.fulfilled, (state, action) => {
+        state.isFetching = false;
+        state.units = Array.isArray(action.payload) ? action.payload : [];
+      })
+      .addCase(getUnits.rejected, (state) => {
+        state.isFetching = false;
+        state.error = true;
+      })
+      // Update unit
+      .addCase(updateUnit.pending, (state) => {
+        state.isFetching = true;
+        state.error = false;
+      })
+      .addCase(updateUnit.fulfilled, (state, action) => {
+        state.isFetching = false;
+        const index = state.units.findIndex((item) => item._id === action.payload?._id);
+        if (index !== -1) state.units[index] = action.payload;
+      })
+      .addCase(updateUnit.rejected, (state) => {
+        state.isFetching = false;
+        state.error = true;
+      })
+      // Delete unit
+      .addCase(deleteUnit.pending, (state) => {
+        state.isFetching = true;
+        state.error = false;
+      })
+      .addCase(deleteUnit.fulfilled, (state, action) => {
+        state.isFetching = false;
+        state.units = state.units.filter((item) => item._id !== action.payload);
+      })
+      .addCase(deleteUnit.rejected, (state) => {
+        state.isFetching = false;
+        state.error = true;
+      });
   },
 });
 

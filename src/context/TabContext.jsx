@@ -3,6 +3,13 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 
 const TabContext = createContext();
 
+// Unique ID generator to avoid duplicate keys
+let tabIdCounter = 0;
+const generateUniqueTabId = (prefix) => {
+  tabIdCounter += 1;
+  return `${prefix}-${Date.now()}-${tabIdCounter}`;
+};
+
 export const useTabContext = () => {
   const context = useContext(TabContext);
   if (!context) {
@@ -25,7 +32,7 @@ export const TabProvider = ({ children }) => {
 
   const addNewTab = useCallback((route, title = null) => {
     const tabTitle = title || route.split('/').pop().charAt(0).toUpperCase() + route.split('/').pop().slice(1);
-    const newTabId = `${route.replace(/\//g, '-')}-${Date.now()}`;
+    const newTabId = generateUniqueTabId(route.replace(/\//g, '-'));
     
     setTabs(prevTabs => {
       // Check if tab with same route already exists
