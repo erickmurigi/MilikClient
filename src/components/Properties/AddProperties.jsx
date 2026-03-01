@@ -314,6 +314,7 @@ const AddProperty = () => {
   );
 
   const [formData, setFormData] = useState(initialFormData);
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // Add Landlord modal state (Add Property page)
   const [openAddLandlordModal, setOpenAddLandlordModal] = useState(false);
@@ -387,6 +388,10 @@ const AddProperty = () => {
   // Handle form field changes
   const handleChange = (e, section = null, index = null) => {
     const { name, value, type, checked } = e.target;
+
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    }
 
     if (section === "landlords" && index !== null) {
       const updatedLandlords = [...formData.landlords];
@@ -491,6 +496,29 @@ const AddProperty = () => {
     };
 
     setFormData((prev) => ({ ...prev, landlords: updated }));
+    if (fieldErrors.landlord) {
+      setFieldErrors((prev) => ({ ...prev, landlord: "" }));
+    }
+  };
+
+  const validatePropertyForm = () => {
+    const errors = {};
+
+    if (!formData.dateAcquired?.trim()) {
+      errors.dateAcquired = "Date acquired is required.";
+    }
+    if (!formData.propertyName?.trim()) {
+      errors.propertyName = "Property name is required.";
+    }
+    if (!formData.lrNumber?.trim()) {
+      errors.lrNumber = "LR number is required.";
+    }
+    if (!formData.landlords?.[0]?.name?.trim()) {
+      errors.landlord = "Primary landlord is required.";
+    }
+    // Company validation removed - user is already logged in to a company
+
+    return errors;
   };
 
   /**
@@ -545,14 +573,10 @@ const AddProperty = () => {
   const handleSubmit = async (e) => {
     e?.preventDefault?.();
 
-    if (!formData.propertyName.trim() || !formData.lrNumber.trim()) {
-      toast.error("Please fill all required fields (*)");
-      return;
-    }
-
-    // Must have primary landlord selected/filled
-    if (!formData.landlords[0]?.name?.trim()) {
-      toast.error("Primary landlord is required");
+    const validationErrors = validatePropertyForm();
+    if (Object.keys(validationErrors).length > 0) {
+      setFieldErrors(validationErrors);
+      toast.error(Object.values(validationErrors)[0] || "Please fix highlighted fields.");
       return;
     }
 
@@ -568,8 +592,10 @@ const AddProperty = () => {
     }
 
     const businessId = currentCompany?._id;
+    
     if (!businessId) {
-      toast.error("Please select a company before creating a property");
+      console.error("Company not found:", currentCompany);
+      toast.error("Company information not available. Please refresh and try again.");
       return;
     }
 
@@ -582,12 +608,24 @@ const AddProperty = () => {
     };
 
     try {
+      setFieldErrors({});
       const result = await dispatch(createProperty(propertyData)).unwrap();
       toast.success(result?.message || "Property created successfully!");
       navigate("/properties");
     } catch (err) {
       console.error("Property creation error:", err);
-      toast.error(err?.message || err || "Failed to create property");
+      const backendMessage =
+        err?.message ||
+        err?.error ||
+        err?.data?.message ||
+        err?.response?.data?.message ||
+        "Failed to create property";
+
+      if (err?.fieldErrors && typeof err.fieldErrors === "object") {
+        setFieldErrors((prev) => ({ ...prev, ...err.fieldErrors }));
+      }
+
+      toast.error(backendMessage);
     }
   };
 
@@ -651,9 +689,10 @@ const AddProperty = () => {
               name="dateAcquired"
               value={formData.dateAcquired}
               onChange={handleChange}
-              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS} ${fieldErrors.dateAcquired ? "border-red-500 focus:border-red-500 focus:ring-red-200" : ""}`}
               required
             />
+            {fieldErrors.dateAcquired && <p className="mt-1 text-xs text-red-600">{fieldErrors.dateAcquired}</p>}
           </div>
 
           <div>
@@ -688,10 +727,11 @@ const AddProperty = () => {
               name="propertyName"
               value={formData.propertyName}
               onChange={handleChange}
-              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS} ${fieldErrors.propertyName ? "border-red-500 focus:border-red-500 focus:ring-red-200" : ""}`}
               placeholder="e.g., KITUI HEIGHTS RESIDENTIAL COMPLEX"
               required
             />
+            {fieldErrors.propertyName && <p className="mt-1 text-xs text-red-600">{fieldErrors.propertyName}</p>}
           </div>
 
           <div>
@@ -701,10 +741,11 @@ const AddProperty = () => {
               name="lrNumber"
               value={formData.lrNumber}
               onChange={handleChange}
-              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
+              className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS} ${fieldErrors.lrNumber ? "border-red-500 focus:border-red-500 focus:ring-red-200" : ""}`}
               placeholder="e.g., 209/1201"
               required
             />
+            {fieldErrors.lrNumber && <p className="mt-1 text-xs text-red-600">{fieldErrors.lrNumber}</p>}
           </div>
 
           <div>
@@ -847,6 +888,7 @@ const AddProperty = () => {
                 getValue={getLandlordId}
                 onChange={(id, obj) => handleSelectLandlord(id, obj)}
               />
+              {fieldErrors.landlord && <p className="mt-1 text-xs text-red-600">{fieldErrors.landlord}</p>}
               <p className="mt-1 text-xs text-slate-500">
                 Select an existing landlord (fetched from database once connected).
               </p>
@@ -1712,9 +1754,15 @@ const AddProperty = () => {
         {/* Form Content */}
         <div className={`${sectionCard}`}>
           <div className="p-4">
-            <form onSubmit={handleSubmit}>{renderContent()}</form>
+            <form id="add-property-form" onSubmit={handleSubmit}>{renderContent()}</form>
           </div>
         </div>
+
+        {fieldErrors.business && (
+          <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {fieldErrors.business}
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex justify-between items-center mt-4">
@@ -1761,8 +1809,8 @@ const AddProperty = () => {
               </button>
             ) : (
               <button
-                type="button"
-                onClick={handleSubmit}
+                type="submit"
+                form="add-property-form"
                 disabled={loading}
                 className="h-10 px-5 text-sm font-semibold bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >

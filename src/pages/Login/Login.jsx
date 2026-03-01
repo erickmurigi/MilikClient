@@ -181,9 +181,7 @@ function Login() {
               </button>
             </form>
 
-            <div className="mt-6 text-center">
-              <p className="text-xs font-semibold text-slate-500">Embedded admin authentication is enabled in backend.</p>
-            </div>
+            
           </div>
         </div>
       </div>

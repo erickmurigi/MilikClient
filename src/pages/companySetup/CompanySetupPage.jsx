@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import DashboardLayout from "../../components/Layout/DashboardLayout";
 import {
   FaBuilding,
   FaSitemap,
@@ -9,7 +10,7 @@ import {
   FaThLarge,
   FaUserClock,
   FaHistory,
-} from "react-icons/fa";
+} from "react-icons/fa";      
 import StartMenu from "../../components/StartMenu/StartMenu";   
 
 const tabs = [
@@ -208,7 +209,7 @@ export default function CompanySetupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#dfebed]">
+    <DashboardLayout>
       <div className="mx-auto max-w-[1200px] px-4 py-5">
         {/* Page header */}
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
@@ -256,6 +257,6 @@ export default function CompanySetupPage() {
         {/* Tab content */}
         <div className="mt-4">{renderTab()}</div>
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

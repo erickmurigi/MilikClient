@@ -44,6 +44,7 @@ const TabManager = ({ darkMode }) => {
       '/system-setup/database': 'Database',
       '/system-setup/sessions': 'Sessions',
       '/system-setup/audit': 'Audit Log',
+      '/company-setup': 'Company Setup',
       '/properties': 'Properties',
       '/properties/new': 'New Property',
       '/tenants': 'Tenants',
@@ -80,36 +81,23 @@ const TabManager = ({ darkMode }) => {
            parts[parts.length - 1].slice(1) || 'New Tab';
   };
 
+  // Helper functions to identify module contexts
+  const isSystemSetupRoute = (route = "") => route.startsWith('/system-setup');
+  const isCompanySetupRoute = (route = "") => route.startsWith('/company-setup');
+  const isPropertyManagementRoute = (route = "") => !isSystemSetupRoute(route) && !isCompanySetupRoute(route);
+
   // Add new tab when URL changes (only if not already open)
-  // Separate tabs by context: system-setup tabs vs property tabs
+  // Keep tabs for BOTH contexts in memory; only filter visibility at render time
   useEffect(() => {
     const currentPath = location.pathname;
-    const isSystemSetup = currentPath.startsWith('/system-setup');
-    
+
     // Skip dashboard as it's already there
     if (currentPath === '/dashboard') {
       setActiveTab('dashboard');
       return;
     }
-    
-    // Filter tabs by context synchronously BEFORE checking for existing tab
-    const filteredTabs = tabs.filter(tab => {
-      if (isSystemSetup) {
-        // On system-setup: keep only dashboard and system-setup tabs
-        return tab.route === '/dashboard' || tab.route.startsWith('/system-setup') || tab.id === 'dashboard';
-      } else if (currentPath !== '/dashboard') {
-        // On property side: keep only dashboard and non-system-setup tabs
-        return tab.route === '/dashboard' || !tab.route.startsWith('/system-setup') || tab.id === 'dashboard';
-      }
-      return true;
-    });
-    
-    // Update tabs if filtering removed any
-    if (filteredTabs.length !== tabs.length) {
-      setTabs(filteredTabs);
-    }
-    
-    const existingTab = filteredTabs.find(tab => tab.route === currentPath);
+
+    const existingTab = tabs.find(tab => tab.route === currentPath);
     
     if (existingTab) {
       // Tab already exists, just activate it
@@ -128,7 +116,7 @@ const TabManager = ({ darkMode }) => {
       setTabs(prev => [...prev, newTab]);
       setActiveTab(newTabId);
     }
-  }, [location.pathname]);
+  }, [location.pathname, tabs]);
 
   // Switch to tab (navigate without reload)
   const switchTab = (tabId, route) => {
@@ -147,23 +135,39 @@ const TabManager = ({ darkMode }) => {
     
     const newTabs = tabs.filter(tab => tab.id !== tabId);
     setTabs(newTabs);
-    
-    // If we closed the active tab, switch to another one
-    if (tabId === activeTab) {
-      const closedTabIndex = tabs.findIndex(tab => tab.id === tabId);
-      let newActiveTab;
+
+    // If closing the active tab, determine contextual fallback based on current module
+    if (activeTab === tabId) {
+      const currentPath = location.pathname;
+      const isSystemSetup = currentPath.startsWith('/system-setup');
+      const isCompanySetup = currentPath.startsWith('/company-setup');
       
-      if (closedTabIndex > 0) {
-        // Switch to previous tab
-        newActiveTab = tabs[closedTabIndex - 1].id;
-        navigate(tabs[closedTabIndex - 1].route);
+      let contextualTabs;
+      if (isSystemSetup) {
+        contextualTabs = newTabs.filter(tab => isSystemSetupRoute(tab.route));
+      } else if (isCompanySetup) {
+        contextualTabs = newTabs.filter(tab => isCompanySetupRoute(tab.route));
       } else {
-        // Switch to next tab
-        newActiveTab = tabs[closedTabIndex + 1].id;
-        navigate(tabs[closedTabIndex + 1].route);
+        contextualTabs = newTabs.filter(tab => isPropertyManagementRoute(tab.route));
       }
       
-      setActiveTab(newActiveTab);
+      if (contextualTabs.length > 0) {
+        const nextTab = contextualTabs.slice(-1)[0];
+        setActiveTab(nextTab.id);
+        navigate(nextTab.route);
+      } else {
+        // Fallback to appropriate default for each module
+        if (isSystemSetup) {
+          setActiveTab('dashboard');
+          navigate('/system-setup');
+        } else if (isCompanySetup) {
+          setActiveTab('dashboard');
+          navigate('/company-setup');
+        } else {
+          setActiveTab('dashboard');
+          navigate('/dashboard');
+        }
+      }
     }
   };
 
@@ -195,12 +199,17 @@ const TabManager = ({ darkMode }) => {
 
   // Sort tabs by timestamp (oldest first)
   const sortedTabs = [...tabs].sort((a, b) => a.timestamp - b.timestamp);
+
+  // Strict context filtering: separate tabs for each module context
+  const currentPath = location.pathname;
+  const isSystemSetupContext = currentPath.startsWith('/system-setup');
+  const isCompanySetupContext = currentPath.startsWith('/company-setup');
   
-  // Filter out Dashboard tab when on system-setup context
-  const isSystemSetupContext = location.pathname.startsWith('/system-setup');
-  const displayTabs = isSystemSetupContext 
-    ? sortedTabs.filter(tab => tab.id !== 'dashboard') 
-    : sortedTabs;
+  const displayTabs = isSystemSetupContext
+    ? sortedTabs.filter(tab => isSystemSetupRoute(tab.route))
+    : isCompanySetupContext
+    ? sortedTabs.filter(tab => isCompanySetupRoute(tab.route))
+    : sortedTabs.filter(tab => isPropertyManagementRoute(tab.route));
   
   return (
     <div className={`flex items-center ${darkMode ? 'bg-gray-800' : 'bg-[#31694E]'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'} overflow-x-auto`}>
@@ -228,7 +237,7 @@ const TabManager = ({ darkMode }) => {
           >
             {tab.route === '/dashboard' && <FaHome className="mr-2 w-3 h-3" />}
             <span className="text-xs truncate max-w-[120px]">{tab.title}</span>
-            {tab.closable && tabs.length > 1 && (
+            {tab.closable && displayTabs.length > 1 && (
               <button
                 onClick={(e) => closeTab(tab.id, e)}
                 className={`ml-2 p-0.5 rounded-full ${
@@ -245,7 +254,7 @@ const TabManager = ({ darkMode }) => {
         ))}
         
         {/* New Tab Button - Only on property side */}
-        {!isSystemSetupContext && (
+        {!isSystemSetupContext && !isCompanySetupContext && (
           <button
             onClick={addNewDashboardTab}
             className={`px-2 py-1.5 rounded-md ${
@@ -260,7 +269,7 @@ const TabManager = ({ darkMode }) => {
         )}
         
         {/* Close All Button - Only on property side */}
-        {!isSystemSetupContext && tabs.length > 1 && (
+        {!isSystemSetupContext && !isCompanySetupContext && displayTabs.length > 1 && (
           <button
             onClick={closeAllTabs}
             className={`px-2 py-1.5 rounded-md ${
@@ -276,7 +285,7 @@ const TabManager = ({ darkMode }) => {
       </div>
       
       {/* Tab Counter - Only on property side */}
-      {!isSystemSetupContext && (
+      {!isSystemSetupContext && !isCompanySetupContext && (
         <div className={`ml-auto px-3 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
           {displayTabs.length} tab{displayTabs.length !== 1 ? 's' : ''}
         </div>

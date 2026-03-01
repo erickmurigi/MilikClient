@@ -4,6 +4,7 @@ import { Toaster } from "react-hot-toast";
 import { Link, useNavigate } from "react-router-dom";
 import "./dashboard.css";
 import TabManager from "../../components/Layout/TabManager";
+import ModuleTabManager from "../../components/Layout/ModuleTabManager";
 import Navbar from "../../components/Dashboard/Navbar";
 import StartMenu from "../../components/StartMenu/StartMenu";
 const DashboardLayout = ({ children }) => {
@@ -34,7 +35,7 @@ const DashboardLayout = ({ children }) => {
       </div>
 
       {/* MAIN CONTENT: keep it white and remove h-screen */}
-      <div className="flex flex-1 pt-28 bg-white min-h-screen">
+      <div className="flex flex-1 pt-28 pb-20 bg-white min-h-screen">
         <main className="flex-1 pt-4 overflow-y-auto overflow-x-hidden bg-white min-h-[calc(100vh-7rem)]">
           <div className="max-w-full min-h-[calc(100vh-7rem)]">
             {React.Children.map(children, (child) => {
@@ -45,6 +46,9 @@ const DashboardLayout = ({ children }) => {
           </div>
         </main>
       </div>
+
+      {/* Bottom Module Tabs */}
+      <ModuleTabManager darkMode={darkMode} />
     </div>
   );
 };

@@ -91,7 +91,7 @@ const StartMenu = ({ darkMode = false }) => {
   return (
     <>
       {/* Start button - bottom center */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[120]">
+      <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[120]">
         <button
           ref={anchorRef}
           onClick={() => setOpen((v) => !v)}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getUsers, createUser, deleteUser, toggleUserLock, deleteCompany } from "../../redux/apiCalls";
 import { useLocation, useNavigate } from "react-router-dom";
+import DashboardLayout from "../../components/Layout/DashboardLayout";
 import {
   FaBuilding,
   FaUsers,
@@ -55,8 +56,6 @@ import {
   FaEllipsisV,
   FaEllipsisH,
 } from "react-icons/fa";
-import StartMenu from "../../components/StartMenu/StartMenu";
-import TabManager from "../../components/Layout/TabManager";
 import { getCompanies, createCompany } from "../../redux/apiCalls";
 import AddCompanyWizard from "./AddCompanyWizard";
 import AddUserPage from "./AddUsers";
@@ -1024,40 +1023,7 @@ export default function SystemSetupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#dfebed]">
-      {/* Header with Logo, Company Name and Welcome */}
-      <div className="sticky top-0 z-50 bg-[#dfebed] border-b border-slate-200 shadow-sm">
-        <div className="px-5 py-3">
-          <div className="flex items-center justify-between max-w-[1400px] mx-auto">
-            {/* Left: Logo and Company Info */}
-            <div className="flex items-center space-x-4">
-              <img src="/logo.png" alt="Milik Logo" className="h-8 w-10" />
-              <div>
-                <h1 className="text-sm font-bold text-[#0B3B2E]">{companyName}</h1>
-                <p className="text-xs text-slate-600">Welcome back, {userName.split(' ')[0]}</p>
-              </div>
-            </div>
-            
-            {/* Right: User Avatar and Cancel Button */}
-            <div className="flex items-center space-x-3">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-r from-[#0B3B2E] to-[#0A3127] flex items-center justify-center">
-                <span className="text-white text-xs font-semibold">
-                  {userName.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)}
-                </span>
-              </div>
-              <button
-                onClick={() => navigate('/dashboard')}
-                title="Close System Setup"
-                className="p-2 rounded-lg hover:bg-slate-200 transition-colors text-slate-600 hover:text-slate-900"
-              >
-                <FaTimes className="text-lg" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <StartMenu />
+    <DashboardLayout>
       <div className="mx-auto w-full max-w-[1400px] px-4 py-5">
         {/* Header and Stats cards remain same */}
 
@@ -1081,11 +1047,6 @@ export default function SystemSetupPage() {
               </button>
             ))}
           </div>
-        </div>
-
-        {/* Tab Manager - Below Local Tabs */}
-        <div className="border-b border-slate-300 mb-4">
-          <TabManager darkMode={false} />
         </div>
 
         {/* Tab Content */}
@@ -1195,6 +1156,6 @@ export default function SystemSetupPage() {
         onConfirm={() => confirmDialog.onConfirm?.()}
         onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
       />
-    </div>
+    </DashboardLayout>
   );
 }
