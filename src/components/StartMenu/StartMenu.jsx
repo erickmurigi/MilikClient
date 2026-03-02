@@ -19,13 +19,13 @@ import {
   FaSignOutAlt,
   FaThLarge,
 } from "react-icons/fa";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { clearClientSessionStorage } from "../../utils/sessionCleanup";
 
 const StartMenu = ({ darkMode = false }) => {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef(null);
   const menuRef = useRef(null);
-  const navigate = useNavigate();
 
   // close on outside click
   useEffect(() => {
@@ -83,9 +83,9 @@ const StartMenu = ({ darkMode = false }) => {
   );
 
   const onSignOut = () => {
-    // you can later clear auth context/storage here
+    clearClientSessionStorage();
     setOpen(false);
-    navigate("/home");
+    window.location.replace("/login");
   };
 
   return (

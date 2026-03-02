@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { clearAuth } from '../redux/authSlice';
+import { clearClientSessionStorage } from '../utils/sessionCleanup';
 
 const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
 
@@ -23,7 +24,9 @@ const useInactivityLogout = () => {
     timeoutRef.current = setTimeout(() => {
       if (currentUser) {
         console.warn('User inactive for 10 minutes. Logging out...');
+        clearClientSessionStorage();
         dispatch(clearAuth());
+        window.location.replace('/login');
       }
     }, INACTIVITY_TIMEOUT);
   };

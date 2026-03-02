@@ -173,6 +173,13 @@ const Units = () => {
       
       // Generate unit code: first 2 letters of property name + 4 digit index within property
       const unitCode = `${first2Letters}${String(unitIndexInProperty).padStart(4, '0')}`;
+
+      const tenantName =
+        unit.currentTenant?.name ||
+        unit.lastTenant?.name ||
+        unit.tenant?.name ||
+        unit.tenantName ||
+        "-";
       
       return {
         id: unit._id,
@@ -181,7 +188,7 @@ const Units = () => {
         propertyName: propertyDisplayName, // Store full property name
         propertyCode: propertyCode, // Store property code
         property: propertyCode, // Keep this for filtering
-        tenant: unit.lastTenant?.name || "-",
+        tenant: tenantName,
         area: "0.00", // TODO: Add area field to unit model
         rentUnit: `Ksh ${unit.rent?.toLocaleString() || 0}`,
         marketRent: `Ksh ${unit.rent?.toLocaleString() || 0}`,

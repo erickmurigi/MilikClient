@@ -1,5 +1,6 @@
 /* eslint-disable no-undef */
 import {adminRequests} from "../utils/requestMethods"
+import { clearClientSessionStorage } from "../utils/sessionCleanup";
 
 
 
@@ -1397,9 +1398,7 @@ export const logoutUser = () => async (dispatch) => {
     // Call logout endpoint
     await adminRequests.post('/auth/logout');
     
-    // Clear localStorage
-    localStorage.removeItem('milik_token');
-    localStorage.removeItem('milik_user');
+    clearClientSessionStorage();
     
     dispatch(logoutSuccess());
     return true;

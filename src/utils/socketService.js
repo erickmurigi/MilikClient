@@ -3,6 +3,19 @@ import { io } from 'socket.io-client';
 
 let socketInstance = null;
 
+export const disconnectSocket = () => {
+  if (!socketInstance) return;
+
+  try {
+    socketInstance.removeAllListeners();
+    socketInstance.disconnect();
+  } catch (error) {
+    console.warn("Failed to disconnect socket cleanly", error);
+  } finally {
+    socketInstance = null;
+  }
+};
+
 const useSocket = () => {
   const socketRef = useRef(null);
 

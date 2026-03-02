@@ -30,6 +30,14 @@ import SystemSetupPage from "./pages/SystemSetup/SystemSetup";
 import AddCompanyWizard from "./pages/SystemSetup/AddCompanyWizard";
 import AddUserPage from "./pages/SystemSetup/AddUsers";
 
+function ProtectedRoute({ children }) {
+  const { currentUser } = useSelector((state) => state.auth);
+  const token = localStorage.getItem("milik_token");
+  const isAuthenticated = Boolean(currentUser || token);
+
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
+}
+
 function App() {
   const dispatch = useDispatch();
   const { currentUser } = useSelector((state) => state.auth);
@@ -57,37 +65,37 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/setup-admin" element={<SetupAdmin />} />
 
-        <Route path="/moduleDashboard" element={<ModulesDashboard />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/system-setup" element={<Navigate to="/system-setup/companies" replace />} />
-        <Route path="/system-setup/companies" element={<SystemSetupPage />} />
-        <Route path="/system-setup/users" element={<SystemSetupPage />} />
-        <Route path="/system-setup/rights" element={<SystemSetupPage />} />
-        <Route path="/system-setup/database" element={<SystemSetupPage />} />
-        <Route path="/system-setup/sessions" element={<SystemSetupPage />} />
-        <Route path="/system-setup/audit" element={<SystemSetupPage />} />
-        <Route path="/landlords" element={<Landlords />} />
-        <Route path="/landlords/new" element={<AddLandlord />} />
-        <Route path="/properties" element={<Properties />} />
-        <Route path="/units" element={<Units />} />
-        <Route path="/units/new" element={<AddUnit />} />
-        <Route path="/tenants" element={<Tenants />} />
-        <Route path="/tenant/new" element={<AddTenant />} />
-        <Route path="/tenant/:id/statement" element={<Tenants />} />
-        <Route path="/tenant/:id/billing" element={<Tenants />} />
-        <Route path="/tenant/:id/charges" element={<Tenants />} />
-        <Route path="/tenant/:id/escalations" element={<Tenants />} />
-        <Route path="/tenant/:id/edit" element={<AddTenant />} />
-        <Route path="/leases" element={<Leases />} />
-        <Route path="/vacants" element={<Vacants />} />
-        <Route path="/maintenances" element={<Maintenances />} />
-        <Route path="/inspections" element={<Inspections />} />
-        <Route path="/add-company" element={<AddCompanyWizard />} />
-        <Route path="/properties/new" element={<AddProperty />} />
-        <Route path="/properties/:id" element={<PropertyDetail />} />
-        <Route path="/properties/edit/:id" element={<EditProperty />} />
-        <Route path="/add-user" element={<AddUserPage />} />
-        <Route path="/company-setup" element={<CompanySetupPage />} />
+        <Route path="/moduleDashboard" element={<ProtectedRoute><ModulesDashboard /></ProtectedRoute>} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/system-setup" element={<ProtectedRoute><Navigate to="/system-setup/companies" replace /></ProtectedRoute>} />
+        <Route path="/system-setup/companies" element={<ProtectedRoute><SystemSetupPage /></ProtectedRoute>} />
+        <Route path="/system-setup/users" element={<ProtectedRoute><SystemSetupPage /></ProtectedRoute>} />
+        <Route path="/system-setup/rights" element={<ProtectedRoute><SystemSetupPage /></ProtectedRoute>} />
+        <Route path="/system-setup/database" element={<ProtectedRoute><SystemSetupPage /></ProtectedRoute>} />
+        <Route path="/system-setup/sessions" element={<ProtectedRoute><SystemSetupPage /></ProtectedRoute>} />
+        <Route path="/system-setup/audit" element={<ProtectedRoute><SystemSetupPage /></ProtectedRoute>} />
+        <Route path="/landlords" element={<ProtectedRoute><Landlords /></ProtectedRoute>} />
+        <Route path="/landlords/new" element={<ProtectedRoute><AddLandlord /></ProtectedRoute>} />
+        <Route path="/properties" element={<ProtectedRoute><Properties /></ProtectedRoute>} />
+        <Route path="/units" element={<ProtectedRoute><Units /></ProtectedRoute>} />
+        <Route path="/units/new" element={<ProtectedRoute><AddUnit /></ProtectedRoute>} />
+        <Route path="/tenants" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
+        <Route path="/tenant/new" element={<ProtectedRoute><AddTenant /></ProtectedRoute>} />
+        <Route path="/tenant/:id/statement" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
+        <Route path="/tenant/:id/billing" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
+        <Route path="/tenant/:id/charges" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
+        <Route path="/tenant/:id/escalations" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
+        <Route path="/tenant/:id/edit" element={<ProtectedRoute><AddTenant /></ProtectedRoute>} />
+        <Route path="/leases" element={<ProtectedRoute><Leases /></ProtectedRoute>} />
+        <Route path="/vacants" element={<ProtectedRoute><Vacants /></ProtectedRoute>} />
+        <Route path="/maintenances" element={<ProtectedRoute><Maintenances /></ProtectedRoute>} />
+        <Route path="/inspections" element={<ProtectedRoute><Inspections /></ProtectedRoute>} />
+        <Route path="/add-company" element={<ProtectedRoute><AddCompanyWizard /></ProtectedRoute>} />
+        <Route path="/properties/new" element={<ProtectedRoute><AddProperty /></ProtectedRoute>} />
+        <Route path="/properties/:id" element={<ProtectedRoute><PropertyDetail /></ProtectedRoute>} />
+        <Route path="/properties/edit/:id" element={<ProtectedRoute><EditProperty /></ProtectedRoute>} />
+        <Route path="/add-user" element={<ProtectedRoute><AddUserPage /></ProtectedRoute>} />
+        <Route path="/company-setup" element={<ProtectedRoute><CompanySetupPage /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );

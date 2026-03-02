@@ -2,6 +2,7 @@ import axios from "axios";
 import AES from 'crypto-js/aes';
 import Utf8 from 'crypto-js/enc-utf8';
 import { encode } from 'js-base64';
+import { clearClientSessionStorage } from './sessionCleanup';
 
 // Use environment variable for API URL
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api/";
@@ -64,8 +65,7 @@ adminRequests.interceptors.response.use(
             switch (error.response.status) {
                 case 401:
                     // Unauthorized - clear auth and redirect to login
-                    localStorage.removeItem(tokenKey);
-                    localStorage.removeItem(localStorageKey);
+                    clearClientSessionStorage();
                     window.location.href = '/login';
                     break;
                 case 403:
