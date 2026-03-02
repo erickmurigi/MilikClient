@@ -7,11 +7,15 @@ import TabManager from "../../components/Layout/TabManager";
 import ModuleTabManager from "../../components/Layout/ModuleTabManager";
 import Navbar from "../../components/Dashboard/Navbar";
 import StartMenu from "../../components/StartMenu/StartMenu";
-const DashboardLayout = ({ children }) => {
+const DashboardLayout = ({ children, lockContentScroll = false }) => {
   const [darkMode, setDarkMode] = useState(false);
 
   return (
-    <div className={`min-h-screen ${darkMode ? 'dark bg-gray-900' : 'bg-white'}`}>
+    <div
+      className={`${
+        lockContentScroll ? "h-screen overflow-hidden" : "min-h-screen"
+      } ${darkMode ? 'dark bg-gray-900' : 'bg-white'}`}
+    >
       <Toaster
         position="top-right"
         toastOptions={{
@@ -30,14 +34,28 @@ const DashboardLayout = ({ children }) => {
       </div>
 
       {/* Tabs */}
-      <div className="fixed top-22 left-0 right-0 z-40">
+      <div className="fixed top-[88px] left-0 right-0 z-40">
         <TabManager darkMode={darkMode} />
       </div>
 
       {/* MAIN CONTENT: keep it white and remove h-screen */}
-      <div className="flex flex-1 pt-28 pb-20 bg-white min-h-screen">
-        <main className="flex-1 pt-4 overflow-y-auto overflow-x-hidden bg-white min-h-[calc(100vh-7rem)]">
-          <div className="max-w-full min-h-[calc(100vh-7rem)]">
+      <div
+        className={`flex flex-1 pt-36 bg-white ${
+          lockContentScroll ? "h-full min-h-0 overflow-hidden pb-9" : "min-h-screen pb-20"
+        }`}
+      >
+        <main
+          className={`flex-1 pt-4 overflow-x-hidden bg-white ${
+            lockContentScroll
+              ? "overflow-y-hidden min-h-0 h-full"
+              : "overflow-y-auto min-h-[calc(100vh-9rem)]"
+          }`}
+        >
+          <div
+            className={`max-w-full ${
+              lockContentScroll ? "h-full min-h-0" : "min-h-[calc(100vh-9rem)]"
+            }`}
+          >
             {React.Children.map(children, (child) => {
               if (!React.isValidElement(child)) return child;
               if (typeof child.type === "string") return child;

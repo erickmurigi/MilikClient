@@ -359,10 +359,10 @@ const Properties = () => {
   };
 
   return (
-    <DashboardLayout>
-      <div className="flex flex-col min-h-screen p-0 bg-white">
+    <DashboardLayout lockContentScroll>
+      <div className="flex flex-col h-full min-h-0 p-0 bg-white overflow-hidden">
         {/* Filters Card */}
-        <div className="flex-shrink-0 pt-2 px-2">
+        <div className="flex-shrink-0 sticky top-0 z-30 bg-white pt-2 px-2">
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2">
             {/* Row 1 */}
             <div className="flex flex-wrap items-center gap-2">
@@ -573,7 +573,7 @@ const Properties = () => {
         </div>
 
         {/* Table Card */}
-        <div className="flex-1 px-2 pb-2 overflow-hidden">
+        <div className="flex-1 min-h-0 px-2 pb-2 overflow-hidden">
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm h-full flex flex-col">
             {loading ? (
               <div className="flex-1 flex flex-col items-center justify-center">
@@ -583,7 +583,7 @@ const Properties = () => {
             ) : (
               <>
                 {/* table scroll area */}
-                <div className="overflow-y-auto flex-1">
+                <div className="overflow-y-auto flex-1 min-h-0">
                   <table
                     className="w-full text-xs border-collapse border border-gray-200 font-bold bg-white"
                     ref={tableRef}
@@ -839,7 +839,7 @@ const Properties = () => {
                 </div>
 
                 {/* Pagination footer (Landlords-style inside card) */}
-                <div className="flex-shrink-0 border-t border-gray-200 bg-white">
+                <div className="flex-shrink-0 sticky bottom-0 z-20 border-t border-gray-200 bg-white">
                   <div className="flex items-center justify-between px-3 py-2">
                     <div className="text-xs text-gray-600">
                       <div className="flex items-center gap-4">

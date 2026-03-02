@@ -255,12 +255,12 @@ const Units = () => {
     return arr;
   }, [filteredUnits]);
 
-  // Pagination now is per PROPERTY (since units must sit under property)
-  const totalPages = Math.max(1, Math.ceil(propertiesGrouped.length / ITEMS_PER_PAGE));
+  // Pagination is per UNIT row (max 50 entries per page)
+  const totalPages = Math.max(1, Math.ceil(filteredUnits.length / ITEMS_PER_PAGE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentProperties = propertiesGrouped.slice(startIndex, endIndex);
+  const currentUnits = filteredUnits.slice(startIndex, endIndex);
 
   useEffect(() => {
     if (currentPage !== safeCurrentPage) setCurrentPage(safeCurrentPage);
@@ -269,10 +269,8 @@ const Units = () => {
 
   // Visible unit IDs on current page (for selectAll)
   const visibleUnitIds = useMemo(() => {
-    const ids = [];
-    currentProperties.forEach((p) => p.units.forEach((u) => ids.push(u.id)));
-    return ids;
-  }, [currentProperties]);
+    return currentUnits.map((u) => u.id);
+  }, [currentUnits]);
 
   const handleSelectUnit = (id) => {
     setSelectedUnits((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -298,10 +296,10 @@ const Units = () => {
     );
   };
 
-  // Expand all units
+  // Expand all visible units on current page
   const expandAllUnits = () => {
-    if (filteredUnits && filteredUnits.length > 0) {
-      setExpandedUnits(filteredUnits.map((u) => u.id));
+    if (currentUnits && currentUnits.length > 0) {
+      setExpandedUnits(currentUnits.map((u) => u.id));
     }
   };
 
@@ -310,8 +308,9 @@ const Units = () => {
     setExpandedUnits([]);
   };
 
-  // Check if all units are expanded
-  const allUnitsExpanded = filteredUnits && filteredUnits.length > 0 && expandedUnits.length === filteredUnits.length;
+  // Check if all visible units are expanded
+  const allUnitsExpanded =
+    currentUnits.length > 0 && currentUnits.every((unit) => expandedUnits.includes(unit.id));
 
   // Row click now selects the unit (not expands)
   const handleRowClick = (unitId, e) => {
@@ -509,10 +508,10 @@ const Units = () => {
   // RENDER
   // ---------------------------
   return (
-    <DashboardLayout>
-      <div className="flex flex-col h-full p-0 bg-gray-50">
+    <DashboardLayout lockContentScroll>
+      <div className="flex flex-col h-full min-h-0 p-0 bg-gray-50 overflow-hidden">
         {/* Filters Card (consistent style) */}
-        <div className="flex-shrink-0 pt-2 px-2">
+        <div className="flex-shrink-0 sticky top-0 z-30 bg-gray-50 pt-2 px-2">
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2">
             {/* Row 1: dropdowns + action buttons */}
             <div className="flex flex-wrap items-center gap-2">
@@ -693,9 +692,9 @@ const Units = () => {
         </div>
 
         {/* PROPERTIES TABLE (Units appear below property) */}
-        <div className="flex-1 px-2 pb-2 overflow-hidden relative">
+        <div className="flex-1 min-h-0 px-2 pb-2 overflow-hidden">
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm h-full flex flex-col">
-            <div className="overflow-x-auto overflow-y-auto flex-1 pb-16">
+            <div className="overflow-x-auto overflow-y-auto flex-1 min-h-0">
               <table className="min-w-full text-xs border-collapse bg-white" style={{ tableLayout: "auto" }}>
                 <thead>
                   <tr className="sticky top-0 z-10 bg-[#0B3B2E] border-b border-gray-300">
@@ -723,11 +722,11 @@ const Units = () => {
                 </thead>
 
                 <tbody>
-                  {filteredUnits.length > 0 ? (
-                    // Render all units in a flat list
-                    filteredUnits.map((u, idx) => {
+                  {currentUnits.length > 0 ? (
+                    // Render paginated units (max 50 per page)
+                    currentUnits.map((u, idx) => {
                       const isFirstOfProperty =
-                        idx === 0 || filteredUnits[idx - 1].propertyId !== u.propertyId;
+                        idx === 0 || currentUnits[idx - 1].propertyId !== u.propertyId;
 
                       return (
                         <React.Fragment key={`unit-${u.id}`}>
@@ -959,12 +958,12 @@ const Units = () => {
             </div>
 
             {/* Footer (consistent) */}
-            <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-20 shadow-sm">
+            <div className="flex-shrink-0 sticky bottom-0 z-20 bg-white border-t border-gray-200 shadow-sm">
               <div className="flex items-center justify-between px-3 py-2">
                 <div className="text-xs text-gray-600">
                   <div className="flex items-center gap-4">
                     <span className="font-bold">
-                      Showing <span className="font-bold text-slate-900">{filteredUnits.length}</span> unit(s) across{" "}
+                      Showing <span className="font-bold text-slate-900">{currentUnits.length > 0 ? startIndex + 1 : 0}</span> to <span className="font-bold text-slate-900">{Math.min(endIndex, filteredUnits.length)}</span> of <span className="font-bold text-slate-900">{filteredUnits.length}</span> unit(s) across{" "}
                       <span className="font-bold text-slate-900">{propertiesGrouped.length}</span> propert{propertiesGrouped.length === 1 ? "y" : "ies"}
                     </span>
 
@@ -977,11 +976,52 @@ const Units = () => {
                 </div>
 
                 <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <span>
-                    {filteredUnits.length === 0
-                      ? "No results"
-                      : `Total units: ${filteredUnits.length}`}
-                  </span>
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={safeCurrentPage === 1}
+                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
+                  >
+                    <FaChevronLeft size={10} />
+                    Previous
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {[...Array(totalPages)].map((_, i) => {
+                      const page = i + 1;
+                      if (page === 1 || page === totalPages || (page >= safeCurrentPage - 1 && page <= safeCurrentPage + 1)) {
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => setCurrentPage(page)}
+                            className={`px-3 py-1.5 min-w-[32px] text-xs rounded-lg border transition-colors font-bold ${
+                              safeCurrentPage === page
+                                ? "bg-[#0B3B2E] text-white border-[#0B3B2E] hover:bg-[#0A3127]"
+                                : "border-gray-300 hover:bg-gray-50"
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      }
+                      if (page === safeCurrentPage - 2 || page === safeCurrentPage + 2) {
+                        return (
+                          <span key={page} className="px-1 text-gray-400 text-xs">
+                            ...
+                          </span>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={safeCurrentPage === totalPages}
+                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
+                  >
+                    Next
+                    <FaChevronRight size={10} />
+                  </button>
                 </div>
               </div>
             </div>

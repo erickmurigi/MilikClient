@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useMemo } from 'react';
+import { useSelector } from 'react-redux';
 import {
   AreaChart,
   Area,
@@ -10,52 +11,119 @@ import {
   Legend
 } from 'recharts';
 
-const FinancialOverview = ({ darkMode }) => {
-  // Fake data for the last 12 months
-  const financialData = [
-    { month: 'Jan', revenue: 2500000, expenses: 800000, net: 1700000 },
-    { month: 'Feb', revenue: 2650000, expenses: 850000, net: 1800000 },
-    { month: 'Mar', revenue: 2700000, expenses: 900000, net: 1800000 },
-    { month: 'Apr', revenue: 2800000, expenses: 920000, net: 1880000 },
-    { month: 'May', revenue: 2850000, expenses: 950000, net: 1900000 },
-    { month: 'Jun', revenue: 2900000, expenses: 1000000, net: 1900000 },
-    { month: 'Jul', revenue: 2950000, expenses: 1050000, net: 1900000 },
-    { month: 'Aug', revenue: 3000000, expenses: 1100000, net: 1900000 },
-    { month: 'Sep', revenue: 3100000, expenses: 1150000, net: 1950000 },
-    { month: 'Oct', revenue: 3200000, expenses: 1200000, net: 2000000 },
-    { month: 'Nov', revenue: 3300000, expenses: 1250000, net: 2050000 },
-    { month: 'Dec', revenue: 3400000, expenses: 1300000, net: 2100000 },
-  ];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-  // Format currency for tooltip
-  const formatCurrency = (value) => {
-    return `KSh ${(value / 1000000).toFixed(1)}M`;
+const FinancialOverview = ({ darkMode }) => {
+  const units = useSelector(state => state.unit?.units || []);
+  const tenants = useSelector(state => state.tenant?.tenants || []);
+  const rentPayments = useSelector(state => state.rentPayment?.rentPayments || []);
+  const maintenances = useSelector(state => state.maintenance?.maintenances || []);
+  const propertyExpenses = useSelector(state => state.expenseProperty?.expenseProperties || []);
+
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonthIndex = now.getMonth();
+
+  const parseDate = (value) => {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
   };
 
-  // Custom tooltip
+  const formatMoney = (value) => {
+    if (value >= 1000000) return `KSh ${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `KSh ${(value / 1000).toFixed(1)}K`;
+    return `KSh ${Math.round(value).toLocaleString()}`;
+  };
+
+  const formatShort = (value) => `KSh ${(value / 1000000).toFixed(1)}M`;
+
+  const percentageDelta = (currentValue, previousValue) => {
+    if (!previousValue) return currentValue > 0 ? '+100.0%' : '0.0%';
+    const delta = ((currentValue - previousValue) / previousValue) * 100;
+    return `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`;
+  };
+
+  const revenueByMonth = new Array(12).fill(0);
+  const expenseByMonth = new Array(12).fill(0);
+
+  rentPayments.forEach(payment => {
+    const date = parseDate(payment.paymentDate || payment.createdAt);
+    if (!date || date.getFullYear() !== currentYear) return;
+    revenueByMonth[date.getMonth()] += Number(payment.amount || 0);
+  });
+
+  propertyExpenses.forEach(expense => {
+    const date = parseDate(expense.date || expense.createdAt);
+    if (!date || date.getFullYear() !== currentYear) return;
+    expenseByMonth[date.getMonth()] += Number(expense.amount || 0);
+  });
+
+  maintenances.forEach(maintenance => {
+    const date = parseDate(maintenance.completedDate || maintenance.createdAt);
+    if (!date || date.getFullYear() !== currentYear) return;
+    const cost = Number(maintenance.actualCost || maintenance.estimatedCost || 0);
+    expenseByMonth[date.getMonth()] += cost;
+  });
+
+  const financialData = useMemo(() => {
+    return MONTHS.map((month, index) => {
+      const revenue = revenueByMonth[index];
+      const expenses = expenseByMonth[index];
+      return {
+        month,
+        revenue,
+        expenses,
+        net: revenue - expenses
+      };
+    });
+  }, [rentPayments, propertyExpenses, maintenances]);
+
+  const thisMonthRevenue = financialData[currentMonthIndex]?.revenue || 0;
+  const thisMonthExpenses = financialData[currentMonthIndex]?.expenses || 0;
+  const thisMonthNet = thisMonthRevenue - thisMonthExpenses;
+  const previousMonthRevenue = financialData[Math.max(currentMonthIndex - 1, 0)]?.revenue || 0;
+
+  const occupiedUnits = units.filter(u => u.status === 'occupied').length;
+  const vacantUnits = units.filter(u => u.status === 'vacant').length;
+  const totalUnits = units.length;
+  const averageRent = totalUnits > 0
+    ? units.reduce((sum, unit) => sum + Number(unit.rent || 0), 0) / totalUnits
+    : 0;
+
+  const totalExpected = occupiedUnits * averageRent;
+  const vacancyRate = totalUnits > 0 ? (vacantUnits / totalUnits) * 100 : 0;
+
+  const overduePaymentsCount = rentPayments.filter(payment => {
+    const dueDate = parseDate(payment.dueDate);
+    if (!dueDate) return false;
+    return dueDate < now && !payment.isConfirmed;
+  }).length;
+
+  const outstandingFromUnits = units.reduce((sum, unit) => sum + Number(unit.outstandingBalance || 0), 0);
+  const outstandingFromTenants = tenants.reduce((sum, tenant) => sum + Math.max(Number(tenant.balance || 0), 0), 0);
+  const outstandingBalance = outstandingFromUnits > 0 ? outstandingFromUnits : outstandingFromTenants;
+
+  const ytdProfit = financialData.reduce((sum, month) => sum + month.net, 0);
+
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
-        <div className={`p-3 rounded-lg shadow-lg border ${
-          darkMode 
-            ? 'bg-gray-800 border-gray-700 text-white' 
-            : 'bg-white border-gray-200'
+        <div className={`p-2 rounded-lg shadow-lg border text-xs ${
+          darkMode
+            ? 'bg-gray-900 border-gray-700 text-white'
+            : 'bg-white border-[#31694E]/20'
         }`}>
-          <p className="font-semibold mb-2">{label}</p>
+          <p className="font-bold mb-1 text-[10px] uppercase tracking-wide">{label}</p>
           {payload.map((entry, index) => (
-            <div key={index} className="flex items-center justify-between mb-1">
+            <div key={index} className="flex items-center justify-between mb-0.5 last:mb-0">
               <div className="flex items-center">
-                <div 
-                  className="w-3 h-3 rounded-full mr-2"
+                <div
+                  className="w-2 h-2 rounded-full mr-1.5"
                   style={{ backgroundColor: entry.color }}
                 />
-                <span className="text-sm">
-                  {entry.name}:
-                </span>
+                <span className="text-[9px] font-bold">{entry.name}:</span>
               </div>
-              <span className="font-medium ml-4">
-                {formatCurrency(entry.value)}
-              </span>
+              <span className="font-bold ml-3 text-[9px]">{formatMoney(entry.value)}</span>
             </div>
           ))}
         </div>
@@ -64,18 +132,17 @@ const FinancialOverview = ({ darkMode }) => {
     return null;
   };
 
-  // Custom legend
   const renderLegend = (props) => {
     const { payload } = props;
     return (
-      <div className="flex justify-center space-x-6 mt-4">
+      <div className="flex justify-center space-x-3 mt-2 text-[9px]">
         {payload.map((entry, index) => (
           <div key={`legend-${index}`} className="flex items-center">
-            <div 
-              className="w-3 h-3 rounded-full mr-2"
+            <div
+              className="w-2.5 h-2.5 rounded-full mr-1.5 shadow-sm"
               style={{ backgroundColor: entry.color }}
             />
-            <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            <span className={`font-bold ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
               {entry.value}
             </span>
           </div>
@@ -85,90 +152,80 @@ const FinancialOverview = ({ darkMode }) => {
   };
 
   return (
-    <div className={`rounded-2xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-lg p-6`}>
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
+    <div className={`rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow-md border ${darkMode ? 'border-gray-700' : 'border-gray-100'} p-4`}>
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-3">
         <div>
-          <h2 className="text-xl font-bold dark:text-white">Financial Overview</h2>
-          <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Revenue, expenses, and net profit over the last 12 months
+          <h2 className={`text-sm font-extrabold uppercase tracking-tight ${darkMode ? 'text-white' : 'text-[#1f4a35]'}`}>Financial Overview</h2>
+          <p className={`text-xs mt-0.5 font-medium hidden sm:block ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            Last 12 months
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-4 mt-4 md:mt-0">
-          <select className={`px-4 py-2 text-xs rounded-lg border text-sm ${
-            darkMode 
-              ? 'bg-gray-700 border-gray-600 text-white' 
-              : 'bg-white border-gray-300 text-gray-900'
-          }`}>
-            <option>Last 12 Months</option>
-            <option>Last 6 Months</option>
-            <option>Year to Date</option>
-            <option>Custom Range</option>
-          </select>
-          <div className="flex space-x-2">
-            <button className="px-1 py-2 text-xs bg-gradient-to-r from-[#497285] to-[#497285] text-white font-medium rounded-lg hover:shadow-lg transition-shadow">
-              Export Report
-            </button>
-            <button className={`px-4 py-2 text-xs font-medium rounded-lg border ${
-              darkMode 
-                ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
-                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-            }`}>
-              View Details
-            </button>
-          </div>
+        <div className="flex space-x-1.5 mt-2 md:mt-0">
+          <button className="px-2 py-1 text-[10px] bg-gradient-to-r from-[#31694E] to-[#1f4a35] text-white font-bold rounded-lg hover:shadow-md transition-all uppercase tracking-wide hidden sm:block">
+            Export Report
+          </button>
+          <button className={`px-2 py-1 text-[10px] font-bold rounded-lg border ${
+            darkMode
+              ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
+              : 'border-[#31694E]/20 text-gray-700 hover:bg-gray-50'
+          } transition-all uppercase tracking-wide hidden sm:block`}>
+            View Details
+          </button>
         </div>
       </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Chart Area */}
-        <div className="lg:col-span-3">
-          <div className="h-100">
-            <ResponsiveContainer width="100%" height="100%">
+
+      {/* Chart Section - Full Width */}
+      <div className="w-full">
+        <div className="h-64 w-full">
+          <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={financialData}
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                margin={{ top: 5, right: 15, left: -25, bottom: 0 }}
               >
                 <defs>
                   <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#497285" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#497285" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#31694E" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#31694E" stopOpacity={0.1} />
                   </linearGradient>
                   <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#E85C0D" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#E85C0D" stopOpacity={0.1} />
                   </linearGradient>
                   <linearGradient id="colorNet" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f78536" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#f78536" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#4a9976" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#4a9976" stopOpacity={0.1} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid 
-                  strokeDasharray="3 3" 
-                  stroke={darkMode ? '#374151' : '#e5e7eb'} 
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke={darkMode ? '#374151' : '#e5e7eb'}
                   vertical={false}
                 />
-                <XAxis 
-                  dataKey="month" 
+                <XAxis
+                  dataKey="month"
                   stroke={darkMode ? '#9ca3af' : '#6b7280'}
-                  fontSize={12}
+                  fontSize={9}
+                  fontWeight={600}
                 />
-                <YAxis 
+                <YAxis
                   stroke={darkMode ? '#9ca3af' : '#6b7280'}
-                  fontSize={12}
-                  tickFormatter={(value) => `KSh ${(value / 1000000).toFixed(0)}M`}
+                  fontSize={9}
+                  fontWeight={600}
+                  width={35}
+                  tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
                 />
-                <Tooltip 
+                <Tooltip
                   content={<CustomTooltip />}
                   cursor={{ stroke: darkMode ? '#4b5563' : '#d1d5db', strokeWidth: 1 }}
                 />
-                <Legend 
+                <Legend
                   content={renderLegend}
                   wrapperStyle={{ paddingTop: '10px' }}
                 />
                 <Area
                   type="monotone"
                   dataKey="revenue"
-                  stroke="#10b981"
+                  stroke="#31694E"
                   strokeWidth={2}
                   fill="url(#colorRevenue)"
                   name="Revenue"
@@ -176,7 +233,7 @@ const FinancialOverview = ({ darkMode }) => {
                 <Area
                   type="monotone"
                   dataKey="expenses"
-                  stroke="#f59e0b"
+                  stroke="#E85C0D"
                   strokeWidth={2}
                   fill="url(#colorExpenses)"
                   name="Expenses"
@@ -184,7 +241,7 @@ const FinancialOverview = ({ darkMode }) => {
                 <Area
                   type="monotone"
                   dataKey="net"
-                  stroke="#3b82f6"
+                  stroke="#4a9976"
                   strokeWidth={2}
                   fill="url(#colorNet)"
                   name="Net Profit"
@@ -192,111 +249,75 @@ const FinancialOverview = ({ darkMode }) => {
               </AreaChart>
             </ResponsiveContainer>
           </div>
+      </div>
+
+      {/* Bottom Metrics Row */}
+      <div className={`grid grid-cols-4 gap-2 mt-4 pt-4 border-t ${
+        darkMode ? 'border-gray-700' : 'border-gray-200'
+      }`}>
+        {/* AVG. Rent */}
+        <div className={`p-3 rounded-lg text-center transition-all hover:shadow-md ${
+          darkMode ? 'bg-[#1f4a35]/20 border border-[#31694E]/30' : 'bg-[#dfebed]/60 border border-[#31694E]/25'
+        }`}>
+          <div className={`text-[9px] font-bold uppercase tracking-wide mb-1.5 ${
+            darkMode ? 'text-gray-300' : 'text-[#31694E]'
+          }`}>
+            Avg. Rent
+          </div>
+          <div className={`text-lg font-extrabold leading-tight ${darkMode ? 'text-white' : 'text-[#1f4a35]'}`}>
+            {formatMoney(averageRent).split(' ')[1]}
+          </div>
+          <div className={`text-[8px] font-semibold mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            per unit
+          </div>
         </div>
 
-        {/* Financial Summary */}
-        <div className="space-y-2">
-          {/* Total Expected */}
-          <div className={`p-4 rounded-xl ${
-            darkMode ? 'bg-gray-700/50' : 'bg-white'
-          } border border-emerald-200 dark:border-[#2b4450] shadow-sm`}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-medium text-[#2b4450] dark:text-[#2b4450]">
-                Total Expected
-              </div>
-              <div className="h-8 w-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                <span className="text-emerald-600 dark:text-[#2b4450] font-bold">↑</span>
-              </div>
-            </div>
-            <div className="text-2xl font-bold text-[#2b4450] dark:text-[#2b4450]">
-              KSh 2.9M
-            </div>
-            <div className="flex items-center mt-2">
-              <span className="text-xs text-emerald-600 dark:text-[#497285] mr-2">
-                +12.5% from last month
-              </span>
-            </div>
+        {/* Late Payments */}
+        <div className={`p-3 rounded-lg text-center transition-all hover:shadow-md ${
+          darkMode ? 'bg-[#E85C0D]/20 border border-[#E85C0D]/30' : 'bg-orange-50/60 border border-[#E85C0D]/25'
+        }`}>
+          <div className={`text-[9px] font-bold uppercase tracking-wide mb-1.5 text-[#E85C0D]`}>
+            Late Payments
           </div>
-
-          {/* Collected */}
-          <div className={`p-4 rounded-xl ${
-            darkMode ? 'bg-gray-700/50' : 'bg-white'
-          } border border-blue-200 dark:border-[#2b4450] shadow-sm`}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-medium text-[#2b4450] dark:[#2b4450]">
-                Collected
-              </div>
-              <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                <span className="text-blue-600 dark:text-blue-400 font-bold">→</span>
-              </div>
-            </div>
-            <div className="text-2xl font-bold text-[#2b4450] dark:text-[#2b4450]">
-              KSh 4,700
-            </div>
-            <div className="flex items-center mt-2">
-              <span className="text-xs text-[#2b4450] dark:text-[#497285]">
-                Updated today
-              </span>
-            </div>
+          <div className="text-lg font-extrabold text-[#E85C0D]">{overduePaymentsCount}</div>
+          <div className={`text-[8px] font-semibold mt-1 ${darkMode ? 'text-orange-300' : 'text-orange-700'}`}>
+            overdue
           </div>
+        </div>
 
-          {/* Outstanding */}
-          <div className={`p-4 rounded-xl ${
-            darkMode ? 'bg-gray-700/50' : 'bg-white'
-          } border border-amber-200 dark:border-[#2b4450] shadow-sm`}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-sm font-medium text-amber-800 dark:text-[#2b4450]">
-                Outstanding
-              </div>
-              <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                <span className="text-amber-600 dark:text-[#497285] font-bold">⚠</span>
-              </div>
-            </div>
-            <div className="text-2xl font-bold text-amber-700 dark:text-[#2b4450]">
-              KSh 2.89M
-            </div>
-            <div className="flex items-center mt-2">
-              <span className="text-xs text-amber-600 dark:text-[#497285] mr-2">
-                +15.2% from last month
-              </span>
-              <button className="text-xs bg-amber-100 dark:bg-amber-900/50 text-[#497285] dark:text-[#497285] px-2 py-1 rounded">
-                Review
-              </button>
-            </div>
+        {/* Vacancy Rate */}
+        <div className={`p-3 rounded-lg text-center transition-all hover:shadow-md ${
+          darkMode ? 'bg-[#31694E]/20 border border-[#31694E]/30' : 'bg-[#dfebed]/60 border border-[#31694E]/25'
+        }`}>
+          <div className={`text-[9px] font-bold uppercase tracking-wide mb-1.5 ${
+            darkMode ? 'text-gray-300' : 'text-[#31694E]'
+          }`}>
+            Vacancy
           </div>
+          <div className="text-lg font-extrabold text-[#31694E]">{vacancyRate.toFixed(1)}%</div>
+          <div className={`text-[8px] font-semibold mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            rate
+          </div>
+        </div>
 
-          
+        {/* YTD Profit */}
+        <div className={`p-3 rounded-lg text-center transition-all hover:shadow-md ${
+          darkMode ? 'bg-[#31694E]/20 border border-[#31694E]/30' : 'bg-[#dfebed]/60 border border-[#31694E]/25'
+        }`}>
+          <div className={`text-[9px] font-bold uppercase tracking-wide mb-1.5 ${
+            darkMode ? 'text-gray-300' : 'text-[#31694E]'
+          }`}>
+            YTD Profit
+          </div>
+          <div className="text-lg font-extrabold text-[#31694E] leading-tight">{formatShort(ytdProfit)}</div>
+          <div className={`text-[8px] font-semibold mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            2026
+          </div>
         </div>
       </div>
 
-      {/* Key Metrics Row */}
-      <div className={`grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-6 border-t ${
-        darkMode ? 'border-gray-700' : 'border-gray-200'
-      }`}>
-        <div className="text-center">
-          <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Avg. Rent
-          </div>
-          <div className="text-lg font-bold dark:text-white">KSh 38,700</div>
-        </div>
-        <div className="text-center">
-          <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Late Payments
-          </div>
-          <div className="text-lg font-bold text-amber-600 dark:text-amber-400">14</div>
-        </div>
-        <div className="text-center">
-          <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            Vacancy Rate
-          </div>
-          <div className="text-lg font-bold dark:text-white">8.3%</div>
-        </div>
-        <div className="text-center">
-          <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            YTD Profit
-          </div>
-          <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">KSh 21.5M</div>
-        </div>
+      <div className={`mt-3 text-[11px] font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+        Live updates every 30 seconds
       </div>
     </div>
   );

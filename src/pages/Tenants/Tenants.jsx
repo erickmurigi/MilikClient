@@ -276,10 +276,10 @@ const Tenants = () => {
 
   // ===== RENDER =====
   return (
-    <DashboardLayout>
-      <div className="flex flex-col h-full p-0 bg-gray-50">
+    <DashboardLayout lockContentScroll>
+      <div className="flex flex-col h-full min-h-0 p-0 bg-gray-50 overflow-hidden">
         {/* ===== FILTER BAR ===== */}
-        <div className="flex-shrink-0 bg-white border-b border-gray-200 px-2 pt-1">
+        <div className="flex-shrink-0 sticky top-0 z-30 bg-white border-b border-gray-200 px-2 pt-1">
           <div className="flex flex-wrap items-center gap-2 mb-2">
             {/* Property Filter */}
             <div>
@@ -476,7 +476,7 @@ const Tenants = () => {
         </div>
 
         {/* ===== TENANTS TABLE ===== */}
-        <div className="flex-1 overflow-auto px-2 py-1">
+        <div className="flex-1 min-h-0 overflow-auto px-2 py-1">
           <table className="w-full border-collapse">
             {/* Table Header */}
             <thead>
@@ -723,7 +723,7 @@ const Tenants = () => {
         </div>
 
         {/* ===== COMPACT PAGINATION FOOTER ===== */}
-        <div className="flex-shrink-0 bg-white border-t border-gray-200 px-2 py-2 flex items-center justify-between">
+        <div className="flex-shrink-0 sticky bottom-0 z-20 bg-white border-t border-gray-200 px-2 py-2 flex items-center justify-between">
           <div className="text-xs font-bold text-gray-600">
             Showing {currentTenants.length > 0 ? startIndex + 1 : 0} to{" "}
             {Math.min(endIndex, filteredTenants.length)} of {filteredTenants.length}{" "}

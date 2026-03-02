@@ -32,29 +32,29 @@ const QuickActions = ({ darkMode }) => {
   const getColorClasses = (color, type = 'bg') => {
     const colorMap = {
       green: {
-        bg: darkMode ? 'bg-emerald-900/30 border-emerald-800' : 'bg-emerald-50 border-emerald-200',
-        text: darkMode ? 'text-emerald-300' : 'text-emerald-700',
-        hover: darkMode ? 'hover:bg-emerald-900/50' : 'hover:bg-emerald-100'
+        bg: darkMode ? 'bg-[#31694E]/20 border-[#31694E]/40' : 'bg-[#31694E]/10 border-[#31694E]/20',
+        text: darkMode ? 'text-[#31694E]' : 'text-[#1f4a35]',
+        hover: darkMode ? 'hover:bg-[#31694E]/30' : 'hover:bg-[#31694E]/20'
       },
       blue: {
-        bg: darkMode ? 'bg-blue-900/30 border-blue-800' : 'bg-blue-50 border-blue-200',
-        text: darkMode ? 'text-blue-300' : 'text-blue-700',
-        hover: darkMode ? 'hover:bg-blue-900/50' : 'hover:bg-blue-100'
+        bg: darkMode ? 'bg-blue-900/20 border-blue-800/40' : 'bg-blue-50 border-blue-200/50',
+        text: darkMode ? 'text-blue-400' : 'text-blue-700',
+        hover: darkMode ? 'hover:bg-blue-900/30' : 'hover:bg-blue-100'
       },
       purple: {
-        bg: darkMode ? 'bg-purple-900/30 border-purple-800' : 'bg-purple-50 border-purple-200',
-        text: darkMode ? 'text-purple-300' : 'text-purple-700',
-        hover: darkMode ? 'hover:bg-purple-900/50' : 'hover:bg-purple-100'
+        bg: darkMode ? 'bg-purple-900/20 border-purple-800/40' : 'bg-purple-50 border-purple-200/50',
+        text: darkMode ? 'text-purple-400' : 'text-purple-700',
+        hover: darkMode ? 'hover:bg-purple-900/30' : 'hover:bg-purple-100'
       },
       orange: {
-        bg: darkMode ? 'bg-orange-900/30 border-orange-800' : 'bg-orange-50 border-orange-200',
-        text: darkMode ? 'text-orange-300' : 'text-orange-700',
-        hover: darkMode ? 'hover:bg-orange-900/50' : 'hover:bg-orange-100'
+        bg: darkMode ? 'bg-[#E85C0D]/20 border-[#E85C0D]/40' : 'bg-[#E85C0D]/10 border-[#E85C0D]/20',
+        text: darkMode ? 'text-[#E85C0D]' : 'text-[#d64c06]',
+        hover: darkMode ? 'hover:bg-[#E85C0D]/30' : 'hover:bg-[#E85C0D]/20'
       },
       red: {
-        bg: darkMode ? 'bg-red-900/30 border-red-800' : 'bg-red-50 border-red-200',
-        text: darkMode ? 'text-red-300' : 'text-red-700',
-        hover: darkMode ? 'hover:bg-red-900/50' : 'hover:bg-red-100'
+        bg: darkMode ? 'bg-red-900/20 border-red-800/40' : 'bg-red-50 border-red-200/50',
+        text: darkMode ? 'text-red-400' : 'text-red-700',
+        hover: darkMode ? 'hover:bg-red-900/30' : 'hover:bg-red-100'
       }
     };
     
@@ -62,37 +62,39 @@ const QuickActions = ({ darkMode }) => {
   };
 
   return (
-    <div className={`h-full rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-white'} shadow p-4`}>
-      <div className="mb-4">
-        <h3 className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'} mb-2`}>QUICK ACCESS LINKS</h3>
+    <div className={`h-full rounded-xl ${darkMode ? 'bg-gray-800' : 'bg-[#f8faf9]'} shadow-md border ${darkMode ? 'border-gray-700' : 'border-[#31694E]/10'} p-4`}>
+      <div className="mb-3">
+        <h3 className={`font-extrabold text-sm tracking-tight uppercase ${darkMode ? 'text-white' : 'text-[#1f4a35]'} mb-3`}>
+          Quick Access Links
+        </h3>
         
         {/* Search bar */}
-        <div className="relative mb-4">
+        <div className="relative mb-3">
           <input
             type="search"
             placeholder="Search..."
-            className={`w-full pl-10 pr-4 py-2 rounded border text-sm ${
+            className={`w-full pl-9 pr-3 py-2 rounded-lg border text-xs font-medium ${
               darkMode 
                 ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                : 'bg-gray-50 border-gray-300 text-gray-900 placeholder-gray-500'
-            } focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none`}
+                : 'bg-white border-[#31694E]/20 text-gray-900 placeholder-gray-500'
+            } focus:ring-2 focus:ring-[#31694E] focus:border-transparent outline-none transition-all`}
           />
-          <FaSearch className={`absolute left-3 top-2.5 ${darkMode ? 'text-gray-400' : 'text-gray-500'} text-sm`} />
+          <FaSearch className={`absolute left-3 top-2.5 ${darkMode ? 'text-gray-400' : 'text-[#31694E]/50'} text-xs`} />
         </div>
       </div>
 
       {/* Quick Links Grid */}
-      <div className="space-y-2 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+      <div className="space-y-1.5 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
         {quickLinks.map((link, index) => (
           <button
             key={link.id}
-            className={`w-full text-left px-3 py-2.5 rounded border text-sm font-medium transition-all duration-200 
-                      flex items-center space-x-3 ${getColorClasses(link.color, 'bg')} ${getColorClasses(link.color, 'hover')}`}
+            className={`w-full text-left px-3 py-2 rounded-lg border text-xs font-bold transition-all duration-200 
+                      flex items-center space-x-2 ${getColorClasses(link.color, 'bg')} ${getColorClasses(link.color, 'hover')} hover:shadow-sm`}
           >
-            <span className={getColorClasses(link.color, 'text')}>
+            <span className={`${getColorClasses(link.color, 'text')} text-sm`}>
               {link.icon}
             </span>
-            <span className={darkMode ? 'text-gray-200' : 'text-gray-800'}>
+            <span className={`${darkMode ? 'text-gray-200' : 'text-gray-800'} uppercase tracking-tight`}>
               {link.label}
             </span>
           </button>
@@ -100,16 +102,16 @@ const QuickActions = ({ darkMode }) => {
       </div>
 
       {/* Additional Metrics */}
-      <div className="mt-6 pt-4 border-t border-gray-700">
-        <h4 className={`text-sm font-semibold mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>SYSTEM METRICS</h4>
+      <div className="mt-4 pt-3 border-t-2 border-[#31694E]/20">
+        <h4 className={`text-xs font-extrabold mb-3 uppercase tracking-wide ${darkMode ? 'text-gray-300' : 'text-[#1f4a35]'}`}>System Metrics</h4>
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className={`p-2 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-            <div className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Active Units</div>
-            <div className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>753</div>
+          <div className={`p-3 rounded-lg border-l-3 border-[#31694E] ${darkMode ? 'bg-gray-700/50' : 'bg-[#31694E]/5'} hover:shadow-sm transition-all`}>
+            <div className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} font-bold uppercase text-[10px] tracking-wide mb-1`}>Active Units</div>
+            <div className={`font-extrabold text-lg ${darkMode ? 'text-white' : 'text-[#1f4a35]'}`}>753</div>
           </div>
-          <div className={`p-2 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
-            <div className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Rental Collection</div>
-            <div className={`font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>× 100,000</div>
+          <div className={`p-3 rounded-lg border-l-3 border-blue-500 ${darkMode ? 'bg-gray-700/50' : 'bg-blue-50'} hover:shadow-sm transition-all`}>
+            <div className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} font-bold uppercase text-[10px] tracking-wide mb-1`}>Rental Collection</div>
+            <div className={`font-extrabold text-lg ${darkMode ? 'text-white' : 'text-blue-900'}`}>KSh 100K</div>
           </div>
         </div>
       </div>

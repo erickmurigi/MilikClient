@@ -109,11 +109,11 @@ const ModuleTabManager = ({ darkMode }) => {
   return (
     <div className={`fixed bottom-0 left-0 right-0 z-50 border-t shadow-lg ${
       darkMode ? 'bg-gray-800 border-gray-700' : 'bg-[#1a472a] border-gray-400'
-    } flex items-center px-4 py-3 gap-2 overflow-x-auto`}>
+    } flex items-center px-3 py-1.5 gap-2 overflow-x-auto`}>
       {visibleModules.map((module) => (
         <div
           key={module.id}
-          className={`flex items-center gap-2 px-3 py-1.5 rounded cursor-pointer whitespace-nowrap transition text-sm font-medium ${
+          className={`flex items-center gap-2 px-2.5 py-1 rounded cursor-pointer whitespace-nowrap transition text-sm font-medium ${
             activeModule === module.id
               ? darkMode
                 ? 'bg-gray-700 text-white'
@@ -124,7 +124,7 @@ const ModuleTabManager = ({ darkMode }) => {
           }`}
           onClick={() => switchModule(module.id)}
         >
-          <span className="flex-shrink-0">{module.icon}</span>
+          <span className="flex-shrink-0 text-xs">{module.icon}</span>
           <span className="max-w-[150px] truncate">{module.title}</span>
           {module.closable && (
             <button

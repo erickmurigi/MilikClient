@@ -507,10 +507,10 @@ const Landlords = () => {
   const canEdit = selectedCount === 1;
 
   return (
-    <DashboardLayout>
-      <div className="flex flex-col h-full bg-white">
+    <DashboardLayout lockContentScroll>
+      <div className="flex flex-col h-full min-h-0 bg-white overflow-hidden">
         {/* Filters Row */}
-        <div className="flex-shrink-0 pt-2 px-2">
+        <div className="flex-shrink-0 sticky top-0 z-30 bg-white pt-2 px-2">
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2">
             {/* Row 1: dropdown filters */}
             <div className="flex flex-wrap items-center gap-2">
@@ -702,10 +702,10 @@ const Landlords = () => {
         </div>
 
         {/* Table */}
-        <div className="flex-1 px-2 pb-2 overflow-hidden">
+        <div className="flex-1 min-h-0 px-2 pb-2 overflow-hidden">
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm h-full flex flex-col">
             {/* Make THIS the scroll area so the footer stays visible */}
-            <div className="overflow-x-auto overflow-y-auto flex-1">
+            <div className="overflow-x-auto overflow-y-auto flex-1 min-h-0">
               <table
                 className="min-w-full text-xs border-collapse border border-gray-200 font-bold bg-white"
                 ref={tableRef}
@@ -802,12 +802,6 @@ const Landlords = () => {
                           </span>
                         </td>
 
-                        <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                          {landlord.regId || "—"}
-                        </td>
-                        <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                          {landlord.postalAddress || landlord.address || "—"}
-                        </td>
                         <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
                           {landlord.location || "—"}
                         </td>

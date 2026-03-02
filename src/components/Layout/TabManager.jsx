@@ -104,26 +104,30 @@ const TabManager = ({ darkMode }) => {
       return;
     }
 
-    const existingTab = tabs.find(tab => tab.route === currentPath);
-    
-    if (existingTab) {
-      // Tab already exists, just activate it
-      setActiveTab(existingTab.id);
-    } else {
-      // Create new tab
-      const newTabId = generateUniqueTabId('tab');
-      const newTab = {
-        id: newTabId,
-        title: getPageTitle(currentPath),
-        route: currentPath,
-        closable: true,
-        timestamp: Date.now()
-      };
+    // Check and update tabs in a single state operation to avoid duplicates
+    setTabs(prev => {
+      const existingTab = prev.find(tab => tab.route === currentPath);
       
-      setTabs(prev => [...prev, newTab]);
-      setActiveTab(newTabId);
-    }
-  }, [location.pathname, tabs]);
+      if (existingTab) {
+        // Tab already exists, just activate it
+        setActiveTab(existingTab.id);
+        return prev;
+      } else {
+        // Create new tab only if it doesn't exist
+        const newTabId = generateUniqueTabId('tab');
+        const newTab = {
+          id: newTabId,
+          title: getPageTitle(currentPath),
+          route: currentPath,
+          closable: true,
+          timestamp: Date.now()
+        };
+        
+        setActiveTab(newTabId);
+        return [...prev, newTab];
+      }
+    });
+  }, [location.pathname]);
 
   // Switch to tab (navigate without reload)
   const switchTab = (tabId, route) => {
@@ -140,42 +144,45 @@ const TabManager = ({ darkMode }) => {
     const tabToClose = tabs.find(tab => tab.id === tabId);
     if (!tabToClose || !tabToClose.closable) return;
     
-    const newTabs = tabs.filter(tab => tab.id !== tabId);
-    setTabs(newTabs);
-
-    // If closing the active tab, determine contextual fallback based on current module
-    if (activeTab === tabId) {
-      const currentPath = location.pathname;
-      const isSystemSetup = currentPath.startsWith('/system-setup');
-      const isCompanySetup = currentPath.startsWith('/company-setup');
+    setTabs(prev => {
+      const newTabs = prev.filter(tab => tab.id !== tabId);
       
-      let contextualTabs;
-      if (isSystemSetup) {
-        contextualTabs = newTabs.filter(tab => isSystemSetupRoute(tab.route));
-      } else if (isCompanySetup) {
-        contextualTabs = newTabs.filter(tab => isCompanySetupRoute(tab.route));
-      } else {
-        contextualTabs = newTabs.filter(tab => isPropertyManagementRoute(tab.route));
-      }
-      
-      if (contextualTabs.length > 0) {
-        const nextTab = contextualTabs.slice(-1)[0];
-        setActiveTab(nextTab.id);
-        navigate(nextTab.route);
-      } else {
-        // Fallback to appropriate default for each module
+      // If closing the active tab, determine contextual fallback based on current module
+      if (activeTab === tabId) {
+        const currentPath = location.pathname;
+        const isSystemSetup = currentPath.startsWith('/system-setup');
+        const isCompanySetup = currentPath.startsWith('/company-setup');
+        
+        let contextualTabs;
         if (isSystemSetup) {
-          setActiveTab('dashboard');
-          navigate('/system-setup');
+          contextualTabs = newTabs.filter(tab => isSystemSetupRoute(tab.route));
         } else if (isCompanySetup) {
-          setActiveTab('dashboard');
-          navigate('/company-setup');
+          contextualTabs = newTabs.filter(tab => isCompanySetupRoute(tab.route));
         } else {
-          setActiveTab('dashboard');
-          navigate('/dashboard');
+          contextualTabs = newTabs.filter(tab => isPropertyManagementRoute(tab.route));
+        }
+        
+        if (contextualTabs.length > 0) {
+          const nextTab = contextualTabs.slice(-1)[0];
+          setActiveTab(nextTab.id);
+          navigate(nextTab.route);
+        } else {
+          // Fallback to appropriate default for each module
+          if (isSystemSetup) {
+            setActiveTab('dashboard');
+            navigate('/system-setup');
+          } else if (isCompanySetup) {
+            setActiveTab('dashboard');
+            navigate('/company-setup');
+          } else {
+            setActiveTab('dashboard');
+            navigate('/dashboard');
+          }
         }
       }
-    }
+      
+      return newTabs;
+    });
   };
 
   // Close all tabs except dashboard
@@ -219,19 +226,19 @@ const TabManager = ({ darkMode }) => {
     : sortedTabs.filter(tab => isPropertyManagementRoute(tab.route));
   
   return (
-    <div className={`flex items-center ${darkMode ? 'bg-gray-800' : 'bg-[#31694E]'} border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'} overflow-x-auto`}>
+    <div className={`flex items-center ${darkMode ? 'bg-gray-800' : 'bg-[#31694E]'} border-b ${darkMode ? 'border-gray-700' : 'border-[#1f4a35]'} overflow-x-auto shadow-lg`}>
       <div className="flex items-center px-2 py-1 space-x-1 min-w-max">
         {displayTabs.map((tab) => (
           <div
             key={tab.id}
-            className={`flex items-center px-3 py-1.5 rounded-t-md cursor-pointer transition-all duration-200 text-sm font-medium border-t border-l border-r ${
+            className={`flex items-center px-3 py-1.5 rounded-t-lg cursor-pointer transition-all duration-200 text-sm font-medium border-t border-l border-r ${
               activeTab === tab.id
                 ? darkMode
-                  ? 'bg-gray-900 text-white border-gray-600'
-                  : 'bg-[#E85C0D] text-white border-gray-300 shadow-sm font-semibold'
+                  ? 'bg-gray-900 text-white border-gray-600 shadow-lg'
+                  : 'bg-[#E85C0D] text-white border-[#E85C0D] shadow-lg font-semibold hover:bg-[#d64c06]'
                 : darkMode
-                ? 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'
-                : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200'
+                ? 'bg-gray-700 text-gray-300 border-gray-700 hover:bg-gray-600 hover:text-white'
+                : 'bg-[#2a5a47] text-gray-200 border-[#2a5a47] hover:bg-[#337a57] hover:text-white'
             }`}
             onClick={() => switchTab(tab.id, tab.route)}
             title={tab.title}
@@ -242,15 +249,15 @@ const TabManager = ({ darkMode }) => {
               }
             }}
           >
-            {tab.route === '/dashboard' && <FaHome className="mr-2 w-3 h-3" />}
-            <span className="text-xs truncate max-w-[120px]">{tab.title}</span>
+            {tab.route === '/dashboard' && <FaHome className="mr-2 w-4 h-4" />}
+            <span className="text-xs truncate max-w-[140px]">{tab.title}</span>
             {tab.closable && displayTabs.length > 1 && (
               <button
                 onClick={(e) => closeTab(tab.id, e)}
-                className={`ml-2 p-0.5 rounded-full ${
-                  darkMode 
-                    ? 'hover:bg-red-500 hover:text-white text-gray-400' 
-                    : 'hover:bg-red-100 hover:text-red-600 text-gray-500'
+                className={`ml-2 p-1 rounded-full transition-colors duration-200 ${
+                  activeTab === tab.id
+                    ? 'hover:bg-red-600 hover:text-white text-white' 
+                    : 'hover:bg-red-500 hover:text-white text-gray-300'
                 }`}
                 title="Close tab"
               >
@@ -264,14 +271,14 @@ const TabManager = ({ darkMode }) => {
         {!isSystemSetupContext && !isCompanySetupContext && (
           <button
             onClick={addNewDashboardTab}
-            className={`px-2 py-1.5 rounded-md ${
+            className={`ml-2 px-2.5 py-1.5 rounded-lg transition-all duration-200 ${
               darkMode 
                 ? 'text-gray-400 hover:bg-gray-700 hover:text-white' 
-                : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                : 'text-gray-300 hover:bg-[#2a5a47] hover:text-white'
             }`}
             title="Open new tab"
           >
-            <FaPlus className="w-3 h-3" />
+            <FaPlus className="w-4 h-4" />
           </button>
         )}
         
@@ -279,21 +286,21 @@ const TabManager = ({ darkMode }) => {
         {!isSystemSetupContext && !isCompanySetupContext && displayTabs.length > 1 && (
           <button
             onClick={closeAllTabs}
-            className={`px-2 py-1.5 rounded-md ${
+            className={`px-2.5 py-1.5 rounded-lg transition-all duration-200 ${
               darkMode 
                 ? 'text-gray-400 hover:bg-gray-700 hover:text-white' 
-                : 'text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+                : 'text-gray-300 hover:bg-red-600 hover:text-white'
             }`}
             title="Close all tabs"
           >
-            <FaWindowClose className="w-3 h-3" />
+            <FaWindowClose className="w-4 h-4" />
           </button>
         )}
       </div>
       
       {/* Tab Counter - Only on property side */}
       {!isSystemSetupContext && !isCompanySetupContext && (
-        <div className={`ml-auto px-3 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+        <div className={`ml-auto px-3 py-1.5 text-xs font-medium ${darkMode ? 'text-gray-400' : 'text-gray-200'}`}>
           {displayTabs.length} tab{displayTabs.length !== 1 ? 's' : ''}
         </div>
       )}

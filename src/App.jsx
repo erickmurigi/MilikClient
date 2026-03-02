@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getCompanySuccess } from "./redux/companiesRedux";
+import useInactivityLogout from "./hooks/useInactivityLogout";
 import "./App.css";
 
 import Home from "./pages/Home/Home";
@@ -33,6 +34,9 @@ function App() {
   const dispatch = useDispatch();
   const { currentUser } = useSelector((state) => state.auth);
   const { currentCompany } = useSelector((state) => state.company);
+
+  // Track inactivity and auto-logout after 10 minutes
+  useInactivityLogout();
 
   // Initialize company from logged-in user on mount/rehydration
   useEffect(() => {
