@@ -19,6 +19,8 @@ import {
   FaRedoAlt,
   FaArchive,
   FaUndo,
+  FaExpandAlt,
+  FaCompressAlt,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { getProperties, deleteProperty } from "../../redux/propertyRedux";
@@ -42,7 +44,7 @@ const Properties = () => {
   // Selection + table UI
   const [selectedProperties, setSelectedProperties] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
-  const [expandedRow, setExpandedRow] = useState(null);
+  const [expandedRows, setExpandedRows] = useState([]); // Array to track multiple expanded rows
   const [isResizing, setIsResizing] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
 
@@ -124,7 +126,7 @@ const Properties = () => {
     setSelectedProperties([]);
     setSelectAll(false);
     setActionMenuOpen(false);
-    setExpandedRow(null);
+    setExpandedRows([]);
   };
 
   const resetFilters = () => {
@@ -133,7 +135,7 @@ const Properties = () => {
     setCurrentPage(1);
     setSelectedProperties([]);
     setSelectAll(false);
-    setExpandedRow(null);
+    setExpandedRows([]);
     setActionMenuOpen(false);
   };
 
@@ -185,10 +187,33 @@ const Properties = () => {
 
   const handleCheckboxClick = (e) => e.stopPropagation();
 
-  // Expand row
+  // Toggle expand for a specific row
+  const toggleRowExpand = (propertyId) => {
+    setExpandedRows((prev) =>
+      prev.includes(propertyId) ? prev.filter((id) => id !== propertyId) : [...prev, propertyId]
+    );
+  };
+
+  // Expand all rows
+  const expandAllRows = () => {
+    if (properties && properties.length > 0) {
+      setExpandedRows(properties.map((p) => p._id));
+    }
+  };
+
+  // Collapse all rows
+  const collapseAllRows = () => {
+    setExpandedRows([]);
+  };
+
+  // Check if all rows are expanded
+  const allRowsExpanded = properties && properties.length > 0 && expandedRows.length === properties.length;
+
+  // Row click now selects the property (not expands)
   const handleRowClick = (propertyId, e) => {
     if (e.target.type === "checkbox" || e.target.closest(".action-buttons")) return;
-    setExpandedRow((prev) => (prev === propertyId ? null : propertyId));
+    // Select the property
+    handleSelectProperty(propertyId);
   };
 
   // Delete
@@ -397,6 +422,31 @@ const Properties = () => {
                 Reset
               </button>
 
+              <button
+                onClick={allRowsExpanded ? collapseAllRows : expandAllRows}
+                disabled={!properties || properties.length === 0}
+                className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${
+                  properties && properties.length > 0
+                    ? allRowsExpanded
+                      ? "bg-orange-600 hover:bg-orange-700"
+                      : `${MILIK_GREEN} ${MILIK_GREEN_HOVER}`
+                    : "bg-gray-400 cursor-not-allowed"
+                }`}
+                title={allRowsExpanded ? "Collapse all properties" : "Expand all properties"}
+              >
+                {allRowsExpanded ? (
+                  <>
+                    <FaCompressAlt className="text-xs" />
+                    Collapse All
+                  </>
+                ) : (
+                  <>
+                    <FaExpandAlt className="text-xs" />
+                    Expand All
+                  </>
+                )}
+              </button>
+
               <Link to={selectedProperties.length === 1 ? `/properties/edit/${selectedProperties[0]}` : "#"}>
                 <button
                   disabled={selectedProperties.length !== 1}
@@ -595,11 +645,12 @@ const Properties = () => {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setExpandedRow(expandedRow === property._id ? null : property._id);
+                                    toggleRowExpand(property._id);
                                   }}
-                                  className="p-1 hover:bg-gray-200 rounded"
+                                  className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                  title={expandedRows.includes(property._id) ? "Collapse" : "Expand"}
                                 >
-                                  {expandedRow === property._id ? (
+                                  {expandedRows.includes(property._id) ? (
                                     <FaChevronUp className="text-gray-600 text-xs" />
                                   ) : (
                                     <FaChevronDown className="text-gray-600 text-xs" />
@@ -652,90 +703,94 @@ const Properties = () => {
                               </td>
                             </tr>
 
-                            {expandedRow === property._id && (
+                            {expandedRows.includes(property._id) && (
                               <tr className={getRowClass(index, property._id)}>
-                                <td colSpan={columns.length + 2} className="p-4 border border-gray-200">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <div className="space-y-2">
-                                      <h4 className="font-bold text-gray-800 text-sm mb-2">Property Details</h4>
+                                <td colSpan={columns.length + 2} className="p-4 border border-gray-200 bg-gradient-to-br from-white to-gray-50">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                    {/* Property Details */}
+                                    <div className="space-y-3 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
+                                      <h4 className="font-bold text-gray-900 text-sm mb-3 pb-2 border-b-2 border-[#0B3B2E]">📋 Property Details</h4>
                                       <div>
-                                        <span className="text-xs text-gray-500">Property Type:</span>
-                                        <p className="text-sm font-medium">{property.propertyType || "N/A"}</p>
+                                        <span className="text-xs font-semibold text-gray-700">Property Type:</span>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{property.propertyType || "N/A"}</p>
                                       </div>
                                       <div>
-                                        <span className="text-xs text-gray-500">Specification:</span>
-                                        <p className="text-sm font-medium">{property.specification || "N/A"}</p>
+                                        <span className="text-xs font-semibold text-gray-700">Specification:</span>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{property.specification || "N/A"}</p>
                                       </div>
                                       <div>
-                                        <span className="text-xs text-gray-500">Floors:</span>
-                                        <p className="text-sm font-medium">{property.numberOfFloors || "0"}</p>
+                                        <span className="text-xs font-semibold text-gray-700">Floors:</span>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{property.numberOfFloors || "0"}</p>
                                       </div>
                                       <div>
-                                        <span className="text-xs text-gray-500">LR Number:</span>
-                                        <p className="text-sm font-medium">{property.lrNumber || "N/A"}</p>
+                                        <span className="text-xs font-semibold text-gray-700">LR Number:</span>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{property.lrNumber || "N/A"}</p>
                                       </div>
                                       <div>
-                                        <span className="text-xs text-gray-500">Date Acquired:</span>
-                                        <p className="text-sm font-medium">{formatDate(property.dateAcquired)}</p>
-                                      </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <h4 className="font-bold text-gray-800 text-sm mb-2">Financial Details</h4>
-                                      <div>
-                                        <span className="text-xs text-gray-500">Let/Manage:</span>
-                                        <p className="text-sm font-medium">{property.letManage || "N/A"}</p>
-                                      </div>
-                                      <div>
-                                        <span className="text-xs text-gray-500">Account Ledger:</span>
-                                        <p className="text-sm font-medium">{property.accountLedgerType || "N/A"}</p>
-                                      </div>
-                                      <div>
-                                        <span className="text-xs text-gray-500">Invoice Prefix:</span>
-                                        <p className="text-sm font-medium">{property.invoicePrefix || "N/A"}</p>
-                                      </div>
-                                      <div>
-                                        <span className="text-xs text-gray-500">M-Pesa Paybill:</span>
-                                        <p className="text-sm font-medium">{property.mpesaPaybill ? "Yes" : "No"}</p>
+                                        <span className="text-xs font-semibold text-gray-700">Date Acquired:</span>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{formatDate(property.dateAcquired)}</p>
                                       </div>
                                     </div>
 
-                                    <div className="space-y-2">
-                                      <h4 className="font-bold text-gray-800 text-sm mb-2">Contact Details</h4>
+                                    {/* Financial Details */}
+                                    <div className="space-y-3 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
+                                      <h4 className="font-bold text-gray-900 text-sm mb-3 pb-2 border-b-2 border-[#FF8C00]">💰 Financial Details</h4>
+                                      <div>
+                                        <span className="text-xs font-semibold text-gray-700">Let/Manage:</span>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{property.letManage || "N/A"}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-xs font-semibold text-gray-700">Account Ledger:</span>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{property.accountLedgerType || "N/A"}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-xs font-semibold text-gray-700">Invoice Prefix:</span>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{property.invoicePrefix || "N/A"}</p>
+                                      </div>
+                                      <div>
+                                        <span className="text-xs font-semibold text-gray-700">M-Pesa Paybill:</span>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{property.mpesaPaybill ? "✅ Yes" : "❌ No"}</p>
+                                      </div>
+                                    </div>
+
+                                    {/* Contact Details */}
+                                    <div className="space-y-3 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
+                                      <h4 className="font-bold text-gray-900 text-sm mb-3 pb-2 border-b-2 border-blue-600">👥 Contact Details</h4>
                                       {property.landlords && property.landlords.length > 0 ? (
                                         property.landlords.map((landlord, idx) => (
-                                          <div key={idx} className="mb-2">
-                                            <p className="text-sm font-medium">
-                                              {landlord.name} {landlord.isPrimary && "(Primary)"}
+                                          <div key={idx} className="p-2 bg-gray-50 rounded border border-gray-200">
+                                            <p className="text-sm font-bold text-gray-900">
+                                              {landlord.name} {landlord.isPrimary && "⭐ (Primary)"}
                                             </p>
                                             {landlord.contact && (
-                                              <p className="text-xs text-gray-600">{landlord.contact}</p>
+                                              <p className="text-xs text-gray-700 font-semibold mt-1">{landlord.contact}</p>
                                             )}
                                           </div>
                                         ))
                                       ) : (
-                                        <p className="text-sm text-gray-500">No landlords added</p>
+                                        <p className="text-sm text-gray-600 font-semibold">No landlords added</p>
                                       )}
                                       {property.specificContactInfo && (
-                                        <div>
-                                          <span className="text-xs text-gray-500">Additional Contact:</span>
-                                          <p className="text-sm font-medium">{property.specificContactInfo}</p>
+                                        <div className="p-2 bg-gray-50 rounded border border-gray-200">
+                                          <span className="text-xs font-semibold text-gray-700">Additional Contact:</span>
+                                          <p className="text-sm font-bold text-gray-900 mt-1">{property.specificContactInfo}</p>
                                         </div>
                                       )}
                                     </div>
 
-                                    <div className="space-y-3">
-                                      <h4 className="font-bold text-gray-800 text-sm mb-2">Actions</h4>
-                                      <div className="flex flex-wrap gap-2 action-buttons">
+                                    {/* Actions */}
+                                    <div className="space-y-3 p-3 bg-white rounded-lg shadow-sm border border-gray-100">
+                                      <h4 className="font-bold text-gray-900 text-sm mb-3 pb-2 border-b-2 border-green-600">⚙️ Actions</h4>
+                                      <div className="flex flex-col gap-2 action-buttons">
                                         <Link to={`/properties/${property._id}`} onClick={(e) => e.stopPropagation()}>
-                                          <button className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors w-full">
+                                          <button className="px-3 py-2 text-xs bg-blue-600 text-white rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors w-full font-bold">
                                             <FaEye /> View Details
                                           </button>
                                         </Link>
 
                                         <Link to={`/properties/edit/${property._id}`} onClick={(e) => e.stopPropagation()}>
                                           <button
-                                            className={`px-3 py-1.5 text-xs text-white rounded-lg flex items-center gap-2 transition-colors w-full ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
+                                            className={`px-3 py-2 text-xs text-white rounded-lg flex items-center justify-center gap-2 transition-colors w-full font-bold ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
                                           >
                                             <FaEdit /> Edit Property
                                           </button>
@@ -746,7 +801,7 @@ const Properties = () => {
                                             e.stopPropagation();
                                             setShowDeleteConfirm(property._id);
                                           }}
-                                          className="px-3 py-1.5 text-xs bg-red-600 text-white rounded-lg flex items-center gap-2 hover:bg-red-700 transition-colors w-full"
+                                          className="px-3 py-2 text-xs bg-red-600 text-white rounded-lg flex items-center justify-center gap-2 hover:bg-red-700 transition-colors w-full font-bold"
                                         >
                                           <FaTrash /> Delete Property
                                         </button>

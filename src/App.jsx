@@ -15,6 +15,7 @@ import Properties from "./pages/Properties/Properties";
 import Units from "./pages/Units/Units";
 import AddUnit from "./components/Units/AddUnit";
 import Tenants from "./pages/Tenants/Tenants";
+import AddTenant from "./pages/Tenants/AddTenant";
 import Leases from "./pages/Lease/Lease";
 import Vacants from "./pages/Vacants/Vacants";
 import Maintenances from "./pages/Maintenances/Maintenances";
@@ -67,6 +68,12 @@ function App() {
         <Route path="/units" element={<Units />} />
         <Route path="/units/new" element={<AddUnit />} />
         <Route path="/tenants" element={<Tenants />} />
+        <Route path="/tenant/new" element={<AddTenant />} />
+        <Route path="/tenant/:id/statement" element={<Tenants />} />
+        <Route path="/tenant/:id/billing" element={<Tenants />} />
+        <Route path="/tenant/:id/charges" element={<Tenants />} />
+        <Route path="/tenant/:id/escalations" element={<Tenants />} />
+        <Route path="/tenant/:id/edit" element={<AddTenant />} />
         <Route path="/leases" element={<Leases />} />
         <Route path="/vacants" element={<Vacants />} />
         <Route path="/maintenances" element={<Maintenances />} />

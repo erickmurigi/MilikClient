@@ -19,8 +19,10 @@ import {
   FaChevronUp,
   FaArchive,
   FaUndo,
+  FaExpandAlt,
+  FaCompressAlt,
 } from "react-icons/fa";
-import { getUnits } from "../../redux/unitRedux";
+import { getUnits, deleteUnit, updateUnit } from "../../redux/unitRedux";
 import { getProperties } from "../../redux/propertyRedux";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
@@ -42,7 +44,7 @@ const Units = () => {
   // UI STATE
   // ---------------------------
   const [currentPage, setCurrentPage] = useState(1);
-  const [expandedPropertyId, setExpandedPropertyId] = useState(null);
+  const [expandedUnits, setExpandedUnits] = useState([]); // Array to track multiple expanded units
 
   const [selectedUnits, setSelectedUnits] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -80,13 +82,14 @@ const Units = () => {
     setCurrentPage(1);
     setSelectAll(false);
     setSelectedUnits([]);
+    setExpandedUnits([]);
   };
 
   const resetFilters = () => {
     setDraftFilters(emptyFilters);
     setAppliedFilters(emptyFilters);
     setCurrentPage(1);
-    setExpandedPropertyId(null);
+    setExpandedUnits([]);
     setSelectAll(false);
     setSelectedUnits([]);
     setActionMenuOpen(false);
@@ -144,21 +147,49 @@ const Units = () => {
 
   // Transform units data to match the table structure
   const transformedUnits = useMemo(() => {
-    return (unitsData || []).map((unit) => {
-      const property = properties.find((p) => p._id === unit.property);
+    return (unitsData || []).map((unit, index) => {
+      // unit.property is already populated from backend with {_id, propertyName, address}
+      // Extract the property data whether it's a string ID or populated object
+      const propertyObj = typeof unit.property === 'string' 
+        ? properties.find((p) => p._id === unit.property)
+        : unit.property;
+      
+      // Get property display name - prioritize populated data, fallback to Redux
+      const propertyDisplayName = propertyObj?.propertyName || "Unknown Property";
+      const propertyCode = propertyObj?.propertyCode || "XX";
+      const propertyId = propertyObj?._id || unit.property;
+      
+      // Get first 2 letters from property name
+      const first2Letters = propertyDisplayName.substring(0, 2).toUpperCase();
+      
+      // Count how many units with the same propertyId come before this one to get index within property
+      const unitIndexInProperty = (unitsData || []).reduce((count, u, i) => {
+        const uProperty = typeof u.property === 'string' 
+          ? properties.find((p) => p._id === u.property)
+          : u.property;
+        const uPropertyId = uProperty?._id || u.property;
+        return i < index && uPropertyId === propertyId ? count + 1 : count;
+      }, 0) + 1;
+      
+      // Generate unit code: first 2 letters of property name + 4 digit index within property
+      const unitCode = `${first2Letters}${String(unitIndexInProperty).padStart(4, '0')}`;
+      
       return {
         id: unit._id,
         unitNo: unit.unitNumber,
-        property: property?.propertyCode || property?.propertyName || "N/A",
+        unitCode: unitCode,
+        propertyName: propertyDisplayName, // Store full property name
+        propertyCode: propertyCode, // Store property code
+        property: propertyCode, // Keep this for filtering
         tenant: unit.lastTenant?.name || "-",
         area: "0.00", // TODO: Add area field to unit model
         rentUnit: `Ksh ${unit.rent?.toLocaleString() || 0}`,
         marketRent: `Ksh ${unit.rent?.toLocaleString() || 0}`,
         currentRent: unit.isVacant ? "Ksh 0" : `Ksh ${unit.rent?.toLocaleString() || 0}`,
         unitType: unit.unitType || "N/A",
-        status: unit.status || "vacant",
+        status: (unit.status || "vacant").toLowerCase(),
         vacantFrom: unit.vacantSince ? new Date(unit.vacantSince).toLocaleDateString() : "-",
-        propertyId: unit.property,
+        propertyId: propertyId,
       };
     });
   }, [unitsData, properties]);
@@ -195,7 +226,8 @@ const Units = () => {
       if (!map.has(key)) {
         map.set(key, {
           propertyId: u.propertyId || key,
-          propertyName: u.property,
+          propertyName: u.propertyName, // Use the actual property name
+          propertyCode: u.propertyCode, // Store property code too
           units: [],
         });
       }
@@ -203,9 +235,9 @@ const Units = () => {
     });
 
     const arr = Array.from(map.values()).map((p) => {
-      const occupied = p.units.filter((x) => x.status === "Occupied").length;
-      const vacant = p.units.filter((x) => x.status === "Vacant").length;
-      const maintenance = p.units.filter((x) => x.status === "Maintenance").length;
+      const occupied = p.units.filter((x) => x.status === "occupied").length;
+      const vacant = p.units.filter((x) => x.status === "vacant").length;
+      const maintenance = p.units.filter((x) => x.status === "maintenance").length;
 
       return {
         ...p,
@@ -257,35 +289,86 @@ const Units = () => {
     }
   };
 
-  // Fetch units on mount
-  useEffect(() => {
-    if (currentCompany?._id) {
-      dispatch(getUnits({ business: currentCompany._id }));
-      dispatch(getProperties({ business: currentCompany._id }));
-    }
-  }, [dispatch, currentCompany]);
-
   const handleCheckboxClick = (e) => e.stopPropagation();
+
+  // Toggle expand for a specific unit
+  const toggleUnitExpand = (unitId) => {
+    setExpandedUnits((prev) =>
+      prev.includes(unitId) ? prev.filter((id) => id !== unitId) : [...prev, unitId]
+    );
+  };
+
+  // Expand all units
+  const expandAllUnits = () => {
+    if (filteredUnits && filteredUnits.length > 0) {
+      setExpandedUnits(filteredUnits.map((u) => u.id));
+    }
+  };
+
+  // Collapse all units
+  const collapseAllUnits = () => {
+    setExpandedUnits([]);
+  };
+
+  // Check if all units are expanded
+  const allUnitsExpanded = filteredUnits && filteredUnits.length > 0 && expandedUnits.length === filteredUnits.length;
+
+  // Row click now selects the unit (not expands)
+  const handleRowClick = (unitId, e) => {
+    if (e.target.type === "checkbox" || e.target.closest(".action-buttons")) return;
+    // Select the unit
+    handleSelectUnit(unitId);
+  };
 
   const selectedCount = selectedUnits.length;
   const canEdit = selectedCount === 1;
 
-  // Placeholder actions (wire later)
-  const archiveSelected = () => {
+  // CRUD Actions
+  const archiveSelected = async () => {
     setActionMenuOpen(false);
-    // wire later
-    window.alert("Archive feature coming soon (wire to backend later).");
+    if (selectedCount === 0) return;
+    
+    if (!window.confirm(`Archive ${selectedCount} selected unit(s)?`)) return;
+    
+    try {
+      // Archive by changing status (archiving not fully supported yet in backend)
+      // For now, this will require backend updates to support archived status
+      window.alert("Archive feature requires backend updates to support archived status field.");
+      // TODO: Implement once backend is updated
+    } catch (error) {
+      window.alert(`Error archiving units: ${error?.message || 'Unknown error'}`);
+    }
   };
-  const restoreSelected = () => {
+
+  const restoreSelected = async () => {
     setActionMenuOpen(false);
-    // wire later
-    window.alert("Restore feature coming soon (wire to backend later).");
+    if (selectedCount === 0) return;
+    
+    if (!window.confirm(`Restore ${selectedCount} selected unit(s)?`)) return;
+    
+    try {
+      // Restore by changing status (archiving not fully supported yet in backend)
+      window.alert("Restore feature requires backend updates to support archived status field.");
+      // TODO: Implement once backend is updated
+    } catch (error) {
+      window.alert(`Error restoring units: ${error?.message || 'Unknown error'}`);
+    }
   };
-  const deleteSelected = () => {
-    if (window.confirm(`Delete ${selectedCount} selected unit(s)?`)) {
-      window.alert("Delete action - wire later");
+
+  const deleteSelected = async () => {
+    if (selectedCount === 0) return;
+    if (!window.confirm(`Delete ${selectedCount} selected unit(s)? This action cannot be undone.`)) return;
+    
+    try {
+      for (const unitId of selectedUnits) {
+        await dispatch(deleteUnit(unitId)).unwrap();
+      }
+      // Refresh units list
+      dispatch(getUnits({ business: currentCompany._id }));
       setSelectedUnits([]);
       setSelectAll(false);
+    } catch (error) {
+      window.alert(`Error deleting units: ${error?.message || 'Unknown error'}`);
     }
   };
 
@@ -487,8 +570,36 @@ const Units = () => {
               </button>
 
               <button
+                onClick={allUnitsExpanded ? collapseAllUnits : expandAllUnits}
+                disabled={!filteredUnits || filteredUnits.length === 0}
+                className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${
+                  filteredUnits && filteredUnits.length > 0
+                    ? allUnitsExpanded
+                      ? "bg-orange-600 hover:bg-orange-700"
+                      : `${MILIK_GREEN} ${MILIK_GREEN_HOVER}`
+                    : "bg-gray-400 cursor-not-allowed"
+                }`}
+                title={allUnitsExpanded ? "Collapse all units" : "Expand all units"}
+              >
+                {allUnitsExpanded ? (
+                  <>
+                    <FaCompressAlt className="text-xs" />
+                    Collapse All
+                  </>
+                ) : (
+                  <>
+                    <FaExpandAlt className="text-xs" />
+                    Expand All
+                  </>
+                )}
+              </button>
+
+              <button
                 disabled={!canEdit}
-                onClick={() => window.alert("Edit unit (wire later)")}
+                onClick={() => {
+                  const unitId = selectedUnits[0];
+                  if (unitId) navigate(`/units/${unitId}`);
+                }}
                 className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${
                   canEdit ? `${MILIK_GREEN} ${MILIK_GREEN_HOVER}` : "bg-gray-400 cursor-not-allowed"
                 }`}
@@ -585,228 +696,243 @@ const Units = () => {
         <div className="flex-1 px-2 pb-2 overflow-hidden relative">
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm h-full flex flex-col">
             <div className="overflow-x-auto overflow-y-auto flex-1 pb-16">
-              <table className="min-w-full text-xs border-collapse border border-gray-200 font-bold bg-white" style={{ tableLayout: "fixed" }}>
+              <table className="min-w-full text-xs border-collapse bg-white" style={{ tableLayout: "auto" }}>
                 <thead>
-                  <tr className="sticky top-0 z-10">
-                    <th
-                      className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]"
-                      style={{ width: "50px", minWidth: "50px", maxWidth: "50px" }}
-                    >
+                  <tr className="sticky top-0 z-10 bg-[#0B3B2E] border-b border-gray-300">
+                    <th className="px-2 py-2 text-left font-bold text-white border-r border-gray-300 w-8">
                       <input
                         type="checkbox"
                         checked={selectAll && visibleUnitIds.length > 0}
                         onChange={handleSelectAll}
                         onClick={handleCheckboxClick}
-                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                        title="Select all units in this page"
+                        className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                        title="Select all visible units"
                       />
                     </th>
-
-                    <th
-                      className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]"
-                      style={{ width: "40px", minWidth: "40px", maxWidth: "40px" }}
-                    />
-
-                    <th className="px-3 py-1 text-left font-bold text-white border border-gray-200 bg-[#0B3B2E]">
-                      Property
-                    </th>
-
-                    <th
-                      className="px-3 py-1 text-center font-bold text-white border border-gray-200 bg-[#0B3B2E]"
-                      style={{ width: "110px" }}
-                    >
-                      Total
-                    </th>
-                    <th
-                      className="px-3 py-1 text-center font-bold text-white border border-gray-200 bg-[#0B3B2E]"
-                      style={{ width: "110px" }}
-                    >
-                      Occupied
-                    </th>
-                    <th
-                      className="px-3 py-1 text-center font-bold text-white border border-gray-200 bg-[#0B3B2E]"
-                      style={{ width: "110px" }}
-                    >
-                      Vacant
-                    </th>
-                    <th
-                      className="px-3 py-1 text-center font-bold text-white border border-gray-200 bg-[#0B3B2E]"
-                      style={{ width: "130px" }}
-                    >
-                      Maintenance
-                    </th>
+                    <th className="px-1 py-2 text-center font-bold text-white border-r border-gray-300 w-8" title="Expand details"></th>
+                    <th className="px-2 py-2 text-left font-bold text-white border-r border-gray-300 w-20">Property</th>
+                    <th className="px-2 py-2 text-left font-bold text-white border-r border-gray-300 w-24">Unit No</th>
+                    <th className="px-2 py-2 text-left font-bold text-white border-r border-gray-300 w-16">Code</th>
+                    <th className="px-2 py-2 text-left font-bold text-white border-r border-gray-300 w-24">Unit Type</th>
+                    <th className="px-2 py-2 text-right font-bold text-white border-r border-gray-300 w-28">Rent (Kshs)</th>
+                    <th className="px-2 py-2 text-center font-bold text-white border-r border-gray-300 w-24">Status</th>
+                    <th className="px-2 py-2 text-left font-bold text-white border-r border-gray-300 w-32">Tenant</th>
+                    <th className="px-2 py-2 text-center font-bold text-white border-r border-gray-300 w-20">Vacant From</th>
+                    <th className="px-2 py-2 text-center font-bold text-white w-16">Action</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                  {currentProperties.length > 0 ? (
-                    currentProperties.map((p, idx) => {
-                      const expanded = expandedPropertyId === p.propertyId;
+                  {filteredUnits.length > 0 ? (
+                    // Render all units in a flat list
+                    filteredUnits.map((u, idx) => {
+                      const isFirstOfProperty =
+                        idx === 0 || filteredUnits[idx - 1].propertyId !== u.propertyId;
 
                       return (
-                        <React.Fragment key={p.propertyId}>
-                          {/* Property Row */}
+                        <React.Fragment key={`unit-${u.id}`}>
+                          {/* Property Section Header */}
+                          {isFirstOfProperty && (
+                            <tr className="bg-gradient-to-r from-[#0B3B2E] to-[#0A3127] hover:from-[#0C4233] hover:to-[#0A3127] border-b-2 border-orange-600">
+                              <td colSpan={12} className="px-4 py-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-3 h-3 rounded-full bg-orange-500 shadow-md"></div>
+                                    <h3 className="text-base font-black text-white tracking-widest uppercase">
+                                      {u.propertyName}
+                                    </h3>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+
+                          {/* Unit Row */}
                           <tr
-                            className={`${idx % 2 === 0 ? "bg-white" : "bg-[#f9f9f9]"} hover:bg-[#f0f0f0] cursor-pointer border-b border-gray-200`}
-                            onClick={() => setExpandedPropertyId(expanded ? null : p.propertyId)}
+                            className={`border-b transition-colors cursor-pointer ${
+                              selectedUnits.includes(u.id)
+                                ? "bg-blue-100 hover:bg-blue-150"
+                                : idx % 2 === 0
+                                ? "bg-white hover:bg-slate-50"
+                                : "bg-slate-50 hover:bg-slate-100"
+                            }`}
+                            onClick={(e) => handleRowClick(u.id, e)}
                           >
-                            <td
-                              className="px-3 py-1 border border-gray-200"
-                              style={{ width: "50px" }}
-                              onClick={handleCheckboxClick}
-                            >
-                              {/* No checkbox per property (we select units). Keep column aligned. */}
+                            {/* Checkbox */}
+                            <td className="px-2 py-2 border-r border-gray-200" onClick={handleCheckboxClick}>
+                              <input
+                                type="checkbox"
+                                checked={selectedUnits.includes(u.id)}
+                                onChange={() => handleSelectUnit(u.id)}
+                                onClick={handleCheckboxClick}
+                                className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                              />
                             </td>
 
-                            <td className="px-2 py-1 border border-gray-200 text-center" style={{ width: "40px" }}>
+                            {/* Expand Button */}
+                            <td className="px-1 py-2 border-r border-gray-200 align-top text-center">
                               <button
-                                className="p-1 hover:bg-gray-200 rounded"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setExpandedPropertyId(expanded ? null : p.propertyId);
+                                  toggleUnitExpand(u.id);
                                 }}
+                                className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                title={expandedUnits.includes(u.id) ? "Collapse" : "Expand"}
                               >
-                                {expanded ? <FaChevronUp className="text-gray-600 text-xs" /> : <FaChevronDown className="text-gray-600 text-xs" />}
+                                {expandedUnits.includes(u.id) ? (
+                                  <FaChevronUp className="text-gray-600 text-xs" />
+                                ) : (
+                                  <FaChevronDown className="text-gray-600 text-xs" />
+                                )}
                               </button>
                             </td>
 
-                            <td className="px-3 py-1 border border-gray-200 font-bold text-gray-900 whitespace-nowrap overflow-hidden text-ellipsis">
-                              {p.propertyName}
+                            {/* Property Name */}
+                            <td className="px-2 py-2 border-r border-gray-200 font-black text-slate-900 text-xs">
+                              {u.propertyName}
                             </td>
 
-                            <td className="px-3 py-1 border border-gray-200 text-center">{p.totals.total}</td>
-                            <td className="px-3 py-1 border border-gray-200 text-center">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border bg-green-100 text-green-800 border-green-300">
-                                {p.totals.occupied}
+                            {/* Unit/Space No */}
+                            <td className="px-2 py-2 border-r border-gray-200 font-black text-slate-900 text-xs">
+                              {u.unitNo}
+                            </td>
+
+                            {/* Unit Code - 2 letters + 4 digits */}
+                            <td className="px-2 py-2 border-r border-gray-200 font-black font-mono text-slate-900 text-xs bg-gray-50">
+                              {u.unitCode}
+                            </td>
+
+                            {/* Unit Type */}
+                            <td className="px-2 py-2 border-r border-gray-200 font-bold text-slate-900 text-xs">
+                              {u.unitType}
+                            </td>
+
+                            {/* Rent Estimate */}
+                            <td className="px-2 py-2 border-r border-gray-200 text-right font-black text-slate-900 text-xs">
+                              {u.currentRent}
+                            </td>
+
+                            {/* Status - Color coded background */}
+                            <td className="px-2 py-2 border-r border-gray-200 text-center">
+                              <span
+                                className={`inline-flex items-center justify-center px-2 py-1 rounded text-xs font-black whitespace-nowrap w-full ${
+                                  u.status === "occupied"
+                                    ? "bg-green-200 text-green-900"
+                                    : u.status === "vacant"
+                                    ? "bg-red-200 text-red-900"
+                                    : u.status === "maintenance"
+                                    ? "bg-yellow-200 text-yellow-900"
+                                    : "bg-gray-200 text-gray-900"
+                                }`}
+                              >
+                                {u.status.charAt(0).toUpperCase() + u.status.slice(1)}
                               </span>
                             </td>
-                            <td className="px-3 py-1 border border-gray-200 text-center">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border bg-red-100 text-red-800 border-red-300">
-                                {p.totals.vacant}
-                              </span>
+
+                            {/* Current Resident/Tenant */}
+                            <td className="px-2 py-2 border-r border-gray-200 text-xs font-bold text-slate-900 truncate">
+                              {u.tenant}
                             </td>
-                            <td className="px-3 py-1 border border-gray-200 text-center">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border bg-yellow-100 text-yellow-800 border-yellow-300">
-                                {p.totals.maintenance}
-                              </span>
+
+                            {/* Vacant From */}
+                            <td className="px-2 py-2 border-r border-gray-200 text-center text-xs font-bold text-slate-900">
+                              {u.status === "vacant" ? u.vacantFrom : "-"}
+                            </td>
+
+                            {/* Action */}
+                            <td className="px-2 py-2 text-center">
+                              <button
+                                className={`px-2 py-1 text-xs text-white rounded font-bold transition-all ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/units/${u.id}`);
+                                }}
+                              >
+                                View
+                              </button>
                             </td>
                           </tr>
 
-                          {/* Units UNDER the property */}
-                          {expanded && (
-                            <tr className={`${idx % 2 === 0 ? "bg-white" : "bg-[#f9f9f9]"}`}>
-                              <td colSpan={7} className="p-3 border border-gray-200">
-                                <div className="rounded-lg border border-gray-200 overflow-x-auto bg-white">
-                                  <table className="min-w-full text-xs border-collapse border border-gray-200 font-bold" style={{ tableLayout: "fixed" }}>
-                                    <thead>
-                                      <tr>
-                                        <th
-                                          className="px-3 py-1 text-left font-bold text-gray-800 border border-gray-200 bg-[#DDEFE1]"
-                                          style={{ width: "50px", minWidth: "50px", maxWidth: "50px" }}
-                                        >
-                                          {/* units checkbox column */}
-                                        </th>
+                          {/* Expanded Unit Details */}
+                          {expandedUnits.includes(u.id) && (
+                            <tr className={`border-b ${idx % 2 === 0 ? "bg-white" : "bg-slate-50"}`}>
+                              <td colSpan={12} className="p-4 border border-gray-200 bg-gradient-to-br from-white to-gray-50">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                                  {/* Unit Details */}
+                                  <div className="space-y-4 p-4 bg-white rounded-lg shadow-md border-2 border-[#0B3B2E]/30">
+                                    <h4 className="font-black text-gray-900 text-sm mb-4 pb-2 border-b-3 border-[#0B3B2E]">📋 Unit Details</h4>
+                                    <div>
+                                      <span className="text-xs font-black text-gray-700 uppercase tracking-wide">Unit Number</span>
+                                      <p className="text-sm font-black text-gray-900 mt-2">{u.unitNo || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs font-black text-gray-700 uppercase tracking-wide">Unit Code</span>
+                                      <p className="text-sm font-black font-mono text-gray-900 mt-2 bg-gray-100 p-2 rounded">{u.unitCode || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs font-black text-gray-700 uppercase tracking-wide">Unit Type</span>
+                                      <p className="text-sm font-black text-gray-900 mt-2">{u.unitType || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs font-black text-gray-700 uppercase tracking-wide">Status</span>
+                                      <p className={`text-sm font-black mt-2 inline-block px-3 py-1 rounded-lg ${
+                                        u.status === "occupied"
+                                          ? "bg-green-200 text-green-900"
+                                          : u.status === "vacant"
+                                          ? "bg-red-200 text-red-900"
+                                          : u.status === "maintenance"
+                                          ? "bg-yellow-200 text-yellow-900"
+                                          : "bg-gray-200 text-gray-900"
+                                      }`}>
+                                        {u.status.charAt(0).toUpperCase() + u.status.slice(1)}
+                                      </p>
+                                    </div>
+                                  </div>
 
-                                        {[
-                                          { key: "id", label: "Id" },
-                                          { key: "unitNo", label: "Unit/Space No" },
-                                          { key: "tenant", label: "Current Tenant" },
-                                          { key: "area", label: "Area(Sqr Ft/Mtr)" },
-                                          { key: "rentUnit", label: "Rent/Unit Area (Kshs)" },
-                                          { key: "marketRent", label: "Mkt. Rent (Kshs)" },
-                                          { key: "currentRent", label: "Current Rent (Kshs)" },
-                                          { key: "unitType", label: "Unit Type" },
-                                          { key: "status", label: "Status" },
-                                          { key: "vacantFrom", label: "Vacant from" },
-                                          { key: "detailed", label: "Detailed" },
-                                        ].map((col) => {
-                                          const w = unitColumnWidths[col.key] ?? 140;
-                                          return (
-                                            <th
-                                              key={col.key}
-                                              className="relative px-3 py-1 text-left font-bold text-gray-800 border border-gray-200 bg-[#DDEFE1]"
-                                              style={{ width: `${w}px`, minWidth: "80px" }}
-                                            >
-                                              <div className="flex items-center justify-between">
-                                                <span className="truncate">{col.label}</span>
-                                                <div
-                                                  className="w-2 h-4 ml-1 cursor-col-resize hover:bg-gray-300 flex items-center justify-center rounded"
-                                                  onMouseDown={(e) => startResizing(col.key, e)}
-                                                  title="Drag to resize"
-                                                >
-                                                  <FaGripVertical className="text-gray-500 text-xs" />
-                                                </div>
-                                              </div>
-                                            </th>
-                                          );
-                                        })}
-                                      </tr>
-                                    </thead>
+                                  {/* Financial Details */}
+                                  <div className="space-y-4 p-4 bg-white rounded-lg shadow-md border-2 border-[#FF8C00]/30">
+                                    <h4 className="font-black text-gray-900 text-sm mb-4 pb-2 border-b-3 border-[#FF8C00]">💰 Financial Details</h4>
+                                    <div>
+                                      <span className="text-xs font-black text-gray-700 uppercase tracking-wide">Monthly Rent</span>
+                                      <p className="text-sm font-black text-gray-900 mt-2">{u.currentRent || "Ksh 0"}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs font-black text-gray-700 uppercase tracking-wide">Market Rent</span>
+                                      <p className="text-sm font-black text-gray-900 mt-2">{u.marketRent || "N/A"}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs font-black text-gray-700 uppercase tracking-wide">Billing Frequency</span>
+                                      <p className="text-sm font-black text-gray-900 mt-2">Monthly</p>
+                                    </div>
+                                  </div>
 
-                                    <tbody>
-                                      {p.units.map((u, uIdx) => (
-                                        <tr
-                                          key={u.id}
-                                          className={`border-b border-gray-200 transition-colors ${
-                                            selectedUnits.includes(u.id)
-                                              ? "bg-[#CDE7D3] hover:bg-[#DFF1E3]"
-                                              : uIdx % 2 === 0
-                                              ? "bg-white hover:bg-[#f8f8f8]"
-                                              : "bg-[#f9f9f9] hover:bg-[#f0f0f0]"
-                                          }`}
-                                          onClick={() => handleSelectUnit(u.id)}
-                                        >
-                                          <td
-                                            className="px-3 py-1 border border-gray-200"
-                                            style={{ width: "50px" }}
-                                            onClick={handleCheckboxClick}
-                                          >
-                                            <input
-                                              type="checkbox"
-                                              checked={selectedUnits.includes(u.id)}
-                                              onChange={() => handleSelectUnit(u.id)}
-                                              onClick={handleCheckboxClick}
-                                              className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                                            />
-                                          </td>
+                                  {/* Occupancy Details */}
+                                  <div className="space-y-4 p-4 bg-white rounded-lg shadow-md border-2 border-blue-300/50">
+                                    <h4 className="font-black text-gray-900 text-sm mb-4 pb-2 border-b-3 border-blue-600">👥 Occupancy Details</h4>
+                                    <div>
+                                      <span className="text-xs font-black text-gray-700 uppercase tracking-wide">Current Tenant</span>
+                                      <p className="text-sm font-black text-gray-900 mt-2">{u.tenant || "-"}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs font-black text-gray-700 uppercase tracking-wide">Vacant Since</span>
+                                      <p className="text-sm font-black text-gray-900 mt-2">{u.status === "vacant" ? u.vacantFrom : "-"}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-xs font-black text-gray-700 uppercase tracking-wide">Property</span>
+                                      <p className="text-sm font-black text-gray-900 mt-2">{u.propertyName || "Unknown"}</p>
+                                    </div>
+                                  </div>
 
-                                          <td className="px-3 py-1 border border-gray-200 whitespace-nowrap overflow-hidden text-ellipsis">{u.id}</td>
-                                          <td className="px-3 py-1 border border-gray-200 whitespace-nowrap overflow-hidden text-ellipsis">{u.unitNo}</td>
-                                          <td className="px-3 py-1 border border-gray-200 whitespace-nowrap overflow-hidden text-ellipsis">{u.tenant}</td>
-                                          <td className="px-3 py-1 border border-gray-200 text-right whitespace-nowrap">{u.area}</td>
-                                          <td className="px-3 py-1 border border-gray-200 text-right whitespace-nowrap">{u.rentUnit}</td>
-                                          <td className="px-3 py-1 border border-gray-200 text-right whitespace-nowrap">{u.marketRent}</td>
-                                          <td className="px-3 py-1 border border-gray-200 text-right whitespace-nowrap">{u.currentRent}</td>
-
-                                          <td className="px-3 py-1 border border-gray-200">
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap ${getUnitTypePill(u.unitType)}`}>
-                                              {u.unitType}
-                                            </span>
-                                          </td>
-
-                                          <td className="px-3 py-1 border border-gray-200">
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap ${getStatusPill(u.status)}`}>
-                                              {u.status}
-                                            </span>
-                                          </td>
-
-                                          <td className="px-3 py-1 border border-gray-200 whitespace-nowrap overflow-hidden text-ellipsis">{u.vacantFrom}</td>
-
-                                          <td className="px-3 py-1 border border-gray-200">
-                                            <button
-                                              className={`px-2 py-0.5 text-xs text-white rounded font-bold ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                window.alert("Open unit details (wire later).");
-                                              }}
-                                            >
-                                              View
-                                            </button>
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
+                                  {/* Actions */}
+                                  <div className="space-y-4 p-4 bg-white rounded-lg shadow-md border-2 border-green-300/50">
+                                    <h4 className="font-black text-gray-900 text-sm mb-4 pb-2 border-b-3 border-green-600">⚙️ Actions</h4>
+                                    <button
+                                      onClick={() => navigate(`/units/${u.id}`)}
+                                      className={`w-full px-3 py-2 text-xs text-white rounded-lg flex items-center justify-center gap-2 transition-colors font-black ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
+                                    >
+                                      <FaEdit /> View Full Details
+                                    </button>
+                                  </div>
                                 </div>
                               </td>
                             </tr>
@@ -816,9 +942,15 @@ const Units = () => {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={7} className="px-3 py-6 text-center text-gray-500 border border-gray-200 bg-white">
-                        <div className="text-lg font-bold text-gray-400 mb-2">No units found</div>
-                        <div className="text-sm text-gray-500">Use the filters above, then click Search</div>
+                      <td colSpan={12} className="px-4 py-8 text-center">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <div className="text-lg font-bold text-slate-400">No units found</div>
+                          <div className="text-sm text-slate-500">
+                            {appliedFilters.property !== "any" || appliedFilters.status !== "any"
+                              ? "Try adjusting your filters"
+                              : "Create a unit or import existing units"}
+                          </div>
+                        </div>
                       </td>
                     </tr>
                   )}
@@ -832,66 +964,24 @@ const Units = () => {
                 <div className="text-xs text-gray-600">
                   <div className="flex items-center gap-4">
                     <span className="font-bold">
-                      Showing <span className="font-bold">{propertiesGrouped.length === 0 ? 0 : startIndex + 1}</span> to{" "}
-                      <span className="font-bold">{Math.min(endIndex, propertiesGrouped.length)}</span> of{" "}
-                      <span className="font-bold">{propertiesGrouped.length}</span> properties
+                      Showing <span className="font-bold text-slate-900">{filteredUnits.length}</span> unit(s) across{" "}
+                      <span className="font-bold text-slate-900">{propertiesGrouped.length}</span> propert{propertiesGrouped.length === 1 ? "y" : "ies"}
                     </span>
 
                     {selectedUnits.length > 0 && (
-                      <span className="bg-[#DDEFE1] text-gray-900 px-2 py-0.5 rounded-full text-xs font-bold border border-[#0B3B2E]/30">
+                      <span className="bg-orange-100 text-orange-900 px-2 py-0.5 rounded-full text-xs font-bold border border-orange-300">
                         {selectedUnits.length} unit(s) selected
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={safeCurrentPage === 1}
-                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
-                  >
-                    <FaChevronLeft size={10} />
-                    Previous
-                  </button>
-
-                  <div className="flex items-center gap-1">
-                    {[...Array(totalPages)].map((_, i) => {
-                      const page = i + 1;
-                      if (page === 1 || page === totalPages || (page >= safeCurrentPage - 1 && page <= safeCurrentPage + 1)) {
-                        return (
-                          <button
-                            key={page}
-                            onClick={() => setCurrentPage(page)}
-                            className={`px-3 py-1.5 min-w-[32px] text-xs rounded-lg border transition-colors font-bold ${
-                              safeCurrentPage === page
-                                ? "bg-[#0B3B2E] text-white border-[#0B3B2E] hover:bg-[#0A3127]"
-                                : "border-gray-300 hover:bg-gray-50"
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        );
-                      }
-                      if (page === safeCurrentPage - 2 || page === safeCurrentPage + 2) {
-                        return (
-                          <span key={page} className="px-1 text-gray-400 text-xs">
-                            ...
-                          </span>
-                        );
-                      }
-                      return null;
-                    })}
-                  </div>
-
-                  <button
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={safeCurrentPage === totalPages}
-                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
-                  >
-                    Next
-                    <FaChevronRight size={10} />
-                  </button>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span>
+                    {filteredUnits.length === 0
+                      ? "No results"
+                      : `Total units: ${filteredUnits.length}`}
+                  </span>
                 </div>
               </div>
             </div>

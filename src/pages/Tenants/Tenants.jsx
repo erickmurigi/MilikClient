@@ -1,1318 +1,788 @@
-// pages/Tenants.js
-import React, { useState, useRef } from 'react';
-import DashboardLayout from '../../components/Layout/DashboardLayout';
-import { 
-  FaPlus, FaSearch, FaEllipsisH, FaFileExport, 
-  FaChevronLeft, FaChevronRight, FaGripVertical,
-  FaPaperclip, FaTimes, FaSave, FaDownload, FaTrash,
-  FaFile, FaDownload as FaDownloadIcon, FaTrashAlt
-} from 'react-icons/fa';
+import React, { useMemo, useState, useEffect, useRef } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import DashboardLayout from "../../components/Layout/DashboardLayout";
+import {
+  FaPlus,
+  FaSearch,
+  FaChevronLeft,
+  FaChevronRight,
+  FaExpandAlt,
+  FaCompressAlt,
+  FaFileExport,
+  FaRedoAlt,
+  FaEdit,
+  FaEllipsisV,
+  FaFileInvoiceDollar,
+  FaUserEdit,
+  FaBolt,
+  FaChartLine,
+} from "react-icons/fa";
+import { toast } from "react-toastify";
+import { getTenants, deleteTenant } from "../../redux/tenantsRedux";
+
+const MILIK_GREEN = "bg-[#0B3B2E]";
+const MILIK_ORANGE = "bg-[#FF8C00]";
+const ITEMS_PER_PAGE = 50;
 
 const Tenants = () => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  // Redux state
+  const { currentCompany } = useSelector((state) => state.company || {});
+  const { tenants: tenantsData = [], isFetching } = useSelector(
+    (state) => state.tenant || { tenants: [], isFetching: false }
+  );
+
+  // ===== UI STATE =====
+  const [currentPage, setCurrentPage] = useState(1);
+  const [expandedTenants, setExpandedTenants] = useState([]);
   const [selectedTenants, setSelectedTenants] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [isResizing, setIsResizing] = useState(false);
-  const [showAddTenantModal, setShowAddTenantModal] = useState(false);
-  
-  // Form state for the modal
-  const [formData, setFormData] = useState({
-    accountNumber: '',
-    tenantType: 'Individual',
-    surname: '',
-    otherNames: '',
-    gender: '',
-    idNo: '',
-    taxPin: '',
-    postalAddress: '',
-    email: '',
-    postalCode: '',
-    town: 'NAIROBI',
-    mobileNumber: '',
-    verifyMobileNumber: '',
-    country: 'Kenya',
-    emergencyContactName1: '',
-    emergencyPhone1: '',
-    emergencyRelationship1: '',
-    emergencyEmail1: '',
-    emergencyContactName2: '',
-    emergencyPhone2: '',
-    emergencyRelationship2: '',
-    emergencyEmail2: ''
-  });
-  
-  // File attachments state
-  const [attachments, setAttachments] = useState([]);
-  const fileInputRef = useRef(null);
-  
-  const [columnWidths, setColumnWidths] = useState({
-    tntId: 100,
-    lseId: 100,
-    unitNo: 90,
-    acNo: 120,
-    tenantName: 160,
-    acBal: 120,
-    phone: 130,
-    rent: 200,
-    leaseType: 140,
-    paymentFreq: 120,
-    leaseStart: 110,
-    leaseEnd: 110,
-    leaseTerm: 100,
-    daysToExpire: 120,
-    property: 150,
-    email: 180,
-    attachedFiles: 120,
-  });
-  
-  const resizingRef = useRef(null);
-  const tableRef = useRef(null);
-  const itemsPerPage = 50;
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
+  const actionMenuRef = useRef(null);
 
-  // Sample tenants data
-  const tenants = [
-    {
-      id: 1,
-      tntId: 'TNT001',
-      lseId: 'LSE001',
-      unitNo: 'A-101',
-      acNo: 'ACC001',
-      tenantName: 'John Kamau',
-      acBal: '15,000',
-      phone: '+254 712 345 678',
-      rent: '25,000',
-      leaseType: 'Residential',
-      paymentFreq: 'Monthly',
-      leaseStart: '2024-01-01',
-      leaseEnd: '2024-12-31',
-      leaseTerm: '1 Year',
-      daysToExpire: 45,
-      property: 'KITUI HEIGHTS RESIDENTIAL COMPLEX',
-      email: 'john.kamau@email.com',
-      attachedFiles: 3
-    },
-    {
-      id: 2,
-      tntId: 'TNT002',
-      lseId: 'LSE002',
-      unitNo: 'B-205',
-      acNo: 'ACC002',
-      tenantName: 'Sarah Wanjiku',
-      acBal: '0',
-      phone: '+254 723 456 789',
-      rent: '45,000',
-      leaseType: 'Commercial',
-      paymentFreq: 'Quarterly',
-      leaseStart: '2023-06-01',
-      leaseEnd: '2024-05-31',
-      leaseTerm: '2 Years',
-      daysToExpire: 120,
-      property: 'ARDHI HOUSE COMMERCIAL CENTER',
-      email: 'sarah.wanjiku@company.com',
-      attachedFiles: 5
-    },
-    {
-      id: 3,
-      tntId: 'TNT003',
-      lseId: 'LSE003',
-      unitNo: 'C-301',
-      acNo: 'ACC003',
-      tenantName: 'Mike Johnson',
-      acBal: '-5,000',
-      phone: '+254 734 567 890',
-      rent: '30,000',
-      leaseType: 'Mixed Use',
-      paymentFreq: 'Monthly',
-      leaseStart: '2024-02-15',
-      leaseEnd: '2025-02-14',
-      leaseTerm: '1 Year',
-      daysToExpire: 380,
-      property: 'BASIL TOWERS MIXED-USE DEVELOPMENT',
-      email: 'mike.johnson@tech.com',
-      attachedFiles: 2
-    },
-    // ... rest of your sample data
-  ];
+  // ===== FILTERS =====
+  const [draftFilters, setDraftFilters] = useState({
+    property: "any",
+    status: "any",
+    search: "",
+    tenantName: "",
+    tenantCode: "",
+  });
+  const [appliedFilters, setAppliedFilters] = useState({
+    property: "any",
+    status: "any",
+    search: "",
+    tenantName: "",
+    tenantCode: "",
+  });
 
-  // Add more tenants for pagination
-  for (let i = 4; i <= 60; i++) {
-    const leaseTypes = ['Residential', 'Commercial', 'Mixed Use'];
-    const paymentFreqs = ['Monthly', 'Quarterly', 'Annually'];
-    const properties = [
-      'KITUI HEIGHTS RESIDENTIAL COMPLEX',
-      'ARDHI HOUSE COMMERCIAL CENTER',
-      'BASIL TOWERS MIXED-USE DEVELOPMENT',
-      'BLESSING MALL SHOPPING CENTER',
-      'BLUE SKY PLAZA OFFICE BUILDING',
-      'CAMON COURT APARTMENT COMPLEX',
-      'CID APARTMENTS RESIDENTIAL BLOCK',
-      'CITE TOWERS OFFICE COMPLEX',
-      'DFGH COMPLEX MIXED-USE BUILDING',
-      'EDWIN RESIDENCE APARTMENT BLOCK'
-    ];
-    
-    tenants.push({
-      id: i,
-      tntId: `TNT${String(i).padStart(3, '0')}`,
-      lseId: `LSE${String(i).padStart(3, '0')}`,
-      unitNo: `U-${Math.floor(Math.random() * 500) + 100}`,
-      acNo: `ACC${String(i).padStart(3, '0')}`,
-      tenantName: `Tenant ${i} Name`,
-      acBal: `${(Math.random() > 0.5 ? '-' : '')}${Math.floor(Math.random() * 50000)}`,
-      phone: `+254 7${String(Math.floor(Math.random() * 10000000)).padStart(7, '0')}`,
-      rent: `${Math.floor(Math.random() * 300000) + 10000}`,
-      leaseType: leaseTypes[Math.floor(Math.random() * leaseTypes.length)],
-      paymentFreq: paymentFreqs[Math.floor(Math.random() * paymentFreqs.length)],
-      leaseStart: `2024-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-01`,
-      leaseEnd: `2025-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-28`,
-      leaseTerm: `${Math.floor(Math.random() * 5) + 1} Year${Math.floor(Math.random() * 5) + 1 > 1 ? 's' : ''}`,
-      daysToExpire: Math.floor(Math.random() * 365) + 1,
-      property: properties[Math.floor(Math.random() * properties.length)],
-      email: `tenant${i}@example.com`,
-      attachedFiles: Math.floor(Math.random() * 10)
+  // ===== EFFECTS =====
+  // Fetch tenants on mount
+  useEffect(() => {
+    if (currentCompany?._id) {
+      dispatch(getTenants({ business: currentCompany._id }));
+      console.log("Tenants initialized for company:", currentCompany._id);
+    }
+  }, [dispatch, currentCompany]);
+
+  // Reset selectAll when page changes
+  useEffect(() => {
+    setSelectAll(false);
+  }, [currentPage]);
+
+  // Close action menu on outside click
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (!actionMenuRef.current) return;
+      if (!actionMenuRef.current.contains(e.target)) setActionMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  // ===== TRANSFORM TENANT DATA =====
+  const transformedTenants = useMemo(() => {
+    return (Array.isArray(tenantsData) ? tenantsData : []).map((tenant, index) => {
+      // Auto-generate tenant code: TT + 4 digits
+      const tenantCode = tenant.tenantCode || `TT${String(index + 1).padStart(4, '0')}`;
+      
+      return {
+        id: tenant._id,
+        tenantCode: tenantCode,
+        tenantName: tenant.name || "-",
+        unitNumber: tenant.unit?.unitNumber || "-",
+        propertyName: tenant.unit?.property?.propertyName || "-",
+        startDate: tenant.leaseStartDate
+          ? new Date(tenant.leaseStartDate).toLocaleDateString()
+          : "-",
+        rent: tenant.unit?.rent
+          ? `Ksh ${tenant.unit.rent.toLocaleString()}`
+          : "-",
+        status: (tenant.status || "active").toLowerCase(),
+        phone: tenant.phone || "-",
+        email: tenant.email || "-",
+        accountBalance: tenant.accountBalance ?? 0,
+      };
     });
-  }
+  }, [tenantsData]);
 
-  const columns = [
-    { key: 'tntId', label: 'Tnt Id' },
-    { key: 'lseId', label: 'Lse Id' },
-    { key: 'unitNo', label: 'Unit No.' },
-    { key: 'acNo', label: 'Ac/No./Code' },
-    { key: 'tenantName', label: 'Tenant Name' },
-    { key: 'acBal', label: 'A/c Bal. (Kshs)' },
-    { key: 'phone', label: 'Phone Number' },
-    { key: 'rent', label: 'Rent .Ksh' },
-    { key: 'leaseType', label: 'Lease Variation Type' },
-    { key: 'paymentFreq', label: 'Payment Frequency' },
-    { key: 'leaseStart', label: 'Lease Start' },
-    { key: 'leaseEnd', label: 'Lease End' },
-    { key: 'leaseTerm', label: 'Lease Term' },
-    { key: 'daysToExpire', label: 'Days To Expire' },
-    { key: 'property', label: 'Property' },
-    { key: 'email', label: 'Email' },
-    { key: 'attachedFiles', label: 'Attached Files' }
-  ];
+  // ===== FILTER TENANTS =====
+  const filteredTenants = useMemo(() => {
+    return transformedTenants.filter((t) => {
+      // Property filter
+      if (
+        appliedFilters.property !== "any" &&
+        t.propertyName !== appliedFilters.property
+      ) {
+        return false;
+      }
 
-  const handleSelectTenant = (id) => {
-    setSelectedTenants(prev =>
-      prev.includes(id)
-        ? prev.filter(item => item !== id)
-        : [...prev, id]
+      // Status filter
+      if (
+        appliedFilters.status !== "any" &&
+        t.status !== appliedFilters.status
+      ) {
+        return false;
+      }
+
+      // Search filter (name or phone)
+      if (appliedFilters.search) {
+        const searchLower = appliedFilters.search.toLowerCase();
+        const matchesName = t.tenantName.toLowerCase().includes(searchLower);
+        const matchesPhone = t.phone.toLowerCase().includes(searchLower);
+        if (!matchesName && !matchesPhone) return false;
+      }
+
+      // Tenant name filter
+      if (appliedFilters.tenantName) {
+        const nameLower = appliedFilters.tenantName.toLowerCase();
+        if (!t.tenantName.toLowerCase().includes(nameLower)) return false;
+      }
+
+      // Tenant code filter
+      if (appliedFilters.tenantCode) {
+        const codeLower = appliedFilters.tenantCode.toLowerCase();
+        if (!t.tenantCode.toLowerCase().includes(codeLower)) return false;
+      }
+
+      return true;
+    });
+  }, [transformedTenants, appliedFilters]);
+
+  // ===== PAGINATION =====
+  const totalPages = Math.max(1, Math.ceil(filteredTenants.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentTenants = filteredTenants.slice(startIndex, endIndex);
+
+  // ===== SELECTION HANDLERS =====
+  const handleSelectTenant = (tenantId) => {
+    setSelectedTenants((prev) =>
+      prev.includes(tenantId)
+        ? prev.filter((id) => id !== tenantId)
+        : [...prev, tenantId]
     );
   };
 
   const handleSelectAll = () => {
     if (selectAll) {
       setSelectedTenants([]);
+      setSelectAll(false);
     } else {
-      setSelectedTenants(currentTenants.map(t => t.id));
+      setSelectedTenants(currentTenants.map((t) => t.id));
+      setSelectAll(true);
     }
-    setSelectAll(!selectAll);
   };
 
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
   };
 
-  // Column resizing handler
-  const startResizing = (columnKey, e) => {
-    e.preventDefault();
-    setIsResizing(true);
-    resizingRef.current = {
-      columnKey,
-      startX: e.clientX,
-      startWidth: columnWidths[columnKey]
-    };
-    
-    const handleMouseMove = (e) => {
-      if (!resizingRef.current) return;
-      
-      const { columnKey, startX, startWidth } = resizingRef.current;
-      const diff = e.clientX - startX;
-      const newWidth = Math.max(80, startWidth + diff);
-      
-      setColumnWidths(prev => ({
-        ...prev,
-        [columnKey]: newWidth
-      }));
-    };
-    
-    const handleMouseUp = () => {
-      setIsResizing(false);
-      resizingRef.current = null;
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-    
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+  // ===== EXPAND/COLLAPSE =====
+  const toggleTenantExpand = (tenantId) => {
+    setExpandedTenants((prev) =>
+      prev.includes(tenantId)
+        ? prev.filter((id) => id !== tenantId)
+        : [...prev, tenantId]
+    );
   };
 
-  // Function to apply zebra striping pattern with white backgrounds (same as Landlords)
-  const getRowClass = (index, tenantId) => {
-    // If row is selected, use the selection color
-    if (selectedTenants.includes(tenantId)) {
-      return 'bg-[#addbb2] hover:bg-[#c8e6c9]';
-    }
-    
-    // Otherwise, use alternating white patterns
-    return index % 2 === 0 
-      ? 'bg-white hover:bg-[#f8f8f8]' 
-      : 'bg-[#f9f9f9] hover:bg-[#f0f0f0]';
+  const expandAllTenants = () => {
+    setExpandedTenants(filteredTenants.map((t) => t.id));
   };
 
-  // Function to determine account balance color
-  const getBalanceColor = (balance, isSelected) => {
-    if (balance.startsWith('-')) {
-      return isSelected 
-        ? 'bg-white text-red-800 border-red-300' 
-        : 'bg-red-100 text-red-800 border-red-300';
-    } else if (parseFloat(balance.replace(/,/g, '')) > 0) {
-      return isSelected
-        ? 'bg-white text-orange-800 border-orange-300'
-        : 'bg-orange-100 text-orange-800 border-orange-300';
-    }
-    return isSelected
-      ? 'bg-white text-green-800 border-green-300'
-      : 'bg-green-100 text-green-800 border-green-300';
+  const collapseAllTenants = () => {
+    setExpandedTenants([]);
   };
 
-  // Function to determine days to expire color
-  const getDaysToExpireColor = (days, isSelected) => {
-    if (days <= 30) {
-      return isSelected
-        ? 'bg-white text-red-800 border-red-300'
-        : 'bg-red-100 text-red-800 border-red-300';
-    } else if (days <= 90) {
-      return isSelected
-        ? 'bg-white text-yellow-800 border-yellow-300'
-        : 'bg-yellow-100 text-yellow-800 border-yellow-300';
-    }
-    return isSelected
-      ? 'bg-white text-green-800 border-green-300'
-      : 'bg-green-100 text-green-800 border-green-300';
-  };
-
-  // Pagination logic
-  const totalPages = Math.ceil(tenants.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentTenants = tenants.slice(startIndex, endIndex);
-
-  const goToPage = (page) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  };
-
-  // Handle form input changes
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  // Handle form submission
-  const handleAddTenantSubmit = (e) => {
-    e.preventDefault();
-    
-    // Check for required fields
-    const requiredFields = ['tenantType', 'surname', 'otherNames', 'idNo', 'taxPin', 'town', 'mobileNumber', 'country'];
-    const missingFields = requiredFields.filter(field => !formData[field]);
-    
-    if (missingFields.length > 0) {
-      console.log('Missing required fields:', missingFields);
-      // You can show an error message here
+  // ===== ACTION MENU HANDLERS =====
+  const handleViewStatement = () => {
+    if (selectedTenants.length === 0) {
+      toast.warning("Please select at least one tenant");
       return;
     }
-    
-    console.log('Adding tenant:', formData);
-    console.log('Attachments:', attachments);
-    
-    // Here you would typically make an API call to add the tenant
-    // For now, we'll just close the modal and reset the form
-    setShowAddTenantModal(false);
-    
-    // Reset form
-    setFormData({
-      accountNumber: '',
-      tenantType: 'Individual',
-      surname: '',
-      otherNames: '',
-      gender: '',
-      idNo: '',
-      taxPin: '',
-      postalAddress: '',
-      email: '',
-      postalCode: '',
-      town: 'NAIROBI',
-      mobileNumber: '',
-      verifyMobileNumber: '',
-      country: 'Kenya',
-      emergencyContactName1: '',
-      emergencyPhone1: '',
-      emergencyRelationship1: '',
-      emergencyEmail1: '',
-      emergencyContactName2: '',
-      emergencyPhone2: '',
-      emergencyRelationship2: '',
-      emergencyEmail2: ''
-    });
-    setAttachments([]);
+    if (selectedTenants.length === 1) {
+      navigate(`/tenant/${selectedTenants[0]}/statement`);
+    } else {
+      toast.info("Multiple tenants selected. Opening first tenant's statement.");
+      navigate(`/tenant/${selectedTenants[0]}/statement`);
+    }
+    setActionMenuOpen(false);
   };
 
-  // Handle file upload
-  const handleFileUpload = (e) => {
-    const files = Array.from(e.target.files);
-    const newAttachments = files.map(file => ({
-      id: Date.now() + Math.random(),
-      name: file.name,
-      size: formatFileSize(file.size),
-      dateTime: new Date().toLocaleString(),
-      file: file
-    }));
-    setAttachments(prev => [...prev, ...newAttachments]);
+  const handleEditTenant = () => {
+    if (selectedTenants.length === 0) {
+      toast.warning("Please select a tenant to edit");
+      return;
+    }
+    if (selectedTenants.length > 1) {
+      toast.warning("Please select only one tenant to edit");
+      return;
+    }
+    navigate(`/tenant/${selectedTenants[0]}/edit`);
+    setActionMenuOpen(false);
   };
 
-  // Format file size
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  const handleAddUtility = () => {
+    if (selectedTenants.length === 0) {
+      toast.warning("Please select at least one tenant");
+      return;
+    }
+    toast.info("Add utility feature coming soon");
+    setActionMenuOpen(false);
   };
 
-  // Handle attachment download
-  const handleDownload = (attachment) => {
-    // Create a download link
-    const url = URL.createObjectURL(attachment.file);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = attachment.name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleReviewRent = () => {
+    if (selectedTenants.length === 0) {
+      toast.warning("Please select at least one tenant");
+      return;
+    }
+    toast.info("Review rent feature coming soon");
+    setActionMenuOpen(false);
   };
 
-  // Handle attachment delete
-  const handleDeleteAttachment = (id) => {
-    setAttachments(prev => prev.filter(att => att.id !== id));
+  const handleResetFilters = () => {
+    setDraftFilters({ property: "any", status: "any", search: "", tenantName: "", tenantCode: "" });
+    setAppliedFilters({ property: "any", status: "any", search: "", tenantName: "", tenantCode: "" });
+    setCurrentPage(1);
   };
 
-  // Gender options
-  const genderOptions = ['Male', 'Female', 'Other'];
+  // ===== CRUD ACTIONS =====
+  const handleDeleteTenant = async (tenantId) => {
+    if (!window.confirm("Delete this tenant?")) return;
+    try {
+      await dispatch(deleteTenant(tenantId)).unwrap();
+      toast.success("Tenant deleted successfully");
+      setSelectedTenants((prev) => prev.filter((id) => id !== tenantId));
+    } catch (error) {
+      toast.error(error?.message || "Failed to delete tenant");
+    }
+  };
 
-  // Town options
-  const townOptions = [
-    'NAIROBI',
-    'MOMBASA',
-    'KISUMU',
-    'NAKURU',
-    'ELDORET',
-    'THIKA',
-    'MALINDI',
-    'KITALE',
-    'GARISSA',
-    'KAKAMEGA'
-  ];
 
-  // Relationship options
-  const relationshipOptions = [
-    'Spouse',
-    'Parent',
-    'Sibling',
-    'Child',
-    'Relative',
-    'Friend',
-    'Colleague',
-    'Other'
-  ];
+  // ===== FILTER OPTIONS =====
+  const uniqueProperties = useMemo(() => {
+    const propertyNames = transformedTenants
+      .map((t) => t.propertyName)
+      .filter((p) => p !== "-");
+    return ["any", ...Array.from(new Set(propertyNames)).sort()];
+  }, [transformedTenants]);
 
+  const statusOptions = ["any", "active", "inactive"];
+
+  // ===== RENDER =====
   return (
     <DashboardLayout>
       <div className="flex flex-col h-full p-0 bg-gray-50">
-        {/* Search and Filters Row - MATCHING LANDLORDS STYLING */}
-        <div className="flex-shrink-0 pt-1 px-2">
+        {/* ===== FILTER BAR ===== */}
+        <div className="flex-shrink-0 bg-white border-b border-gray-200 px-2 pt-1">
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            {/* Filter dropdowns with custom styling */}
-            <select className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors">
-              <option>Tenant Name</option>
-              <option>Tenant ID</option>
-              <option>Lease ID</option>
-              <option>Unit No.</option>
-            </select>
+            {/* Property Filter */}
+            <div>
+              <select
+                value={draftFilters.property}
+                onChange={(e) =>
+                  setDraftFilters({ ...draftFilters, property: e.target.value })
+                }
+                className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors"
+              >
+                {uniqueProperties.map((prop) => (
+                  <option key={prop} value={prop}>
+                    {prop === "any" ? "All Properties" : prop}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <select className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors">
-              <option>Account Balance</option>
-              <option>Credit Balance</option>
-              <option>Zero Balance</option>
-              <option>Arrears</option>
-            </select>
+            {/* Status Filter */}
+            <div>
+              <select
+                value={draftFilters.status}
+                onChange={(e) =>
+                  setDraftFilters({ ...draftFilters, status: e.target.value })
+                }
+                className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors"
+              >
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {status === "any"
+                      ? "All Status"
+                      : status.charAt(0).toUpperCase() + status.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <select className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors">
-              <option>Lease Type</option>
-              <option>Residential</option>
-              <option>Commercial</option>
-              <option>Mixed Use</option>
-            </select>
+            {/* Tenant Name Filter */}
+            <div>
+              <input
+                type="text"
+                placeholder="Tenant Name"
+                value={draftFilters.tenantName}
+                onChange={(e) =>
+                  setDraftFilters({ ...draftFilters, tenantName: e.target.value })
+                }
+                className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 placeholder-gray-600"
+              />
+            </div>
 
-            <select className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors">
-              <option>Payment Frequency</option>
-              <option>Monthly</option>
-              <option>Quarterly</option>
-              <option>Annually</option>
-            </select>
+            {/* Tenant Code Filter */}
+            <div>
+              <input
+                type="text"
+                placeholder="Tenant Code (TT####)"
+                value={draftFilters.tenantCode}
+                onChange={(e) =>
+                  setDraftFilters({ ...draftFilters, tenantCode: e.target.value })
+                }
+                className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 placeholder-gray-600"
+              />
+            </div>
 
-            <select className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 bg-[#addbb2] text-gray-800 hover:bg-white transition-colors">
-              <option>Lease Expiry</option>
-              <option>Expiring in 30 days</option>
-              <option>Expiring in 90 days</option>
-              <option>More than 90 days</option>
-            </select>
-
-            {/* Search input */}
+            {/* Search */}
             <div className="relative flex-1 min-w-[200px]">
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
               <input
                 type="text"
                 placeholder="Search tenants..."
-                className="w-full pl-10 pr-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                value={draftFilters.search}
+                onChange={(e) =>
+                  setDraftFilters({ ...draftFilters, search: e.target.value })
+                }
+                className="w-full pl-9 pr-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
 
             {/* Action buttons */}
-            <button 
-              onClick={() => setShowAddTenantModal(true)}
-              className="px-4 py-1 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm"
+            <button
+              onClick={() => navigate("/tenant/new")}
+              className={`px-4 py-1 text-xs ${MILIK_ORANGE} text-white rounded-lg flex items-center gap-2 hover:bg-[#e67e00] transition-colors shadow-sm`}
             >
               <FaPlus className="text-xs" />
-              <span>Add Tenant</span>
+              <span>Add</span>
+            </button>
+
+            <button
+              onClick={() => setAppliedFilters(draftFilters)}
+              className={`px-4 py-1 text-xs ${MILIK_GREEN} text-white rounded-lg flex items-center gap-2 hover:bg-[#0A3127] transition-colors shadow-sm`}
+            >
+              <FaSearch className="text-xs" />
+              <span>Search</span>
+            </button>
+
+            <button
+              onClick={handleResetFilters}
+              className="px-4 py-1 text-xs bg-gray-500 text-white rounded-lg flex items-center gap-2 hover:bg-gray-600 transition-colors shadow-sm"
+            >
+              <FaRedoAlt className="text-xs" />
+              <span>Reset</span>
+            </button>
+          </div>
+        </div>
+
+        {/* ===== COMPACT ACTION BAR ===== */}
+        <div className="flex-shrink-0 bg-gray-50 border-b border-gray-200 px-2 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={expandAllTenants}
+              className="p-1.5 hover:bg-gray-200 rounded transition-colors text-gray-700 text-sm"
+              title="Expand all"
+            >
+              <FaExpandAlt />
+            </button>
+            <button
+              onClick={collapseAllTenants}
+              className="p-1.5 hover:bg-gray-200 rounded transition-colors text-gray-700 text-sm"
+              title="Collapse all"
+            >
+              <FaCompressAlt />
+            </button>
+            <span className="text-xs font-bold text-gray-700">
+              {selectedTenants.length} selected
+            </span>
+          </div>
+          
+          {/* Right side buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleEditTenant}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-medium flex items-center gap-1 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Edit Selected Tenant"
+              disabled={selectedTenants.length !== 1}
+            >
+              <FaEdit size={10} />
+              <span>Edit</span>
             </button>
             
-            <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
-              <FaFileExport className="text-xs" />
+            {/* Actions Dropdown */}
+            <div className="relative" ref={actionMenuRef}>
+              <button
+                onClick={() => setActionMenuOpen(!actionMenuOpen)}
+                className={`${MILIK_GREEN} hover:bg-[#0A3127] text-white px-3 py-1 rounded text-xs font-medium flex items-center gap-1 shadow-sm`}
+                title="More Actions"
+              >
+                <FaEllipsisV size={10} />
+                <span>Actions</span>
+              </button>
+              
+              {actionMenuOpen && (
+                <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                  <div className="py-1">
+                    <button
+                      onClick={handleViewStatement}
+                      className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                    >
+                      <FaFileInvoiceDollar size={12} />
+                      <span>View Tenant Statement</span>
+                    </button>
+                    <button
+                      onClick={handleEditTenant}
+                      className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                    >
+                      <FaUserEdit size={12} />
+                      <span>Edit Tenant Details</span>
+                    </button>
+                    <button
+                      onClick={handleAddUtility}
+                      className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                    >
+                      <FaBolt size={12} />
+                      <span>Add Utility to Selected Tenant</span>
+                    </button>
+                    <button
+                      onClick={handleReviewRent}
+                      className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 flex items-center gap-2 text-gray-700 border-t border-gray-200"
+                    >
+                      <FaChartLine size={12} />
+                      <span>Review Rent for Selected Tenant</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button
+              className="text-xs text-gray-600 hover:text-gray-800 flex items-center gap-1"
+              title="Export"
+            >
+              <FaFileExport size={12} />
               <span>Export</span>
             </button>
-            
-            <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
-              <FaEllipsisH className="text-xs" />
-              <span>More</span>
+          </div>
+        </div>
+
+        {/* ===== TENANTS TABLE ===== */}
+        <div className="flex-1 overflow-auto px-2 py-1">
+          <table className="w-full border-collapse">
+            {/* Table Header */}
+            <thead>
+              <tr className={`${MILIK_GREEN} text-white text-xs`}>
+                <th className="px-2 py-1.5 text-center font-bold border-r border-gray-400 w-6">
+                  <input
+                    type="checkbox"
+                    checked={selectAll}
+                    onChange={handleSelectAll}
+                    onClick={handleCheckboxClick}
+                    className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                  />
+                </th>
+                <th className="px-2 py-1.5 text-center font-bold border-r border-gray-400 w-6">
+                  ⬇️
+                </th>
+                <th className="px-2 py-1.5 text-left font-bold border-r border-gray-400 min-w-[80px]">
+                  Code
+                </th>
+                <th className="px-2 py-1.5 text-left font-bold border-r border-gray-400 min-w-[150px]">
+                  Tenant Name
+                </th>
+                <th className="px-2 py-1.5 text-left font-bold border-r border-gray-400 min-w-[120px]">
+                  Property
+                </th>
+                <th className="px-2 py-1.5 text-left font-bold border-r border-gray-400 min-w-[80px]">
+                  Unit
+                </th>
+                <th className="px-2 py-1.5 text-left font-bold border-r border-gray-400 min-w-[100px]">
+                  Start Date
+                </th>
+                <th className="px-2 py-1.5 text-right font-bold border-r border-gray-400 min-w-[100px]">
+                  Rent
+                </th>
+                <th className="px-2 py-1.5 text-center font-bold border-r border-gray-400 min-w-[80px]">
+                  Status
+                </th>
+                <th className="px-2 py-1.5 text-left font-bold min-w-[100px]">
+                  Phone
+                </th>
+              </tr>
+            </thead>
+
+            {/* Table Body */}
+            <tbody>
+              {currentTenants.length > 0 ? (
+                currentTenants.map((tenant, idx) => (
+                  <React.Fragment key={tenant.id}>
+                    {/* Tenant Row */}
+                    <tr
+                      className={`border-b border-gray-200 cursor-pointer transition-colors text-xs ${
+                        selectedTenants.includes(tenant.id)
+                          ? "bg-orange-50 hover:bg-orange-100"
+                          : "bg-white hover:bg-gray-50"
+                      }`}
+                      onClick={() => handleSelectTenant(tenant.id)}
+                    >
+                      <td
+                        className="px-2 py-1 text-center border-r border-gray-200"
+                        onClick={handleCheckboxClick}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedTenants.includes(tenant.id)}
+                          onChange={() => handleSelectTenant(tenant.id)}
+                          onClick={handleCheckboxClick}
+                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                        />
+                      </td>
+                      <td
+                        className="px-2 py-1 text-center border-r border-gray-200 cursor-pointer"
+                        onClick={() => toggleTenantExpand(tenant.id)}
+                      >
+                        <span>
+                          {expandedTenants.includes(tenant.id) ? "▼" : "▶"}
+                        </span>
+                      </td>
+                      <td className="px-2 py-1 font-mono text-gray-600 border-r border-gray-200 text-xs">
+                        {tenant.tenantCode}
+                      </td>
+                      <td className="px-2 py-1 font-bold text-gray-900 border-r border-gray-200">
+                        {tenant.tenantName}
+                      </td>
+                      <td className="px-2 py-1 font-bold text-gray-900 border-r border-gray-200">
+                        {tenant.propertyName}
+                      </td>
+                      <td className="px-2 py-1 font-bold text-gray-900 border-r border-gray-200">
+                        {tenant.unitNumber}
+                      </td>
+                      <td className="px-2 py-1 font-bold text-gray-900 border-r border-gray-200">
+                        {tenant.startDate}
+                      </td>
+                      <td className="px-2 py-1 font-bold text-gray-900 text-right border-r border-gray-200">
+                        {tenant.rent}
+                      </td>
+                      <td className="px-2 py-1 text-center border-r border-gray-200">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                            tenant.status === "active"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}
+                        >
+                          {tenant.status}
+                        </span>
+                      </td>
+                      <td className="px-2 py-1 font-bold text-gray-900">
+                        {tenant.phone}
+                      </td>
+                    </tr>
+
+                    {/* Expanded Details Row */}
+                    {expandedTenants.includes(tenant.id) && (
+                      <tr className="bg-gray-100 border-b border-gray-200">
+                        <td colSpan="10" className="px-3 py-2">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                            {/* Tenant & Contact Details */}
+                            <div>
+                              <h4 className="font-bold text-gray-900 mb-2 text-xs border-b-2 border-orange-500 pb-1">
+                                👤 Tenant Details
+                              </h4>
+                              <div className="space-y-1 text-xs">
+                                <div>
+                                  <span className="font-bold text-gray-700 block text-xs">Email:</span>
+                                  <p className="text-gray-600 text-xs">{tenant.email}</p>
+                                </div>
+                                <div>
+                                  <span className="font-bold text-gray-700 block text-xs">Phone:</span>
+                                  <p className="text-gray-600 text-xs">{tenant.phone}</p>
+                                </div>
+                                <div>
+                                  <span className="font-bold text-gray-700 block text-xs">Property:</span>
+                                  <p className="text-gray-600 text-xs">{tenant.propertyName}</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Billing-Critical Details */}
+                            <div>
+                              <h4 className="font-bold text-gray-900 mb-2 text-xs border-b-2 border-green-500 pb-1">
+                                💰 Billing Info
+                              </h4>
+                              <div className="space-y-1 text-xs">
+                                <div>
+                                  <span className="font-bold text-gray-700 block text-xs">Monthly Rent:</span>
+                                  <p className="text-gray-600 font-bold">{tenant.rent}</p>
+                                </div>
+                                <div>
+                                  <span className="font-bold text-gray-700 block text-xs">Balance:</span>
+                                  <p className={`font-bold ${
+                                    tenant.accountBalance >= 0 
+                                      ? 'text-green-600' 
+                                      : 'text-red-600'
+                                  }`}>
+                                    Ksh {tenant.accountBalance.toLocaleString()}
+                                  </p>
+                                </div>
+                                <div>
+                                  <span className="font-bold text-gray-700 block text-xs">Status:</span>
+                                  <p className={`text-xs font-bold ${
+                                    tenant.status === 'active'
+                                      ? 'text-green-700'
+                                      : 'text-gray-700'
+                                  }`}>
+                                    {tenant.status.toUpperCase()}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Lease Details */}
+                            <div>
+                              <h4 className="font-bold text-gray-900 mb-2 text-xs border-b-2 border-blue-500 pb-1">
+                                📋 Lease Details
+                              </h4>
+                              <div className="space-y-1 text-xs">
+                                <div>
+                                  <span className="font-bold text-gray-700 block text-xs">Unit:</span>
+                                  <p className="text-gray-600 text-xs">{tenant.unitNumber}</p>
+                                </div>
+                                <div>
+                                  <span className="font-bold text-gray-700 block text-xs">Start Date (Anchor):</span>
+                                  <p className="text-gray-600 font-bold text-xs">{tenant.startDate}</p>
+                                  <p className="text-gray-500 text-xs mt-0.5">⚠️ Billing anchor</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div>
+                              <h4 className="font-bold text-gray-900 mb-2 text-xs border-b-2 border-purple-500 pb-1">
+                                ⚙️ Actions
+                              </h4>
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  onClick={() =>
+                                    navigate(`/tenant/${tenant.id}/statement`)
+                                  }
+                                  className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded text-xs transition-colors"
+                                >
+                                  💳 Statement
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    navigate(`/tenant/${tenant.id}/billing`)
+                                  }
+                                  className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white font-bold rounded text-xs transition-colors"
+                                >
+                                  📅 Schedule
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    navigate(`/tenant/${tenant.id}/charges`)
+                                  }
+                                  className="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white font-bold rounded text-xs transition-colors"
+                                >
+                                  🔧 Charges
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    navigate(`/tenant/${tenant.id}/escalations`)
+                                  }
+                                  className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded text-xs transition-colors"
+                                >
+                                  📈 Escalations
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="10" className="px-3 py-4 text-center text-gray-600 font-semibold text-xs">
+                    No tenants found. Try adjusting filters or create a new tenant.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ===== COMPACT PAGINATION FOOTER ===== */}
+        <div className="flex-shrink-0 bg-white border-t border-gray-200 px-2 py-2 flex items-center justify-between">
+          <div className="text-xs font-bold text-gray-600">
+            Showing {currentTenants.length > 0 ? startIndex + 1 : 0} to{" "}
+            {Math.min(endIndex, filteredTenants.length)} of {filteredTenants.length}{" "}
+            tenants
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage(safeCurrentPage - 1)}
+              disabled={safeCurrentPage === 1}
+              className="p-1 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-gray-700 text-xs"
+            >
+              <FaChevronLeft size={12} />
+            </button>
+
+            <div className="flex items-center gap-0.5">
+              {[...Array(totalPages)].map((_, i) => {
+                const page = i + 1;
+                if (
+                  page === 1 ||
+                  page === totalPages ||
+                  (page >= safeCurrentPage - 1 && page <= safeCurrentPage + 1)
+                ) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-2 py-0.5 rounded text-xs font-bold transition-colors ${
+                        safeCurrentPage === page
+                          ? `${MILIK_ORANGE} text-white`
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                } else if (
+                  page === safeCurrentPage - 2 ||
+                  page === safeCurrentPage + 2
+                ) {
+                  return (
+                    <span key={page} className="px-1 text-gray-400 text-xs">
+                      ...
+                    </span>
+                  );
+                }
+                return null;
+              })}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage(safeCurrentPage + 1)}
+              disabled={safeCurrentPage === totalPages}
+              className="p-1 hover:bg-gray-100 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-gray-700 text-xs"
+            >
+              <FaChevronRight size={12} />
             </button>
           </div>
         </div>
-
-        {/* Boxed Table Design with adjustable columns - MATCHING LANDLORDS STYLING */}
-        <div className="flex-1 px-2 pb-2 overflow-hidden relative">
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm h-full flex flex-col">
-            {/* Table Container with Scroll */}
-            <div className="overflow-x-auto overflow-y-auto flex-1 pb-16">
-              <table 
-                className="min-w-full text-xs border-collapse border border-gray-200 font-bold bg-white"
-                ref={tableRef}
-                style={{ 
-                  tableLayout: 'fixed'
-                }}
-              >
-                {/* Table header */}
-                <thead>
-                  <tr className="sticky top-0 z-10">
-                    <th className="px-3 py-1 text-left font-bold text-gray-800 border border-gray-200 bg-[#addbb2]"
-                        style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}>
-                      <input
-                        type="checkbox"
-                        checked={selectAll}
-                        onChange={handleSelectAll}
-                        onClick={handleCheckboxClick}
-                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                      />
-                    </th>
-                    
-                    {columns.map((column) => (
-                      <th 
-                        key={column.key}
-                        className="relative px-3 py-1 text-left font-bold text-gray-800 border border-gray-200 bg-[#addbb2]"
-                        style={{ 
-                          width: `${columnWidths[column.key]}px`,
-                          minWidth: '80px',
-                          position: 'relative',
-                        }}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="truncate">{column.label}</span>
-                          <div 
-                            className="w-2 h-4 ml-1 cursor-col-resize hover:bg-gray-300 flex items-center justify-center"
-                            onMouseDown={(e) => startResizing(column.key, e)}
-                            title="Drag to resize"
-                          >
-                            <FaGripVertical className="text-gray-400 text-xs" />
-                          </div>
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                
-                {/* Table body */}
-                <tbody>
-                  {currentTenants.length > 0 ? (
-                    currentTenants.map((tenant, index) => {
-                      const isSelected = selectedTenants.includes(tenant.id);
-                      return (
-                        <tr 
-                          key={tenant.id}
-                          className={`border-b border-gray-200 cursor-pointer transition-colors duration-150 ${getRowClass(index, tenant.id)}`}
-                          onClick={() => handleSelectTenant(tenant.id)}
-                        >
-                          <td 
-                            className="px-3 py-1 border border-gray-200 align-top" 
-                            style={{ width: '50px', minWidth: '50px', maxWidth: '50px' }}
-                            onClick={handleCheckboxClick}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => handleSelectTenant(tenant.id)}
-                              onClick={handleCheckboxClick}
-                              className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-                            />
-                          </td>
-                          
-                          {/* Table cells for each column */}
-                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                            {tenant.tntId}
-                          </td>
-                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                            {tenant.lseId}
-                          </td>
-                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top text-center">
-                            {tenant.unitNo}
-                          </td>
-                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                            {tenant.acNo}
-                          </td>
-                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                            {tenant.tenantName}
-                          </td>
-                          <td className="px-3 py-1 text-right font-bold border border-gray-200 align-top">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${getBalanceColor(tenant.acBal, isSelected)}`}>
-                              Ksh {tenant.acBal}
-                            </span>
-                          </td>
-                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                            {tenant.phone}
-                          </td>
-                          <td className="px-3 py-1 text-right font-bold text-gray-900 border border-gray-200 align-top">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${
-                              isSelected 
-                                ? 'bg-white text-blue-800 border-blue-300' 
-                                : 'bg-blue-100 text-blue-800 border-blue-300'
-                            }`}>
-                              {tenant.rent}
-                            </span>
-                          </td>
-                          <td className="px-3 py-1 border border-gray-200 align-top">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap ${
-                              tenant.leaseType === 'Residential'
-                                ? isSelected
-                                  ? 'bg-white text-blue-800 border-blue-300'
-                                  : 'bg-blue-100 text-blue-800 border-blue-300'
-                                : tenant.leaseType === 'Commercial'
-                                ? isSelected
-                                  ? 'bg-white text-purple-800 border-purple-300'
-                                  : 'bg-purple-100 text-purple-800 border-purple-300'
-                                : isSelected
-                                  ? 'bg-white text-yellow-800 border-yellow-300'
-                                  : 'bg-yellow-100 text-yellow-800 border-yellow-300'
-                            }`}>
-                              {tenant.leaseType}
-                            </span>
-                          </td>
-                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top text-center">
-                            {tenant.paymentFreq}
-                          </td>
-                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap">
-                            {tenant.leaseStart}
-                          </td>
-                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap">
-                            {tenant.leaseEnd}
-                          </td>
-                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top text-center">
-                            {tenant.leaseTerm}
-                          </td>
-                          <td className="px-3 py-1 text-center font-bold border border-gray-200 align-top">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${getDaysToExpireColor(tenant.daysToExpire, isSelected)}`}>
-                              {tenant.daysToExpire} days
-                            </span>
-                          </td>
-                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                            {tenant.property}
-                          </td>
-                          <td className="px-3 py-1 font-bold text-gray-900 border border-gray-200 align-top whitespace-nowrap overflow-hidden text-ellipsis">
-                            {tenant.email}
-                          </td>
-                          <td className="px-3 py-1 border border-gray-200 align-top">
-                            <div className="flex items-center justify-center gap-1">
-                              <FaPaperclip className="text-gray-600 text-xs" />
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs border ${
-                                isSelected
-                                  ? 'bg-white text-gray-800 border-gray-300'
-                                  : 'bg-gray-100 text-gray-800 border-gray-300'
-                              }`}>
-                                {tenant.attachedFiles} files
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    // Empty state row
-                    <tr>
-                      <td 
-                        colSpan={columns.length + 1}
-                        className="px-3 py-4 text-center text-gray-500 border border-gray-200 bg-white"
-                      >
-                        <div className="flex flex-col items-center justify-center py-8">
-                          <div className="text-lg font-bold text-gray-400 mb-2">No tenants found</div>
-                          <div className="text-sm text-gray-500">Try adjusting your search or filters</div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Absolute Footer with Pagination - MATCHING LANDLORDS STYLING */}
-            <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-20 shadow-sm">
-              <div className="flex items-center justify-between px-3 py-2">
-                <div className="text-xs text-gray-600">
-                  <div className="flex items-center gap-4">
-                    <span className="font-bold">
-                      Showing <span className="font-bold">{startIndex + 1}</span> to <span className="font-bold">{Math.min(endIndex, tenants.length)}</span> of <span className="font-bold">{tenants.length}</span> tenants
-                    </span>
-                    {selectedTenants.length > 0 && (
-                      <span className="bg-[#addbb2] text-gray-800 px-2 py-0.5 rounded-full text-xs font-bold border border-green-300">
-                        {selectedTenants.length} selected
-                      </span>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Pagination */}
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={() => goToPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
-                  >
-                    <FaChevronLeft size={10} />
-                    Previous
-                  </button>
-                  
-                  <div className="flex items-center gap-1">
-                    {[...Array(totalPages)].map((_, i) => {
-                      const page = i + 1;
-                      if (
-                        page === 1 ||
-                        page === totalPages ||
-                        (page >= currentPage - 1 && page <= currentPage + 1)
-                      ) {
-                        return (
-                          <button
-                            key={page}
-                            onClick={() => goToPage(page)}
-                            className={`px-3 py-1.5 min-w-[32px] text-xs rounded-lg border transition-colors font-bold ${
-                              currentPage === page
-                                ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
-                                : 'border-gray-300 hover:bg-gray-50'
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        );
-                      } else if (
-                        page === currentPage - 2 ||
-                        page === currentPage + 2
-                      ) {
-                        return <span key={page} className="px-1 text-gray-400 text-xs">...</span>;
-                      }
-                      return null;
-                    })}
-                  </div>
-                  
-                  <button 
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg flex items-center gap-1 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
-                  >
-                    Next
-                    <FaChevronRight size={10} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Resizing overlay */}
-        {isResizing && (
-          <div className="fixed inset-0 z-50 cursor-col-resize" style={{ cursor: 'col-resize' }} />
-        )}
-
-        {/* Add Tenant Modal with Attachments Section */}
-        {showAddTenantModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-md backdrop-saturate-300 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center p-4 border-b">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-800">Add New Tenant</h2>
-                  <p className="text-xs text-gray-600">Fill in the tenant details below</p>
-                </div>
-                <button
-                  onClick={() => setShowAddTenantModal(false)}
-                  className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100"
-                >
-                  <FaTimes />
-                </button>
-              </div>
-              
-              {/* Modal Content */}
-              <div className="flex-1 overflow-y-auto p-6">
-                <form onSubmit={handleAddTenantSubmit}>
-                  {/* Top Section */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Account Number
-                      </label>
-                      <input
-                        type="text"
-                        name="accountNumber"
-                        value={formData.accountNumber}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        placeholder="Auto-generated or manual"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
-                        Tenant Type *
-                      </label>
-                      <select
-                        name="tenantType"
-                        value={formData.tenantType}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        required
-                      >
-                        <option value="Individual">Individual</option>
-                        <option value="Company">Company</option>
-                        <option value="Partnership">Partnership</option>
-                        <option value="Trust">Trust</option>
-                      </select>
-                    </div>
-                  </div>
-                  
-                  {/* Personal Information */}
-                  <div className="mb-6 border-t pt-4">
-                    <h3 className="text-sm font-semibold text-gray-800 mb-4">Personal Information</h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Surname *
-                        </label>
-                        <input
-                          type="text"
-                          name="surname"
-                          value={formData.surname}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="Last name"
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Other Name(s) *
-                        </label>
-                        <input
-                          type="text"
-                          name="otherNames"
-                          value={formData.otherNames}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="First and middle names"
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Gender
-                        </label>
-                        <select
-                          name="gender"
-                          value={formData.gender}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        >
-                          <option value="">Select Gender</option>
-                          {genderOptions.map(gender => (
-                            <option key={gender} value={gender}>{gender}</option>
-                          ))}
-                        </select>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          ID No./REG No. *
-                        </label>
-                        <input
-                          type="text"
-                          name="idNo"
-                          value={formData.idNo}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="National ID or Registration number"
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Tax PIN *
-                        </label>
-                        <input
-                          type="text"
-                          name="taxPin"
-                          value={formData.taxPin}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="e.g., A123456789X"
-                          required
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Addresses Section */}
-                  <div className="mb-6 border-t pt-4">
-                    <h3 className="text-sm font-semibold text-gray-800 mb-4">Addresses</h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="md:col-span-2">
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Postal Address
-                        </label>
-                        <input
-                          type="text"
-                          name="postalAddress"
-                          value={formData.postalAddress}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="Physical or postal address"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Email
-                        </label>
-                        <input
-                          type="email"
-                          name="email"
-                          value={formData.email}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="Email address"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Postal Code
-                        </label>
-                        <input
-                          type="text"
-                          name="postalCode"
-                          value={formData.postalCode}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="Postal code"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Town *
-                        </label>
-                        <select
-                          name="town"
-                          value={formData.town}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          required
-                        >
-                          <option value="">Select Town</option>
-                          {townOptions.map(town => (
-                            <option key={town} value={town}>{town}</option>
-                          ))}
-                        </select>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Mobile Number *
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500">
-                            +254
-                          </span>
-                          <input
-                            type="tel"
-                            name="mobileNumber"
-                            value={formData.mobileNumber}
-                            onChange={handleInputChange}
-                            className="w-full pl-12 pr-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                            placeholder="712 345 678"
-                            required
-                          />
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Verify Mobile Number
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500">
-                            +254
-                          </span>
-                          <input
-                            type="tel"
-                            name="verifyMobileNumber"
-                            value={formData.verifyMobileNumber}
-                            onChange={handleInputChange}
-                            className="w-full pl-12 pr-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                            placeholder="Re-enter mobile number"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Country *
-                        </label>
-                        <input
-                          type="text"
-                          name="country"
-                          value={formData.country}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          required
-                          readOnly
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Emergency Contact 1 */}
-                  <div className="mb-6 border-t pt-4">
-                    <h3 className="text-sm font-semibold text-gray-800 mb-4">Emergency Contact/Contact Person</h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Contact Name
-                        </label>
-                        <input
-                          type="text"
-                          name="emergencyContactName1"
-                          value={formData.emergencyContactName1}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="Emergency contact name"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Phone
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500">
-                            +254
-                          </span>
-                          <input
-                            type="tel"
-                            name="emergencyPhone1"
-                            value={formData.emergencyPhone1}
-                            onChange={handleInputChange}
-                            className="w-full pl-12 pr-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                            placeholder="Emergency phone number"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Relationship
-                        </label>
-                        <select
-                          name="emergencyRelationship1"
-                          value={formData.emergencyRelationship1}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        >
-                          <option value="">Select Relationship</option>
-                          {relationshipOptions.map(relation => (
-                            <option key={relation} value={relation}>{relation}</option>
-                          ))}
-                        </select>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Email
-                        </label>
-                        <input
-                          type="email"
-                          name="emergencyEmail1"
-                          value={formData.emergencyEmail1}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="Emergency email address"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Emergency Contact 2 */}
-                  <div className="mb-6 border-t pt-4">
-                    <h3 className="text-sm font-semibold text-gray-800 mb-4">Emergency Contact/Contact Person 2</h3>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Contact Name
-                        </label>
-                        <input
-                          type="text"
-                          name="emergencyContactName2"
-                          value={formData.emergencyContactName2}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="Secondary emergency contact"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Phone
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500">
-                            +254
-                          </span>
-                          <input
-                            type="tel"
-                            name="emergencyPhone2"
-                            value={formData.emergencyPhone2}
-                            onChange={handleInputChange}
-                            className="w-full pl-12 pr-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                            placeholder="Secondary emergency phone"
-                          />
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Relationship
-                        </label>
-                        <select
-                          name="emergencyRelationship2"
-                          value={formData.emergencyRelationship2}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        >
-                          <option value="">Select Relationship</option>
-                          {relationshipOptions.map(relation => (
-                            <option key={relation} value={relation}>{relation}</option>
-                          ))}
-                        </select>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">
-                          Email
-                        </label>
-                        <input
-                          type="email"
-                          name="emergencyEmail2"
-                          value={formData.emergencyEmail2}
-                          onChange={handleInputChange}
-                          className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                          placeholder="Secondary emergency email"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Section: Attachments (like Landlords modal) */}
-                  <div className="mb-6 border-t pt-4">
-                    <h3 className="text-sm font-semibold text-gray-800 mb-4">Attachments</h3>
-                    
-                    <div className="flex gap-2 mb-4">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current.click()}
-                        className="px-4 py-2 text-xs bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors"
-                      >
-                        <FaPaperclip className="text-xs" />
-                        Add
-                      </button>
-                      
-                      <button
-                        type="button"
-                        onClick={() => setAttachments([])}
-                        className="px-4 py-2 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors"
-                      >
-                        <FaTrashAlt className="text-xs" />
-                        Delete All
-                      </button>
-                      
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileUpload}
-                        className="hidden"
-                        multiple
-                      />
-                    </div>
-                    
-                    {/* Attachments Table */}
-                    {attachments.length > 0 ? (
-                      <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                        <table className="min-w-full text-xs">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Name</th>
-                              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Size</th>
-                              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Date & Time</th>
-                              <th className="px-3 py-2 text-left font-medium text-gray-700 border-b">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {attachments.map((attachment) => (
-                              <tr key={attachment.id} className="hover:bg-gray-50">
-                                <td className="px-3 py-2 border-b">{attachment.name}</td>
-                                <td className="px-3 py-2 border-b">{attachment.size}</td>
-                                <td className="px-3 py-2 border-b">{attachment.dateTime}</td>
-                                <td className="px-3 py-2 border-b">
-                                  <div className="flex gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDownload(attachment)}
-                                      className="text-blue-600 hover:text-blue-800"
-                                      title="Download"
-                                    >
-                                      <FaDownloadIcon />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteAttachment(attachment.id)}
-                                      className="text-red-600 hover:text-red-800"
-                                      title="Delete"
-                                    >
-                                      <FaTrash />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-gray-500 text-sm border border-gray-200 rounded-lg">
-                        No attachments added yet
-                      </div>
-                    )}
-                  </div>
-                </form>
-              </div>
-              
-              {/* Modal Footer */}
-              <div className="flex justify-between items-center p-4 border-t bg-gray-50">
-                <div className="text-xs text-gray-500">
-                  Fields marked with * are required
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAddTenantModal(false)}
-                    className="px-6 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      // Reset form logic
-                      setFormData({
-                        accountNumber: '',
-                        tenantType: 'Individual',
-                        surname: '',
-                        otherNames: '',
-                        gender: '',
-                        idNo: '',
-                        taxPin: '',
-                        postalAddress: '',
-                        email: '',
-                        postalCode: '',
-                        town: 'NAIROBI',
-                        mobileNumber: '',
-                        verifyMobileNumber: '',
-                        country: 'Kenya',
-                        emergencyContactName1: '',
-                        emergencyPhone1: '',
-                        emergencyRelationship1: '',
-                        emergencyEmail1: '',
-                        emergencyContactName2: '',
-                        emergencyPhone2: '',
-                        emergencyRelationship2: '',
-                        emergencyEmail2: ''
-                      });
-                      setAttachments([]);
-                    }}
-                    className="px-6 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Reset
-                  </button>
-                  <button
-                    type="submit"
-                    onClick={handleAddTenantSubmit}
-                    className="px-6 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
-                  >
-                    <FaSave /> Save Tenant
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </DashboardLayout>
   );
