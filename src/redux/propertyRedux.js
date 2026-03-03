@@ -75,8 +75,25 @@ export const createProperty = createAsyncThunk(
       );
       return response.data;
     } catch (error) {
-      console.error('Property creation error:', error.response?.data || error.message);
-      return rejectWithValue(error.response?.data?.message || 'Failed to create property');
+      console.error('Property creation error:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      let errorMessage = 'Failed to create property';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Server error. Please check the console for details.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      return rejectWithValue(errorMessage);
     }
   }
 );
@@ -268,8 +285,12 @@ const propertySlice = createSlice({
       .addCase(createProperty.fulfilled, (state, action) => {
         state.loading = false;
         state.success = true;
-        state.properties.unshift(action.payload.data);
-        state.pagination.total += 1;
+        // Handle both { data: property } and direct property object responses
+        const property = action.payload?.data || action.payload;
+        if (property) {
+          state.properties.unshift(property);
+          state.pagination.total += 1;
+        }
       })
       .addCase(createProperty.rejected, (state, action) => {
         state.loading = false;

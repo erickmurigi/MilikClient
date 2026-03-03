@@ -682,12 +682,21 @@ const AddProperty = () => {
       navigate("/properties");
     } catch (err) {
       console.error("Property creation error:", err);
-      const backendMessage =
-        err?.message ||
-        err?.error ||
-        err?.data?.message ||
-        err?.response?.data?.message ||
-        "Failed to create property";
+      
+      let backendMessage = "Failed to create property";
+      
+      // Extract error from different possible sources
+      if (typeof err === 'string') {
+        backendMessage = err;
+      } else if (err?.message && err.message !== 'Unauthorized') {
+        backendMessage = err.message;
+      } else if (err?.error) {
+        backendMessage = err.error;
+      } else if (err?.data?.message) {
+        backendMessage = err.data.message;
+      } else if (err?.response?.data?.message) {
+        backendMessage = err.response.data.message;
+      }
 
       if (err?.fieldErrors && typeof err.fieldErrors === "object") {
         setFieldErrors((prev) => ({ ...prev, ...err.fieldErrors }));
