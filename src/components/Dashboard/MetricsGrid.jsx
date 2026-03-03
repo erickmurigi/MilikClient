@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   FaBuilding,
@@ -16,7 +16,7 @@ const MetricsGrid = ({ darkMode }) => {
   // Get data from Redux
   const properties = useSelector(state => state.property?.properties || []);
   const units = useSelector(state => state.unit?.units || []);
-  const tenants = useSelector(state => state.tenants?.tenants || []);
+  const tenants = useSelector(state => state.tenant?.tenants || []);
   const rentPayments = useSelector(state => state.rentPayment?.rentPayments || []);
   const propertiesLoading = useSelector(state => state.property?.isFetching);
   const currentCompany = useSelector(state => state.company?.currentCompany);
@@ -55,7 +55,7 @@ const MetricsGrid = ({ darkMode }) => {
     return `KSh ${value.toLocaleString()}`;
   };
 
-  const metrics = [
+  const metrics = useMemo(() => [
     { 
       id: 1, 
       label: 'Total Properties', 
@@ -116,7 +116,7 @@ const MetricsGrid = ({ darkMode }) => {
       change: '+15.2%',
       loading: propertiesLoading 
     }
-  ];
+  ], [totalProperties, totalUnits, occupancyRate, totalCollected, monthlyCollected, outstandingBalance, propertiesLoading, formatCurrency]);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">

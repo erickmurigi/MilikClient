@@ -175,8 +175,7 @@ const FinancialOverview = ({ darkMode }) => {
       </div>
 
       {/* Chart Section - Full Width */}
-      <div className="w-full">
-        <div className="h-64 w-full" style={{ minHeight: '256px', minWidth: '100px' }}>
+      <div className="w-full" style={{ height: '256px', width: '100%' }}>
           <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={financialData}
@@ -248,7 +247,6 @@ const FinancialOverview = ({ darkMode }) => {
                 />
               </AreaChart>
             </ResponsiveContainer>
-          </div>
       </div>
 
       {/* Bottom Metrics Row */}
