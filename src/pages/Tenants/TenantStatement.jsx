@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { getTenants } from "../../redux/tenantsRedux";
 import { getLeases, getUtilities } from "../../redux/apiCalls";
 import DashboardLayout from "../../components/Layout/DashboardLayout";
+import InvoiceCreationModal from "./InvoiceCreationModal";
 import { toast } from "react-toastify";
 import {
   FaArrowLeft,
@@ -34,6 +35,18 @@ const TenantStatement = () => {
   const [escalationAmount, setEscalationAmount] = useState(1500);
   const [escalationFrequency, setEscalationFrequency] = useState('yearly');
   const [selectedSchedules, setSelectedSchedules] = useState([]);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [invoiceRefresh, setInvoiceRefresh] = useState(0);
+  const [createdInvoices, setCreatedInvoices] = useState(() => {
+    // Load from localStorage on initial mount
+    try {
+      const storageKey = `createdInvoices_${tenantId}`;
+      const stored = localStorage.getItem(storageKey);
+      return stored ? JSON.parse(stored) : {};
+    } catch (error) {
+      return {};
+    }
+  });
   const currentCompany = useSelector((state) => state.company?.currentCompany);
 
   const tenantsFromStore = useSelector((state) => state.tenant?.tenants || []);
@@ -48,6 +61,12 @@ const TenantStatement = () => {
     return leasesFromStore.find((lease) => lease.tenant === tenantId || lease.tenant?._id === tenantId);
   }, [leasesFromStore, tenantId]);
 
+  // Save created invoices to localStorage whenever they change
+  useEffect(() => {
+    const storageKey = `createdInvoices_${tenantId}`;
+    localStorage.setItem(storageKey, JSON.stringify(createdInvoices));
+  }, [createdInvoices, tenantId]);
+
   useEffect(() => {
     if (!currentCompany?._id) return;
 
@@ -56,7 +75,71 @@ const TenantStatement = () => {
     getUtilities(dispatch, currentCompany._id);
   }, [dispatch, currentCompany?._id, tenantId]);
 
-  // Build real transactions from Redis store
+  const handleConfirmInvoiceCreation = async () => {
+    const selectedRows = selectedSchedules.map(idx => billingScheduleData[idx]);
+    const periodsWithoutInvoices = selectedRows.filter(row => row.invoice === "-");
+
+    try {
+      // Generate invoice numbers for created invoices
+      const newInvoices = {};
+      let invoiceNum = 1;
+      
+      // Find the next invoice number by checking ALL tenants' invoices
+      tenantsFromStore.forEach(t => {
+        const storageKey = `createdInvoices_${t._id}`;
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const tenantInvoices = JSON.parse(stored);
+          Object.values(tenantInvoices).forEach((entry) => {
+            const invoiceId = typeof entry === "string"
+              ? entry
+              : (entry?.invoiceId || entry?.id || entry?.number || "");
+            const num = parseInt(String(invoiceId).replace("INV", "")) || 0;
+            if (num >= invoiceNum) invoiceNum = num + 1;
+          });
+        }
+      });
+
+      // Assign invoice numbers to new periods
+      periodsWithoutInvoices.forEach((period) => {
+        const invoiceId = `INV${String(invoiceNum).padStart(5, '0')}`;
+        const utilityAmount = typeof period.utility === "number" ? period.utility : 0;
+        newInvoices[period.description] = {
+          invoiceId,
+          createdAt: new Date().toISOString(),
+          status: "Issued",
+          amount: (period.rent || 0) + utilityAmount,
+          period: period.description,
+          tenantName: period.tenantName || "N/A",
+          propertyName: period.propertyName || "N/A",
+          unitName:
+            tenant?.unit?.unitName ||
+            tenant?.unit?.name ||
+            tenant?.unit?.unitNumber ||
+            "N/A",
+        };
+        invoiceNum++;
+      });
+
+      // TODO: Replace with actual API call to create invoices
+      // Example: await createInvoices(tenantId, periodsWithoutInvoices);
+      
+      toast.success(`Creating ${periodsWithoutInvoices.length} invoice(s) for: ${periodsWithoutInvoices.map(p => p.description).join(', ')}`);
+      
+      // Update created invoices state
+      setCreatedInvoices(prev => ({
+        ...prev,
+        ...newInvoices
+      }));
+      
+      setSelectedSchedules([]);
+      setShowInvoiceModal(false);
+    } catch (error) {
+      toast.error("Failed to create invoices: " + (error.message || "Unknown error"));
+    }
+  };
+
+  // Build real transactions from Redux store
   const statementData = useMemo(() => {
     const transactions = [];
     let transactionId = 1;
@@ -73,6 +156,35 @@ const TenantStatement = () => {
         type: "PAYMENT",
         amount: -(payment.amount || 0),
         transactionCode: payment.referenceNumber || `RCP${transactionId}`,
+      });
+    });
+
+    // Add created invoices
+    const baseRent = tenantLease?.rentAmount || tenant?.rent || 23000;
+    const relevantUtilities = utilitiesFromStore.filter((util) => 
+      util.isActive && (util.business === currentCompany?._id || util.business?._id === currentCompany?._id)
+    );
+    const serviceCharge = relevantUtilities.length === 0 ? null : relevantUtilities.reduce((sum, util) => sum + (util.unitCost || 0), 0);
+    
+    Object.entries(createdInvoices).forEach(([period, entry]) => {
+      const invoiceId = typeof entry === "string"
+        ? entry
+        : (entry?.invoiceId || entry?.id || entry?.number || "");
+      const invoiceAmount =
+        typeof entry === "object" && Number.isFinite(Number(entry?.amount))
+          ? Number(entry.amount)
+          : baseRent + (serviceCharge || 0);
+      const invoiceDate =
+        typeof entry === "object"
+          ? (entry?.createdAt || entry?.createdDate || new Date())
+          : new Date();
+      transactions.push({
+        id: transactionId++,
+        date: invoiceDate,
+        description: `Invoice ${invoiceId} - ${period}`,
+        type: "CHARGE",
+        amount: invoiceAmount,
+        transactionCode: invoiceId,
       });
     });
 
@@ -115,13 +227,23 @@ const TenantStatement = () => {
       totalPayments,
       currentBalance,
     };
-  }, [rentPaymentsFromStore, maintenanceFromStore, tenantId]);
+  }, [rentPaymentsFromStore, maintenanceFromStore, tenantId, createdInvoices, tenantLease, tenant, utilitiesFromStore, currentCompany]);
 
   const billingScheduleData = useMemo(() => {
     const baseRent = tenantLease?.rentAmount || tenant?.rent || 23000;
-    const serviceCharge = 350;
+    
+    // Calculate standing charges dynamically from utilities
+    const relevantUtilities = utilitiesFromStore.filter((util) => 
+      util.isActive && (util.business === currentCompany?._id || util.business?._id === currentCompany?._id)
+    );
+    const serviceCharge = relevantUtilities.length === 0 ? null : relevantUtilities.reduce((sum, util) => sum + (util.unitCost || 0), 0);
+    
     const scheduleData = [];
     let invoiceCounter = 1;
+    
+    // Get tenant and property names
+    const tenantName = tenant?.firstName && tenant?.lastName ? `${tenant.firstName} ${tenant.lastName}` : tenant?.name || "N/A";
+    const propertyName = tenant?.unit?.property?.propertyName || "N/A";
 
     // Determine start and end dates
     let startDate;
@@ -167,6 +289,15 @@ const TenantStatement = () => {
         const paymentDate = new Date(payment.paymentDate || payment.createdAt);
         return paymentDate >= currentDate && paymentDate < nextDate;
       });
+
+      // Check if invoice was created for this period
+      const createdInvoiceEntry = createdInvoices[monthName];
+      const createdInvoiceNumber = typeof createdInvoiceEntry === "string"
+        ? createdInvoiceEntry
+        : (createdInvoiceEntry?.invoiceId || createdInvoiceEntry?.id || createdInvoiceEntry?.number || "");
+      const hasCreatedInvoice = Boolean(createdInvoiceNumber);
+      const shouldShowInvoice = hasPaymentForPeriod || hasCreatedInvoice;
+      const isBooked = hasPaymentForPeriod || hasCreatedInvoice;
       
       scheduleData.push({
         from,
@@ -174,17 +305,19 @@ const TenantStatement = () => {
         description: monthName,
         rent: baseRent,
         utility: serviceCharge,
-        booked: hasPaymentForPeriod ? "Yes" : "No",
+        booked: isBooked ? "Yes" : "No",
         frozen: "No",
-        invoice: hasPaymentForPeriod ? invoiceNum : "-"
+        invoice: shouldShowInvoice ? (createdInvoiceNumber || invoiceNum) : "-",
+        tenantName,
+        propertyName
       });
       
-      if (hasPaymentForPeriod) invoiceCounter++;
+      if (shouldShowInvoice) invoiceCounter++;
       currentDate = nextDate;
     }
 
     return scheduleData;
-  }, [tenantLease, tenant]);
+  }, [tenantLease, tenant, utilitiesFromStore, currentCompany, rentPaymentsFromStore, tenantId, createdInvoices]);
 
   // Tabs configuration
   const tabs = [
@@ -446,9 +579,8 @@ const TenantStatement = () => {
         return;
       }
 
-      // TODO: Implement actual invoice creation API call
-      toast.success(`Creating ${periodsWithoutInvoices.length} invoice(s) for: ${periodsWithoutInvoices.map(p => p.description).join(', ')}`);
-      setSelectedSchedules([]);
+      // Show invoice creation modal
+      setShowInvoiceModal(true);
     };
 
     const handleCancelInvoices = () => {
@@ -1068,14 +1200,14 @@ const TenantStatement = () => {
                     Tenant Name
                   </p>
                   <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">
-                    {tenant?.firstName} {tenant?.lastName}
+                    {tenant ? `${tenant.firstName || ""} ${tenant.lastName || ""}`.trim() : "Loading..."}
                   </p>
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">
                     Phone
                   </p>
-                  <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">{tenant?.phone}</p>
+                  <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">{tenant?.phone || "-"}</p>
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">
@@ -1193,6 +1325,14 @@ const TenantStatement = () => {
           }
         }
       `}</style>
+
+      {/* Invoice Creation Modal */}
+      <InvoiceCreationModal
+        isOpen={showInvoiceModal}
+        periods={selectedSchedules.map(idx => billingScheduleData[idx])}
+        onConfirm={handleConfirmInvoiceCreation}
+        onCancel={() => setShowInvoiceModal(false)}
+      />
     </DashboardLayout>
   );
 };

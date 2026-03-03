@@ -2,6 +2,17 @@
 import React, { useState } from "react";
 import { Toaster } from "react-hot-toast";
 import { Link, useNavigate } from "react-router-dom";
+import {
+  FaFileInvoice, FaReceipt, FaCoins, FaBook, FaChartBar,
+  FaCreditCard, FaExchangeAlt, FaMoneyBillWave, FaHandHolding,
+  FaCalendarAlt, FaWallet, FaUniversity, FaCog,
+  FaExclamationTriangle, FaCalculator, FaPhone,
+  FaFile, FaSave, FaFileExport, FaPrint, FaSignOutAlt,
+  FaHome, FaPlus, FaInfo, FaSquare, FaCheck,
+  FaUser, FaUsers, FaAddressCard, FaTag, FaClipboard,
+  FaHandshake, FaChartLine, FaChartPie, FaFileAlt,
+  FaToolbox, FaDatabase, FaWrench, FaHeadset, FaInfoCircle
+} from "react-icons/fa";
 import "./dashboard.css";
 import TabManager from "../../components/Layout/TabManager";
 import ModuleTabManager from "../../components/Layout/ModuleTabManager";
@@ -73,7 +84,7 @@ const DashboardLayout = ({ children, lockContentScroll = false }) => {
 
 const TopToolbar = ({ darkMode, setDarkMode }) => {
   const [activeMenu, setActiveMenu] = useState(null);
-  const [activeSubMenu, setActiveSubMenu] = useState(null);
+  const [hoveredFinancialItem, setHoveredFinancialItem] = useState(null); // Track hovered submenu items
   const navigate = useNavigate();
 
   // Route configurations
@@ -109,6 +120,7 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
     accounts: "/financial/accounts",
     transactions: "/financial/transactions",
     "ledger-entries": "/financial/ledger-entries",
+    "rental-invoices-list": "/invoices/rental",
     "new-invoice": "/invoices/new",
     "increase-bill": "/invoices/increase",
     "reduce-bill": "/invoices/reduce",
@@ -156,155 +168,165 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
     {
       id: "file",
       label: "File",
+      icon: FaFile,
       submenu: [
-        { id: "new-property", label: "New Property", shortcut: "Ctrl+N" },
-        { id: "open", label: "Open", shortcut: "Ctrl+O" },
-        { id: "save", label: "Save", shortcut: "Ctrl+S" },
+        { id: "new-property", label: "New Property", icon: FaPlus, shortcut: "Ctrl+N" },
+        { id: "open", label: "Open", icon: FaFile, shortcut: "Ctrl+O" },
+        { id: "save", label: "Save", icon: FaSave, shortcut: "Ctrl+S" },
         { type: "separator" },
-        { id: "export", label: "Export Reports", shortcut: "Ctrl+E" },
-        { id: "print", label: "Print", shortcut: "Ctrl+P" },
+        { id: "export", label: "Export Reports", icon: FaFileExport, shortcut: "Ctrl+E" },
+        { id: "print", label: "Print", icon: FaPrint, shortcut: "Ctrl+P" },
         { type: "separator" },
-        { id: "exit", label: "Exit", shortcut: "Alt+F4" },
+        { id: "exit", label: "Exit", icon: FaSignOutAlt, shortcut: "Alt+F4" },
       ],
     },
     {
       id: "properties",
       label: "Properties",
+      icon: FaHome,
       submenu: [
-        { id: "properties-list", label: "Properties Listing" },
-        { id: "add-property", label: "Add New Property" },
-        { id: "property-details", label: "Property Details" },
+        { id: "properties-list", label: "Properties Listing", icon: FaHome },
+        { id: "add-property", label: "Add New Property", icon: FaPlus },
+        { id: "property-details", label: "Property Details", icon: FaInfo },
         { type: "separator" },
-        { id: "units-spaces", label: "Units/Spaces Management" },
-        { id: "availability", label: "Availability Status" },
-        { id: "property-status", label: "Property Specific Status" },
+        { id: "units-spaces", label: "Units/Spaces Management", icon: FaSquare },
+        { id: "availability", label: "Availability Status", icon: FaCheck },
+        { id: "property-status", label: "Property Specific Status", icon: FaTag },
       ],
     },
     {
       id: "landlord",
-      label: "landlord",
+      label: "Landlord",
+      icon: FaUser,
       submenu: [
-        { id: "landlord-list", label: "Landlord Listing" },
-        { id: "add-landlord", label: "Add New Landlord" },
-        { id: "landlord-details", label: "Landlord Details" },
+        { id: "landlord-list", label: "Landlord Listing", icon: FaUser },
+        { id: "add-landlord", label: "Add New Landlord", icon: FaPlus },
+        { id: "landlord-details", label: "Landlord Details", icon: FaAddressCard },
       ],
     },
     {
       id: "units",
       label: "Units",
+      icon: FaSquare,
       submenu: [
-        { id: "units-list", label: "Units Listing" },
-        { id: "add-unit", label: "Add New Unit" },
-        { id: "space-types", label: "Space Types" },
-        { id: "unit-status", label: "Unit Status Dashboard" },
+        { id: "units-list", label: "Units Listing", icon: FaSquare },
+        { id: "add-unit", label: "Add New Unit", icon: FaPlus },
+        { id: "space-types", label: "Space Types", icon: FaTag },
+        { id: "unit-status", label: "Unit Status Dashboard", icon: FaCheck },
       ],
     },
     {
       id: "tenants",
       label: "Tenants",
+      icon: FaUsers,
       submenu: [
-        { id: "tenants-list", label: "Tenants Listing" },
-        { id: "add-tenant", label: "Add New Tenant" },
+        { id: "tenants-list", label: "Tenants Listing", icon: FaUsers },
+        { id: "add-tenant", label: "Add New Tenant", icon: FaPlus },
         { type: "separator" },
-        { id: "tenant-agreements", label: "Tenant Agreements" },
-        { id: "lease-management", label: "Lease Management" },
+        { id: "tenant-agreements", label: "Tenant Agreements", icon: FaClipboard },
+        { id: "lease-management", label: "Lease Management", icon: FaHandshake },
         { type: "separator" },
-        { id: "tenant-ledger", label: "Tenant Ledger" },
-        { id: "tenant-financing", label: "Tenants Financing" },
-        { id: "tenant-journals", label: "Tenants Journals" },
+        { id: "tenant-ledger", label: "Tenant Ledger", icon: FaBook },
+        { id: "tenant-financing", label: "Tenants Financing", icon: FaReceipt },
+        { id: "tenant-journals", label: "Tenants Journals", icon: FaClipboard },
       ],
     },
     {
       id: "financial",
       label: "Financial",
+      icon: FaMoneyBillWave,
       submenu: [
-        { id: "rental-invoicing", label: "Rental Invoicing", hasSubmenu: true },
-        { id: "rental-receipting", label: "Rental Receipting", hasSubmenu: true },
+        { id: "rental-invoicing", label: "Rental Invoicing", hasSubmenu: true, icon: FaFileInvoice, category: "invoicing", categoryColor: "#4F46E5" },
+        { id: "rental-receipting", label: "Rental Receipting", hasSubmenu: true, icon: FaReceipt, category: "receipting", categoryColor: "#10B981" },
         { type: "separator" },
-        { id: "payment-vouchers", label: "Payment Vouchers" },
-        { id: "consolidate-pvs", label: "Consolidate PVs" },
+        { id: "payment-vouchers", label: "Payment Vouchers", icon: FaCreditCard, category: "expenses", categoryColor: "#FF8C00" },
+        { id: "consolidate-pvs", label: "Consolidate PVs", icon: FaCoins, category: "expenses", categoryColor: "#FF8C00" },
         { type: "separator" },
-        { id: "expenses", label: "Expenses", hasSubmenu: true },
-        { id: "landlord-payments", label: "Landlord Payments", hasSubmenu: true },
-        { id: "service-providers", label: "Service Providers" },
+        { id: "expenses", label: "Expenses", hasSubmenu: true, icon: FaMoneyBillWave, category: "expenses", categoryColor: "#FF8C00" },
+        { id: "landlord-payments", label: "Landlord Payments", hasSubmenu: true, icon: FaHandHolding, category: "landlord", categoryColor: "#8B5CF6" },
+        { id: "service-providers", label: "Service Providers", icon: FaCog, category: "landlord", categoryColor: "#8B5CF6" },
         { type: "separator" },
-        { id: "accounts", label: "Accounts" },
-        { id: "transactions", label: "Transactions" },
-        { id: "ledger-entries", label: "Ledger Entries" },
+        { id: "accounts", label: "Accounts", icon: FaUniversity, category: "ledger", categoryColor: "#0B3B2E" },
+        { id: "transactions", label: "Transactions", icon: FaExchangeAlt, category: "ledger", categoryColor: "#0B3B2E" },
+        { id: "ledger-entries", label: "Ledger Entries", icon: FaBook, category: "ledger", categoryColor: "#0B3B2E" },
       ],
     },
     {
       id: "reports",
       label: "Reports",
+      icon: FaChartBar,
       submenu: [
-        { id: "rental-collection", label: "Rental Collection Report" },
-        { id: "paid-balance", label: "Paid & Balance Report" },
-        { id: "aged-analysis", label: "Aged Analysis" },
+        { id: "rental-collection", label: "Rental Collection Report", icon: FaChartBar },
+        { id: "paid-balance", label: "Paid & Balance Report", icon: FaChartLine },
+        { id: "aged-analysis", label: "Aged Analysis", icon: FaChartPie },
         { type: "separator" },
-        { id: "landlord-statements", label: "Landlord Statements" },
-        { id: "commission-reports", label: "Commission Reports" },
-        { id: "tax-reports", label: "Tax Reports" },
-        { id: "tenant-summary", label: "Tenant Summary" },
+        { id: "landlord-statements", label: "Landlord Statements", icon: FaFileAlt },
+        { id: "commission-reports", label: "Commission Reports", icon: FaMoneyBillWave },
+        { id: "tax-reports", label: "Tax Reports", icon: FaBook },
+        { id: "tenant-summary", label: "Tenant Summary", icon: FaUsers },
       ],
     },
     {
       id: "tools",
       label: "Tools",
+      icon: FaToolbox,
       submenu: [
-        { id: "settings", label: "Settings" },
-        { id: "users", label: "Users" },
-        { id: "backup", label: "Backup/Restore" },
-        { id: "import-export", label: "Import/Export" },
+        { id: "settings", label: "Settings", icon: FaCog },
+        { id: "users", label: "Users", icon: FaUsers },
+        { id: "backup", label: "Backup/Restore", icon: FaDatabase },
+        { id: "import-export", label: "Import/Export", icon: FaExchangeAlt },
         { type: "separator" },
-        { id: "meter-readings", label: "Meter Readings" },
-        { id: "maintenance", label: "Maintenance Management" },
-        { id: "inspections", label: "Inspections" },
+        { id: "meter-readings", label: "Meter Readings", icon: FaCog },
+        { id: "maintenance", label: "Maintenance Management", icon: FaWrench },
+        { id: "inspections", label: "Inspections", icon: FaClipboard },
       ],
     },
     {
       id: "help",
       label: "Help",
+      icon: FaInfoCircle,
       submenu: [
-        { id: "documentation", label: "Documentation" },
-        { id: "support", label: "Support" },
-        { id: "about", label: "About" },
+        { id: "documentation", label: "Documentation", icon: FaBook },
+        { id: "support", label: "Support", icon: FaHeadset },
+        { id: "about", label: "About", icon: FaInfoCircle },
       ],
     },
   ];
 
   const nestedSubmenus = {
     "rental-invoicing": [
-      { id: "new-invoice", label: "New Tenant Invoicing" },
-      { id: "increase-bill", label: "Increase Bill" },
-      { id: "reduce-bill", label: "Reduce Bill" },
-      { id: "late-penalties", label: "Late Penalties - Invoices" },
+      { id: "rental-invoices-list", label: "Rental Invoices", icon: FaFileInvoice },
+      { id: "new-invoice", label: "Create New Invoice", icon: FaFileInvoice },
+      { id: "increase-bill", label: "Increase Bill", icon: FaChartBar },
+      { id: "reduce-bill", label: "Reduce Bill", icon: FaChartBar },
+      { id: "late-penalties", label: "Late Penalties - Invoices", icon: FaExclamationTriangle },
       { type: "separator" },
-      { id: "rental-invoices-vat", label: "Rental Invoices V.A.T" },
-      { id: "withholding-vat", label: "Withholding V.A.T" },
-      { id: "withholding-tax", label: "Withholding Tax" },
-      { id: "rental-aged-analysis", label: "Rental Aged Analysis" },
-      { id: "landlord-invoices", label: "Landlord Invoices" },
+      { id: "rental-invoices-vat", label: "Rental Invoices V.A.T", icon: FaFileInvoice },
+      { id: "withholding-vat", label: "Withholding V.A.T", icon: FaCalculator },
+      { id: "withholding-tax", label: "Withholding Tax", icon: FaCalculator },
+      { id: "rental-aged-analysis", label: "Rental Aged Analysis", icon: FaChartBar },
+      { id: "landlord-invoices", label: "Landlord Invoices", icon: FaFileInvoice },
     ],
     "rental-receipting": [
-      { id: "rental-receipts", label: "Rental Receipts" },
-      { id: "slip-collection", label: "Slip Collection" },
-      { id: "mpesa-import", label: "M-Pesa Batch Import" },
-      { id: "tenant-prepayments", label: "Tenants Prepayments" },
-      { id: "instant-receipts", label: "Instant Receipts" },
-      { id: "landlord-receipt", label: "Landlord Receipt" },
+      { id: "rental-receipts", label: "Rental Receipts", icon: FaReceipt },
+      { id: "slip-collection", label: "Slip Collection", icon: FaWallet },
+      { id: "mpesa-import", label: "M-Pesa Batch Import", icon: FaPhone },
+      { id: "tenant-prepayments", label: "Tenants Prepayments", icon: FaCoins },
+      { id: "instant-receipts", label: "Instant Receipts", icon: FaReceipt },
+      { id: "landlord-receipt", label: "Landlord Receipt", icon: FaReceipt },
     ],
     expenses: [
-      { id: "expense-requisition", label: "Expense Requisition" },
-      { id: "notes-payable", label: "Notes Payable" },
-      { id: "payment-vouchers-list", label: "Payment Vouchers" },
-      { id: "consolidate-pvs-list", label: "Consolidate PVs" },
-      { id: "notes-payment-vouchers", label: "Notes Payment Vouchers" },
+      { id: "expense-requisition", label: "Expense Requisition", icon: FaFileInvoice },
+      { id: "notes-payable", label: "Notes Payable", icon: FaCreditCard },
+      { id: "payment-vouchers-list", label: "Payment Vouchers", icon: FaMoneyBillWave },
+      { id: "consolidate-pvs-list", label: "Consolidate PVs", icon: FaCoins },
+      { id: "notes-payment-vouchers", label: "Notes Payment Vouchers", icon: FaCreditCard },
     ],
     "landlord-payments": [
-      { id: "landlord-standing-orders", label: "Landlord Standing Orders" },
-      { id: "landlord-advancement", label: "Landlord Advancement" },
-      { id: "landlord-jvs", label: "Landlord J.Vs" },
-      { id: "batch-landlord-jvs", label: "Batch Landlord J.Vs" },
+      { id: "landlord-standing-orders", label: "Landlord Standing Orders", icon: FaCalendarAlt },
+      { id: "landlord-advancement", label: "Landlord Advancement", icon: FaMoneyBillWave },
+      { id: "landlord-jvs", label: "Landlord J.Vs", icon: FaBook },
+      { id: "batch-landlord-jvs", label: "Batch Landlord J.Vs", icon: FaBook },
     ],
   };
 
@@ -313,8 +335,181 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
     if (route) {
       navigate(route);
       setActiveMenu(null);
-      setActiveSubMenu(null);
+      setHoveredFinancialItem(null);
     }
+  };
+
+  // Universal menu colors and info for all menu categories
+  const menuColorMap = {
+    // File menu
+    "file": { color: "#6366F1", label: "File Operations", icon: FaFile },
+    // Properties menu
+    "properties": { color: "#3B82F6", label: "Properties", icon: FaHome },
+    // Landlord menu  
+    "landlord": { color: "#F59E0B", label: "Landlord Management", icon: FaUser },
+    // Units menu
+    "units": { color: "#8B5CF6", label: "Units & Spaces", icon: FaSquare },
+    // Tenants menu
+    "tenants": { color: "#EC4899", label: "Tenants", icon: FaUsers },
+    // Reports menu
+    "reports": { color: "#10B981", label: "Reports & Analytics", icon: FaChartBar },
+    // Tools menu
+    "tools": { color: "#06B6D4", label: "Tools & Settings", icon: FaToolbox },
+    // Help menu
+    "help": { color: "#8B5CF6", label: "Help & Support", icon: FaInfoCircle },
+    // Financial sub-categories
+    "rental-invoicing": { color: "#4F46E5", label: "Rental Invoicing", icon: FaFileInvoice },
+    "rental-receipting": { color: "#10B981", label: "Rental Receipting", icon: FaReceipt },
+    "expenses": { color: "#FF8C00", label: "Expenses", icon: FaMoneyBillWave },
+    "landlord-payments": { color: "#8B5CF6", label: "Landlord Payments", icon: FaHandHolding },
+  };
+
+  // Professional Dropdown Component - Works for all menus
+  const ProfessionalDropdown = ({ menuId, items }) => {
+    const menuInfo = menuColorMap[menuId] || { color: "#0B3B2E", label: menuId.toUpperCase(), icon: FaCog };
+    const MenuIcon = menuInfo.icon;
+
+    return (
+      <div
+        className={`absolute left-full top-0 w-96 shadow-2xl z-50 rounded-lg overflow-hidden border pointer-events-auto ${
+          darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"
+        }`}
+        style={{ marginLeft: "0px" }}
+        onMouseEnter={() => setHoveredFinancialItem(menuId)}
+        onMouseLeave={() => setHoveredFinancialItem(null)}
+      >
+        {/* Category Header */}
+        <div
+          style={{ backgroundColor: menuInfo.color }}
+          className="px-5 py-4 text-white flex items-center space-x-3"
+        >
+          <MenuIcon size={22} className="flex-shrink-0" />
+          <div>
+            <h3 className="text-sm font-bold leading-tight">{menuInfo.label}</h3>
+            <p className="text-xs opacity-90">Quick Access</p>
+          </div>
+        </div>
+
+        {/* Menu Items Container */}
+        <div className={`${darkMode ? "bg-gray-800" : "bg-white"} max-h-96 overflow-y-auto`}>
+          {items.map((item, idx) => (
+            <React.Fragment key={item.id || `sep-${idx}`}>
+              {item.type === "separator" ? (
+                <div className={`h-px ${darkMode ? "bg-gray-700" : "bg-gray-200"} mx-3 my-2`} />
+              ) : (
+                <button
+                  onClick={() => {
+                    handleMenuItemClick(item.id);
+                    setHoveredFinancialItem(null);
+                  }}
+                  className={`w-full text-left px-5 py-3 text-sm font-medium flex items-center space-x-3 transition-all duration-150 border-l-4 ${
+                    darkMode
+                      ? "text-gray-200 hover:bg-gray-700 hover:text-white border-l-transparent"
+                      : "text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-transparent border-l-transparent"
+                  }`}
+                >
+                  {item.icon && (
+                    <span
+                      className="flex-shrink-0 transition-transform duration-150"
+                      style={{ color: "#FF8C00" }}
+                    >
+                      <item.icon size={16} />
+                    </span>
+                  )}
+                  <div className="flex-1">
+                    <span>{item.label}</span>
+                    {item.shortcut && (
+                      <span className={`ml-2 text-xs ${darkMode ? "text-gray-500" : "text-gray-400"}`}>
+                        {item.shortcut}
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    className={`text-xs opacity-50 transition-opacity`}
+                    style={{ color: menuInfo.color }}
+                  >
+                    →
+                  </span>
+                </button>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+
+        {/* Footer Accent */}
+        <div style={{ backgroundColor: menuInfo.color }} className="h-1.5" />
+      </div>
+    );
+  };
+
+  // Financial Dropdown Component - Color-coded for Financial tab
+  const FinancialDropdown = ({ categoryId, items }) => {
+    const category = menuColorMap[categoryId] || { color: "#0B3B2E", label: "Financial", icon: FaBook };
+
+    return (
+      <div
+        className={`absolute left-full top-0 w-96 shadow-2xl z-50 rounded-lg overflow-hidden border pointer-events-auto ${
+          darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100"
+        }`}
+        style={{ marginLeft: "0px" }}
+        onMouseEnter={() => setHoveredFinancialItem(categoryId)}
+        onMouseLeave={() => setHoveredFinancialItem(null)}
+      >
+        {/* Category Header */}
+        <div
+          style={{ backgroundColor: category.color }}
+          className="px-5 py-4 text-white flex items-center space-x-3"
+        >
+          <category.icon size={22} className="flex-shrink-0" />
+          <div>
+            <h3 className="text-sm font-bold leading-tight">{category.label}</h3>
+            <p className="text-xs opacity-90">Financial Operations</p>
+          </div>
+        </div>
+
+        {/* Menu Items Container */}
+        <div className={`${darkMode ? "bg-gray-800" : "bg-white"} max-h-96 overflow-y-auto`}>
+          {items.map((item, idx) => (
+            <React.Fragment key={item.id || `sep-${idx}`}>
+              {item.type === "separator" ? (
+                <div className={`h-px ${darkMode ? "bg-gray-700" : "bg-gray-200"} mx-3 my-2`} />
+              ) : (
+                <button
+                  onClick={() => {
+                    handleMenuItemClick(item.id);
+                    setHoveredFinancialItem(null);
+                  }}
+                  className={`w-full text-left px-5 py-3 text-sm font-medium flex items-center space-x-3 transition-all duration-150 border-l-4 ${
+                    darkMode
+                      ? "text-gray-200 hover:bg-gray-700 hover:text-white border-l-transparent"
+                      : "text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-transparent border-l-transparent"
+                  }`}
+                >
+                  {item.icon && (
+                    <span
+                      className="flex-shrink-0 transition-transform duration-150"
+                      style={{ color: category.color }}
+                    >
+                      <item.icon size={16} />
+                    </span>
+                  )}
+                  <span>{item.label}</span>
+                  <span
+                    className={`text-xs opacity-50 transition-opacity`}
+                    style={{ color: category.color }}
+                  >
+                    →
+                  </span>
+                </button>
+              )}
+            </React.Fragment>
+          ))}
+        </div>
+
+        {/* Footer Accent */}
+        <div style={{ backgroundColor: category.color }} className="h-1.5" />
+      </div>
+    );
   };
 
   let separatorCounter = 0;
@@ -333,19 +528,59 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
         <div
           key={item.id}
           className="relative"
-          onMouseEnter={() => setActiveSubMenu(item.id)}
-          onMouseLeave={() => setTimeout(() => setActiveSubMenu(null), 100)}
+          onMouseEnter={() => setHoveredFinancialItem(item.id)}
+          onMouseLeave={() => {
+            // Small delay to allow cursor to cross to dropdown without losing hover
+            setTimeout(() => setHoveredFinancialItem(null), 50);
+          }}
         >
+          {/* Parent Button */}
           <button
-            className={`w-full text-left px-4 py-2 text-sm flex justify-between items-center ${
+            className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between transition-all duration-200 ${
               darkMode
                 ? "text-gray-300 hover:bg-gray-700 hover:text-white"
                 : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
             }`}
           >
-            <span>{item.label}</span>
+            <div className="flex items-center space-x-3">
+              {item.icon && (
+                <span 
+                  style={{ color: activeMenu === "financial" ? (item.categoryColor || "#666") : "#FF8C00" }}
+                  className="transition-transform duration-200"
+                >
+                  <item.icon size={16} />
+                </span>
+              )}
+              <span>{item.label}</span>
+            </div>
             <span className="text-xs">▶</span>
           </button>
+
+          {/* Invisible bridge to prevent gap hover loss */}
+          {hoveredFinancialItem === item.id && nestedSubmenus[item.id] && (
+            <div
+              className="absolute left-full top-0 w-2 h-full pointer-events-auto"
+              onMouseEnter={() => setHoveredFinancialItem(item.id)}
+              onMouseLeave={() => {
+                setTimeout(() => setHoveredFinancialItem(null), 50);
+              }}
+            />
+          )}
+
+          {/* Submenu rendering */}
+          {nestedSubmenus[item.id] && hoveredFinancialItem === item.id && (
+            activeMenu === "financial" ? (
+              <FinancialDropdown
+                categoryId={item.id}
+                items={nestedSubmenus[item.id]}
+              />
+            ) : (
+              <ProfessionalDropdown
+                menuId={item.id}
+                items={nestedSubmenus[item.id]}
+              />
+            )
+          )}
         </div>
       );
     }
@@ -354,43 +589,28 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
       <button
         key={item.id}
         onClick={() => handleMenuItemClick(item.id)}
-        className={`w-full text-left px-4 py-2 text-sm flex justify-between items-center ${
+        className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between transition-all duration-200 ${
           darkMode
             ? "text-gray-300 hover:bg-gray-700 hover:text-white"
             : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
         }`}
       >
-        <span>{item.label}</span>
+        <div className="flex items-center space-x-3">
+          {item.icon && (
+            <span 
+              style={{ color: activeMenu === "financial" ? (item.categoryColor || "#666") : "#FF8C00" }}
+              className="transition-transform duration-200"
+            >
+              <item.icon size={16} />
+            </span>
+          )}
+          <span>{item.label}</span>
+        </div>
         {item.shortcut && (
           <span className={`text-xs ${darkMode ? "text-gray-400" : "text-gray-500"}`}>
             {item.shortcut}
           </span>
         )}
-      </button>
-    );
-  };
-
-  const renderNestedMenuItem = (item, index) => {
-    if (item.type === "separator") {
-      return (
-        <div
-          key={`sep-nested-${index}`}
-          className={`h-px ${darkMode ? "bg-gray-700" : "bg-gray-200"} my-1`}
-        />
-      );
-    }
-
-    return (
-      <button
-        key={item.id}
-        onClick={() => handleMenuItemClick(item.id)}
-        className={`w-full text-left px-4 py-2 text-sm ${
-          darkMode
-            ? "text-gray-300 hover:bg-gray-700 hover:text-white"
-            : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-        }`}
-      >
-        {item.label}
       </button>
     );
   };
@@ -442,21 +662,6 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
               >
                 {item.submenu.map((subItem, index) => (
                   <React.Fragment key={subItem.id || `submenu-${item.id}-${index}`}>{renderMenuItem(subItem, index)}</React.Fragment>
-                ))}
-              </div>
-            )}
-
-            {/* Nested Submenu */}
-            {activeMenu === item.id && activeSubMenu && nestedSubmenus[activeSubMenu] && (
-              <div
-                className={`absolute left-full top-0 w-64 shadow-lg z-50 border ${
-                  darkMode ? "bg-gray-800 border-gray-700" : "bg-emerald-700 border-gray-200"
-                }`}
-              >
-                {nestedSubmenus[activeSubMenu].map((nestedItem, nestedIndex) => (
-                  <React.Fragment key={nestedItem.id || `nested-${activeSubMenu}-${nestedIndex}`}>
-                    {renderNestedMenuItem(nestedItem, nestedIndex)}
-                  </React.Fragment>
                 ))}
               </div>
             )}

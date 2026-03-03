@@ -18,6 +18,7 @@ import AddUnit from "./components/Units/AddUnit";
 import Tenants from "./pages/Tenants/Tenants";
 import AddTenant from "./pages/Tenants/AddTenant";
 import TenantStatement from "./pages/Tenants/TenantStatement";
+import RentalInvoices from "./pages/Tenants/RentalInvoices";
 import Leases from "./pages/Lease/Lease";
 import Vacants from "./pages/Vacants/Vacants";
 import Maintenances from "./pages/Maintenances/Maintenances";
@@ -86,6 +87,8 @@ function App() {
         <Route path="/tenant/:id/charges" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
         <Route path="/tenant/:id/escalations" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
         <Route path="/tenant/:id/edit" element={<ProtectedRoute><AddTenant /></ProtectedRoute>} />
+        <Route path="/invoices/rental" element={<ProtectedRoute><RentalInvoices /></ProtectedRoute>} />
+        <Route path="/invoices/rental/:id" element={<ProtectedRoute><RentalInvoices /></ProtectedRoute>} />
         <Route path="/leases" element={<ProtectedRoute><Leases /></ProtectedRoute>} />
         <Route path="/vacants" element={<ProtectedRoute><Vacants /></ProtectedRoute>} />
         <Route path="/maintenances" element={<ProtectedRoute><Maintenances /></ProtectedRoute>} />
