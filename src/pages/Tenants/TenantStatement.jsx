@@ -77,6 +77,7 @@ const TenantStatement = () => {
   const [activeTab, setActiveTab] = useState("statement");
   const [startDate, setStartDate] = useState("2026-01-01");
   const [endDate, setEndDate] = useState("2026-03-31");
+  const [transactionType, setTransactionType] = useState("ALL");
   const currentCompany = useSelector((state) => state.company?.currentCompany);
 
   const tenantsFromStore = useSelector((state) => state.tenant?.tenants || []);
@@ -194,7 +195,7 @@ const TenantStatement = () => {
 
   // TAB RENDERERS
   const renderStatement = () => (
-    <div className="space-y-4">
+    <div className="statement-tab space-y-4">
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {/* Monthly Rent */}
@@ -247,9 +248,9 @@ const TenantStatement = () => {
       </div>
 
       {/* Date Range Filter */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 px-4 py-3">
+      <div className="filter-section bg-white rounded-lg shadow-sm border border-slate-200 px-4 py-3">
         <h3 className="text-sm font-bold text-slate-900 mb-2">Filter Period</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">
               Start Date
@@ -272,21 +273,35 @@ const TenantStatement = () => {
               className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
             />
           </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
+              Transaction Type
+            </label>
+            <select
+              value={transactionType}
+              onChange={(e) => setTransactionType(e.target.value)}
+              className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500"
+            >
+              <option value="ALL">All Transactions</option>
+              <option value="CHARGE">Invoices Only</option>
+              <option value="PAYMENT">Receipts Only</option>
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Transactions Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-        <div className="px-4 py-2 bg-slate-50 border-b border-slate-200">
+      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col" style={{ height: '500px' }}>
+        <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex-shrink-0">
           <h3 className="text-sm font-bold text-slate-900">
             <FaChartLine className="inline mr-2" />
             Account Transactions
           </h3>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-y-auto flex-grow">
           <table className="w-full text-xs">
-            <thead>
+            <thead className="sticky top-0">
               <tr className={`${MILIK_GREEN} text-white text-[11px] font-bold`}>
                 <th className="px-3 py-2 text-left">Date</th>
                 <th className="px-3 py-2 text-left">Description</th>
@@ -298,46 +313,48 @@ const TenantStatement = () => {
             </thead>
             <tbody>
               {statementData?.transactions && statementData.transactions.length > 0 ? (
-                statementData.transactions.map((transaction, idx) => (
-                  <tr
-                    key={transaction.id}
-                    className={`border-b border-slate-200 ${
-                      idx % 2 === 0 ? "bg-white" : "bg-slate-50"
-                    } hover:bg-blue-50 transition-colors`}
-                  >
-                    <td className="px-3 py-1.5 text-[11px] font-semibold text-gray-900 whitespace-nowrap">
-                      {new Date(transaction.date).toLocaleDateString()}
-                    </td>
-                    <td className="px-3 py-1.5 text-[11px] text-gray-700">
-                      {transaction.description}
-                    </td>
-                    <td className="px-3 py-1.5 text-center">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
-                          transaction.type === "CHARGE"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-green-100 text-green-700"
+                statementData.transactions
+                  .filter((t) => transactionType === "ALL" || t.type === transactionType)
+                  .map((transaction, idx) => (
+                    <tr
+                      key={transaction.id}
+                      className={`border-b border-slate-200 ${
+                        idx % 2 === 0 ? "bg-white" : "bg-slate-50"
+                      } hover:bg-blue-50 transition-colors`}
+                    >
+                      <td className="px-3 py-1.5 text-[11px] font-semibold text-gray-900 whitespace-nowrap">
+                        {new Date(transaction.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-1.5 text-[11px] text-gray-700">
+                        {transaction.description}
+                      </td>
+                      <td className="px-3 py-1.5 text-center">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                            transaction.type === "CHARGE"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-green-100 text-green-700"
+                          }`}
+                        >
+                          {transaction.type}
+                        </span>
+                      </td>
+                      <td className="px-3 py-1.5 text-[11px] font-semibold text-slate-900 whitespace-nowrap">
+                        {transaction.transactionCode}
+                      </td>
+                      <td
+                        className={`px-3 py-1.5 text-[11px] font-bold text-right whitespace-nowrap ${
+                          transaction.type === "CHARGE" ? "text-red-600" : "text-green-600"
                         }`}
                       >
-                        {transaction.type}
-                      </span>
-                    </td>
-                    <td className="px-3 py-1.5 text-[11px] font-semibold text-slate-900 whitespace-nowrap">
-                      {transaction.transactionCode}
-                    </td>
-                    <td
-                      className={`px-3 py-1.5 text-[11px] font-bold text-right whitespace-nowrap ${
-                        transaction.type === "CHARGE" ? "text-red-600" : "text-green-600"
-                      }`}
-                    >
-                      {transaction.type === "CHARGE" ? "+" : "-"}
-                      Ksh {Math.abs(transaction.amount).toLocaleString()}
-                    </td>
-                    <td className="px-3 py-1.5 text-[11px] font-bold text-right text-gray-900 whitespace-nowrap">
-                      Ksh {transaction.balance.toLocaleString()}
-                    </td>
-                  </tr>
-                ))
+                        {transaction.type === "CHARGE" ? "+" : "-"}
+                        Ksh {Math.abs(transaction.amount).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-1.5 text-[11px] font-bold text-right text-gray-900 whitespace-nowrap">
+                        Ksh {transaction.balance.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))
               ) : (
                 <tr>
                   <td colSpan="6" className="px-3 py-6 text-center text-xs text-gray-600">
@@ -349,9 +366,9 @@ const TenantStatement = () => {
           </table>
         </div>
 
-        {/* Summary Footer */}
+        {/* Summary Footer - Sticky */}
         {statementData?.transactions && statementData.transactions.length > 0 && (
-          <div className="px-4 py-2 bg-slate-100 border-t border-slate-200">
+          <div className="px-4 py-2 bg-slate-100 border-t border-slate-200 flex-shrink-0">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div>
                 <p className="text-[10px] font-bold text-gray-600">Total Charges</p>
@@ -751,102 +768,97 @@ const TenantStatement = () => {
     <DashboardLayout>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 p-4">
         <div className="mx-auto" style={{ maxWidth: "95%" }}>
-          {/* Header */}
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <button
-                onClick={() => navigate("/tenants")}
-                className="text-gray-600 hover:text-gray-900 flex items-center gap-2 mb-3 font-semibold"
-              >
-                <FaArrowLeft size={16} />
-                Back to Tenants
-              </button>
-              <div className="h-1" />
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handlePrint}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold flex items-center gap-2 shadow-md"
-              >
-                <FaPrint size={16} />
-                Print
-              </button>
-              <button
-                onClick={handleDownload}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold flex items-center gap-2 shadow-md"
-              >
-                <FaDownload size={16} />
-                Download PDF
-              </button>
-            </div>
-          </div>
-
-          {/* Tenant Information Card */}
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 px-4 py-3 mb-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Header Section - Sticky */}
+          <div className="sticky top-0 z-10 bg-white rounded-lg shadow-lg border border-slate-200 mb-6 p-4">
+            {/* Back and Action Buttons */}
+            <div className="mb-4 flex items-center justify-between">
               <div>
-                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">
-                  Tenant Name
-                </p>
-                <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">
-                  {tenant?.firstName} {tenant?.lastName}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">
-                  Phone
-                </p>
-                <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">{tenant?.phone}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">
-                  Unit
-                </p>
-                <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">
-                  {tenant?.unit?.unitNumber || "-"}
-                </p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">
-                  Property
-                </p>
-                <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">
-                  {tenant?.unit?.property?.propertyName || "-"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Tab Navigation */}
-          <div className="bg-white rounded-lg shadow-md border border-slate-200 mb-6 overflow-hidden">
-            <div className="flex border-b border-gray-200 overflow-x-auto">
-              {tabs.map((tab) => (
                 <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center justify-center gap-2 px-4 py-4 font-semibold text-sm whitespace-nowrap transition-colors ${
-                    activeTab === tab.id
-                      ? "bg-orange-50 text-orange-600 border-b-2 border-orange-600"
-                      : "text-gray-600 hover:bg-gray-50"
-                  }`}
+                  onClick={() => navigate("/tenants")}
+                  className="text-gray-600 hover:text-gray-900 flex items-center gap-2 font-semibold"
                 >
-                  <span className="text-lg">{tab.icon}</span>
-                  <span className="hidden md:inline">{tab.label}</span>
+                  <FaArrowLeft size={16} />
+                  Back to Tenants
                 </button>
-              ))}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handlePrint}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold flex items-center gap-2 shadow-md"
+                >
+                  <FaPrint size={16} />
+                  Print
+                </button>
+                <button
+                  onClick={handleDownload}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold flex items-center gap-2 shadow-md"
+                >
+                  <FaDownload size={16} />
+                  Download PDF
+                </button>
+              </div>
+            </div>
+
+            {/* Tenant Information Card */}
+            <div className="bg-slate-50 rounded-lg px-4 py-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div>
+                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">
+                    Tenant Name
+                  </p>
+                  <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">
+                    {tenant?.firstName} {tenant?.lastName}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">
+                    Phone
+                  </p>
+                  <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">{tenant?.phone}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">
+                    Unit
+                  </p>
+                  <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">
+                    {tenant?.unit?.unitNumber || "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">
+                    Property
+                  </p>
+                  <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">
+                    {tenant?.unit?.property?.propertyName || "-"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="tabs-container bg-white rounded-lg shadow-md border border-slate-200 mt-4 overflow-hidden">
+              <div className="flex border-b border-gray-200 overflow-x-auto">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center justify-center gap-2 px-4 py-4 font-semibold text-sm whitespace-nowrap transition-colors ${
+                      activeTab === tab.id
+                        ? "bg-orange-50 text-orange-600 border-b-2 border-orange-600"
+                        : "text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="text-lg">{tab.icon}</span>
+                    <span className="hidden md:inline">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Tab Content */}
-          {renderContent()}
+          {/* Scrollable Content Area */}
+          <div className="space-y-4">
 
-          {/* Footer Note */}
-          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-xs text-yellow-800">
-              <span className="font-bold">Note:</span> This statement displays all account
-              transactions, including rent payments, standing charges, and adjustments for the
-              selected period.
-            </p>
           </div>
         </div>
       </div>
@@ -861,6 +873,43 @@ const TenantStatement = () => {
             display: none !important;
           }
           .no-print {
+            display: none !important;
+          }
+          /* Hide the entire tab navigation */
+          .tabs-container {
+            display: none !important;
+          }
+          /* Hide filter section */
+          .filter-section {
+            display: none !important;
+          }
+          /* Hide all tab content except statement */
+          .tab-content {
+            display: none !important;
+          }
+          .statement-tab {
+            display: block !important;
+          }
+          /* Print optimizations */
+          .bg-gradient-to-br {
+            background: white !important;
+          }
+          .shadow-sm, .shadow-md, .shadow-lg {
+            box-shadow: none !important;
+          }
+          /* Optimize transaction table for printing */
+          .transaction-table {
+            height: auto !important;
+            break-inside: avoid;
+          }
+          .transaction-table tbody {
+            page-break-inside: avoid;
+          }
+          .transaction-table tr {
+            page-break-inside: avoid;
+          }
+          /* Hide back button */
+          button:first-child {
             display: none !important;
           }
         }
