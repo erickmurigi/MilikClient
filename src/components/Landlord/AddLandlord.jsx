@@ -255,7 +255,7 @@ const AddLandlord = () => {
         <div className="flex-shrink-0 bg-white border-b border-slate-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Add New Landlord</h1>
+              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Landlord Details</h1>
               <p className="text-sm text-slate-600 mt-1">Fill in the landlord details below</p>
             </div>
             <button

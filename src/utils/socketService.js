@@ -22,7 +22,10 @@ const useSocket = () => {
   useEffect(() => {
     // Create socket connection if not already connected
     if (!socketInstance) {
-      socketInstance = io('http://localhost:8800', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8800/api';
+      const socketUrl = apiUrl.replace('/api', '');
+      
+      socketInstance = io(socketUrl, {
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
@@ -44,9 +47,10 @@ const useSocket = () => {
 
     socketRef.current = socketInstance;
 
+    // Cleanup on unmount - disconnect if this is the last component
     return () => {
-      // Keep socket alive for other components
-      // Only disconnect on complete app closure
+      // Only disconnect if we're truly unmounting the app
+      // Individual components should keep the socket alive
     };
   }, []);
 

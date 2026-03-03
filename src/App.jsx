@@ -17,6 +17,7 @@ import Units from "./pages/Units/Units";
 import AddUnit from "./components/Units/AddUnit";
 import Tenants from "./pages/Tenants/Tenants";
 import AddTenant from "./pages/Tenants/AddTenant";
+import TenantStatement from "./pages/Tenants/TenantStatement";
 import Leases from "./pages/Lease/Lease";
 import Vacants from "./pages/Vacants/Vacants";
 import Maintenances from "./pages/Maintenances/Maintenances";
@@ -49,7 +50,6 @@ function App() {
   // Initialize company from logged-in user on mount/rehydration
   useEffect(() => {
     if (currentUser?.company && !currentCompany) {
-      console.log('Initializing company from user data:', currentUser.company);
       dispatch(getCompanySuccess(currentUser.company));
     }
   }, [currentUser, currentCompany, dispatch]);
@@ -81,7 +81,7 @@ function App() {
         <Route path="/units/new" element={<ProtectedRoute><AddUnit /></ProtectedRoute>} />
         <Route path="/tenants" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
         <Route path="/tenant/new" element={<ProtectedRoute><AddTenant /></ProtectedRoute>} />
-        <Route path="/tenant/:id/statement" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
+        <Route path="/tenant/:id/statement" element={<ProtectedRoute><TenantStatement /></ProtectedRoute>} />
         <Route path="/tenant/:id/billing" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
         <Route path="/tenant/:id/charges" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
         <Route path="/tenant/:id/escalations" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />

@@ -952,7 +952,6 @@ export default function SystemSetupPage() {
   };
 
   const handleEditUser = (user) => {
-    console.log("Edit user:", user);
     // Open edit modal or navigate
   };
 
@@ -991,7 +990,6 @@ export default function SystemSetupPage() {
 
   const handleEdit = (company) => {
     // Open edit modal with company data
-    console.log("Edit company:", company);
     // TODO: Implement edit modal for company
     toast.info('Edit feature coming soon', { duration: 3000 });
   };
@@ -1017,7 +1015,6 @@ export default function SystemSetupPage() {
 
   const handleLock = (company) => {
     // Toggle company lock status
-    console.log("Lock/Unlock company:", company);
     toast.info('Lock feature coming soon', { duration: 3000 });
     // TODO: Implement lock/unlock for company status
   };

@@ -363,7 +363,7 @@ const Units = () => {
 
   const deleteSelected = async () => {
     if (selectedCount === 0) return;
-    if (!window.confirm(`Delete ${selectedCount} selected unit(s)? This action cannot be undone.`)) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedCount} selected unit(s)? This action cannot be undone.`)) return;
     
     try {
       for (const unitId of selectedUnits) {

@@ -23,7 +23,7 @@ import {
   FaUndo,
   FaChevronDown,
 } from "react-icons/fa";
-import { getLandlords, deleteLandlord } from "../../redux/apiCalls";
+import { getLandlords, deleteLandlord, updateLandlord } from "../../redux/apiCalls";
 import MilikConfirmDialog from "../../components/Modals/MilikConfirmDialog";
 
 const STORAGE_KEY = "milik_landlords_v1";
@@ -76,6 +76,8 @@ const Landlords = () => {
     isOpen: false,
     title: "",
     message: "",
+    confirmText: "Confirm",
+    cancelText: "Cancel",
     isDangerous: false,
     onConfirm: null,
   });
@@ -323,8 +325,10 @@ const Landlords = () => {
       isOpen: true,
       title: isSingleDelete ? "Delete Landlord" : "Delete Landlords",
       message: isSingleDelete
-        ? "Delete this landlord? This cannot be undone."
-        : `Delete ${selectedLandlords.length} landlords? This cannot be undone.`,
+        ? "Are you sure you want to delete this landlord? This action cannot be undone."
+        : `Are you sure you want to delete ${selectedLandlords.length} landlords? This action cannot be undone.`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
       isDangerous: true,
       onConfirm: async () => {
         try {
@@ -337,19 +341,126 @@ const Landlords = () => {
           setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         } catch (err) {
           console.error('Delete error:', err);
-          alert(err?.message || "Failed to delete landlord(s)");
+          setConfirmDialog({
+            isOpen: true,
+            title: "Delete Failed",
+            message: err?.message || "Failed to delete landlord(s)",
+            confirmText: "OK",
+            cancelText: "Close",
+            isDangerous: false,
+            onConfirm: () => setConfirmDialog((prev) => ({ ...prev, isOpen: false })),
+          });
         }
       },
     });
   };
 
-  // Archive/Restore functions (placeholder for now)
   const archiveSelected = () => {
-    alert("Archive functionality coming soon!");
+    if (selectedLandlords.length === 0) return;
+    setActionMenuOpen(false);
+
+    const selectedRows = landlords.filter((l) => selectedLandlords.includes(l._id));
+    const toArchive = selectedRows.filter((l) => String(l.status || "Active") !== "Archived");
+
+    if (toArchive.length === 0) {
+      setConfirmDialog({
+        isOpen: true,
+        title: "Nothing to Archive",
+        message: "All selected landlords are already archived.",
+        confirmText: "OK",
+        cancelText: "Close",
+        isDangerous: false,
+        onConfirm: () => setConfirmDialog((prev) => ({ ...prev, isOpen: false })),
+      });
+      return;
+    }
+
+    setConfirmDialog({
+      isOpen: true,
+      title: toArchive.length === 1 ? "Archive Landlord" : "Archive Landlords",
+      message:
+        toArchive.length === 1
+          ? "Are you sure you want to archive this landlord?"
+          : `Are you sure you want to archive ${toArchive.length} landlords?`,
+      confirmText: "Archive",
+      cancelText: "Cancel",
+      isDangerous: false,
+      onConfirm: async () => {
+        try {
+          for (const landlord of toArchive) {
+            await dispatch(updateLandlord(landlord._id, { status: "Archived" }));
+          }
+          setSelectedLandlords([]);
+          setSelectAll(false);
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+        } catch (err) {
+          console.error("Archive error:", err);
+          setConfirmDialog({
+            isOpen: true,
+            title: "Archive Failed",
+            message: err?.response?.data?.message || err?.message || "Failed to archive landlord(s)",
+            confirmText: "OK",
+            cancelText: "Close",
+            isDangerous: false,
+            onConfirm: () => setConfirmDialog((prev) => ({ ...prev, isOpen: false })),
+          });
+        }
+      },
+    });
   };
 
   const restoreSelected = () => {
-    alert("Restore functionality coming soon!");
+    if (selectedLandlords.length === 0) return;
+    setActionMenuOpen(false);
+
+    const selectedRows = landlords.filter((l) => selectedLandlords.includes(l._id));
+    const toRestore = selectedRows.filter((l) => String(l.status || "Active") === "Archived");
+
+    if (toRestore.length === 0) {
+      setConfirmDialog({
+        isOpen: true,
+        title: "Nothing to Restore",
+        message: "Select at least one archived landlord to restore.",
+        confirmText: "OK",
+        cancelText: "Close",
+        isDangerous: false,
+        onConfirm: () => setConfirmDialog((prev) => ({ ...prev, isOpen: false })),
+      });
+      return;
+    }
+
+    setConfirmDialog({
+      isOpen: true,
+      title: toRestore.length === 1 ? "Restore Landlord" : "Restore Landlords",
+      message:
+        toRestore.length === 1
+          ? "Are you sure you want to restore this landlord?"
+          : `Are you sure you want to restore ${toRestore.length} landlords?`,
+      confirmText: "Restore",
+      cancelText: "Cancel",
+      isDangerous: false,
+      onConfirm: async () => {
+        try {
+          for (const landlord of toRestore) {
+            await dispatch(updateLandlord(landlord._id, { status: "Active" }));
+          }
+          setSelectedLandlords([]);
+          setSelectAll(false);
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+        } catch (err) {
+          console.error("Restore error:", err);
+          setConfirmDialog({
+            isOpen: true,
+            title: "Restore Failed",
+            message: err?.response?.data?.message || err?.message || "Failed to restore landlord(s)",
+            confirmText: "OK",
+            cancelText: "Close",
+            isDangerous: false,
+            onConfirm: () => setConfirmDialog((prev) => ({ ...prev, isOpen: false })),
+          });
+        }
+      },
+    });
   };
 
   // --- MODAL / FORM ---
@@ -967,8 +1078,8 @@ const Landlords = () => {
           isOpen={confirmDialog.isOpen}
           title={confirmDialog.title}
           message={confirmDialog.message}
-          confirmText="Delete"
-          cancelText="Cancel"
+          confirmText={confirmDialog.confirmText || "Confirm"}
+          cancelText={confirmDialog.cancelText || "Cancel"}
           isDangerous={confirmDialog.isDangerous}
           onConfirm={() => confirmDialog.onConfirm?.()}
           onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}

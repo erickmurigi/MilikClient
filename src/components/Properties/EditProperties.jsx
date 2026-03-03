@@ -21,7 +21,7 @@ const EditProperty = () => {
   const [formData, setFormData] = useState(null);
 
   useEffect(() => {
-    dispatch(getProperty(id));
+    dispatch(getPropertyById(id));
   }, [dispatch, id]);
 
   useEffect(() => {

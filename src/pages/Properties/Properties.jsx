@@ -23,7 +23,7 @@ import {
   FaCompressAlt,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
-import { getProperties, deleteProperty } from "../../redux/propertyRedux";
+import { getProperties, deleteProperty, archiveProperty, restoreProperty } from "../../redux/propertyRedux";
 import MilikConfirmDialog from "../../components/Modals/MilikConfirmDialog";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
@@ -93,6 +93,7 @@ const Properties = () => {
     isOpen: false,
     title: "",
     message: "",
+    confirmText: "Confirm",
     isDangerous: false,
     onConfirm: null,
   });
@@ -239,7 +240,8 @@ const Properties = () => {
       };
       dispatch(getProperties(params));
     } catch (err) {
-      toast.error(err || "Failed to delete property");
+      const errorMsg = typeof err === 'string' ? err : (err?.message || "Failed to delete property");
+      toast.error(errorMsg);
     }
   };
 
@@ -253,6 +255,7 @@ const Properties = () => {
       isOpen: true,
       title: "Delete Properties",
       message: `Are you sure you want to delete ${selectedProperties.length} properties? This action cannot be undone.`,
+      confirmText: "Delete",
       isDangerous: true,
       onConfirm: async () => {
         try {
@@ -264,6 +267,7 @@ const Properties = () => {
           toast.success(`${selectedProperties.length} properties deleted successfully`);
           setSelectedProperties([]);
           setSelectAll(false);
+          setConfirmDialog({ isOpen: false });
 
           // refresh
           const params = {
@@ -281,7 +285,8 @@ const Properties = () => {
           };
           dispatch(getProperties(params));
         } catch (err) {
-          toast.error(err || "Failed to delete some properties");
+          const errorMsg = typeof err === 'string' ? err : (err?.message || "Failed to delete some properties");
+          toast.error(errorMsg);
         }
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       },
@@ -347,15 +352,101 @@ const Properties = () => {
 
   const totalPages = Math.max(1, Math.ceil((pagination?.total || 0) / itemsPerPage));
 
-  // Archive/Restore placeholders
+  // Archive/Restore properties
   const archiveSelected = () => {
-    toast.info("Archive feature coming soon");
-    setActionMenuOpen(false);
+    if (selectedProperties.length === 0) {
+      toast.error("No properties selected");
+      return;
+    }
+
+    setConfirmDialog({
+      isOpen: true,
+      title: "Archive Properties",
+      message: `Are you sure you want to archive ${selectedProperties.length} properties? You can restore them later.`,
+      confirmText: "Archive",
+      isDangerous: false,
+      onConfirm: async () => {
+        try {
+          for (const propertyId of selectedProperties) {
+            // eslint-disable-next-line no-await-in-loop
+            await dispatch(archiveProperty(propertyId)).unwrap();
+          }
+          toast.success(`${selectedProperties.length} properties archived successfully`);
+          setSelectedProperties([]);
+          setSelectAll(false);
+          setActionMenuOpen(false);
+          setConfirmDialog({ isOpen: false });
+
+          // refresh
+          const params = {
+            page: currentPage,
+            limit: itemsPerPage,
+            search: "",
+            status: appliedFilters.status,
+            zone: appliedFilters.zone,
+            category: appliedFilters.category,
+            code: appliedFilters.code,
+            name: appliedFilters.name,
+            lrNumber: appliedFilters.lr,
+            landlord: appliedFilters.landlord,
+            location: appliedFilters.location,
+          };
+          dispatch(getProperties(params));
+        } catch (err) {
+          const errorMsg = typeof err === 'string' ? err : (err?.message || "Failed to archive properties");
+          toast.error(errorMsg);
+          setConfirmDialog({ isOpen: false });
+        }
+      },
+    });
   };
 
   const restoreSelected = () => {
-    toast.info("Restore feature coming soon");
-    setActionMenuOpen(false);
+    if (selectedProperties.length === 0) {
+      toast.error("No properties selected");
+      return;
+    }
+
+    setConfirmDialog({
+      isOpen: true,
+      title: "Restore Properties",
+      message: `Are you sure you want to restore ${selectedProperties.length} properties?`,
+      confirmText: "Restore",
+      isDangerous: false,
+      onConfirm: async () => {
+        try {
+          for (const propertyId of selectedProperties) {
+            // eslint-disable-next-line no-await-in-loop
+            await dispatch(restoreProperty(propertyId)).unwrap();
+          }
+          toast.success(`${selectedProperties.length} properties restored successfully`);
+          setSelectedProperties([]);
+          setSelectAll(false);
+          setActionMenuOpen(false);
+          setConfirmDialog({ isOpen: false });
+
+          // refresh
+          const params = {
+            page: currentPage,
+            limit: itemsPerPage,
+            search: "",
+            status: appliedFilters.status,
+            zone: appliedFilters.zone,
+            category: appliedFilters.category,
+            code: appliedFilters.code,
+            name: appliedFilters.name,
+            lrNumber: appliedFilters.lr,
+            landlord: appliedFilters.landlord,
+            location: appliedFilters.location,
+          };
+          dispatch(getProperties(params));
+        } catch (err) {
+          const errorMsg = typeof err === 'string' ? err : (err?.message || "Failed to restore properties");
+          toast.error(errorMsg);
+          setConfirmDialog({ isOpen: false });
+        }
+      },
+    });
   };
 
   return (
@@ -948,7 +1039,7 @@ const Properties = () => {
           isOpen={confirmDialog.isOpen}
           title={confirmDialog.title}
           message={confirmDialog.message}
-          confirmText="Delete"
+          confirmText={confirmDialog.confirmText || "Confirm"}
           cancelText="Cancel"
           isDangerous={confirmDialog.isDangerous}
           onConfirm={() => confirmDialog.onConfirm?.()}

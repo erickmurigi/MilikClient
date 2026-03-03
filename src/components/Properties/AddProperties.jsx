@@ -223,6 +223,12 @@ const AddProperty = () => {
     useSelector((state) => state?.landlords?.landlords) ||
     [];
 
+  // Get existing properties for sequential code generation
+  const propertiesFromStore =
+    useSelector((state) => state?.property?.properties) ||
+    useSelector((state) => state?.properties?.items) ||
+    [];
+
   const [activeTab, setActiveTab] = useState("general");
 
   // Milik Confirm Dialog state
@@ -593,12 +599,54 @@ const AddProperty = () => {
     // Auto-generate propertyCode if not provided (backend requires it)
     let propertyCode = formData.propertyCode?.trim();
     if (!propertyCode) {
-      // Generate code from property name + timestamp: PROP-ACMERES-1735689600
-      const nameCode = formData.propertyName
-        .toUpperCase()
-        .replace(/[^A-Z0-9]/g, "")
-        .substring(0, 8);
-      propertyCode = `PROP-${nameCode}-${Date.now().toString().slice(-6)}`;
+      // Generate code: {Landlord Prefix}{Global Sequential Number}{Letter}
+      // Example: AH0001A, AH0002B, MB0003A (MB resets letter)
+      
+      let first2Letters = "PR"; // Default fallback to "PR" (Property)
+      
+      // Try to get landlord initials from formData.landlords[0].landlordId
+      const selectedLandlordId = formData.landlords?.[0]?.landlordId;
+      if (selectedLandlordId && landlordsFromStore?.length > 0) {
+        const landlordObj = landlordsFromStore.find(l => l._id === selectedLandlordId);
+        // Check multiple possible field names for landlord name
+        const landlordName = landlordObj?.landlordName || landlordObj?.name || landlordObj?.fullName || "";
+        if (landlordName) {
+          const extracted = landlordName
+            .toUpperCase()
+            .replace(/[^A-Z]/g, "")
+            .substring(0, 2);
+          // Only use extracted letters if we got at least 1 character
+          if (extracted.length === 2) {
+            first2Letters = extracted;
+          } else if (extracted.length === 1) {
+            first2Letters = extracted.padEnd(2, "X");
+          }
+          // If no letters at all, keep default "PR"
+        }
+      }
+      
+      // GLOBAL sequential number: Find highest number across ALL properties
+      const allNumbers = propertiesFromStore
+        .map(p => {
+          // Extract 4-digit number from middle of code (e.g., "AH0001A" -> 0001)
+          const match = p.propertyCode?.match(/\d{4}/);
+          return match ? parseInt(match[0]) : 0;
+        })
+        .sort((a, b) => b - a);
+      
+      const globalNextNumber = (allNumbers[0] || 0) + 1;
+      const sequentialDigits = String(globalNextNumber).padStart(4, "0");
+      
+      // Per-landlord letter: Count existing properties for this landlord
+      const landlordPropertyCount = propertiesFromStore
+        .filter(p => p.propertyCode?.startsWith(first2Letters))
+        .length;
+      
+      // Generate letter (A, B, C, ... Z, A, B, ...)
+      const letterIndex = landlordPropertyCount % 26;
+      const letter = String.fromCharCode(65 + letterIndex); // 65 = 'A'
+      
+      propertyCode = `${first2Letters}${sequentialDigits}${letter}`;
     }
 
     const businessId = currentCompany?._id;
@@ -692,7 +740,6 @@ const AddProperty = () => {
   // Fetch landlords when component mounts with company context
   useEffect(() => {
     if (currentCompany?._id) {
-      console.log('Fetching landlords for company:', currentCompany._id);
       dispatch(getLandlords({ company: currentCompany._id }));
     }
   }, [currentCompany, dispatch]);

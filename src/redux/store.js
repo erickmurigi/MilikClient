@@ -23,7 +23,10 @@ import leaseReducer from "./leasesRedux"
 import expensePropertyReducer from "./expensePropertyRedux"
 import notificationPropertyReducer from "./notificationPropertyRedux"
 
-const secretKey = 'DecryptBetterBiz'; 
+// WARNING: Client-side encryption provides minimal security
+// Sensitive data should never be stored in localStorage
+// Consider using httpOnly cookies for tokens instead
+const secretKey = import.meta.env.VITE_STORAGE_KEY || 'MilikPropertyManagement2026';
 
 // Encrypt any data
 const encrypt = (inboundState) => {

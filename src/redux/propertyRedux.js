@@ -131,6 +131,60 @@ export const deleteProperty = createAsyncThunk(
   }
 );
 
+export const archiveProperty = createAsyncThunk(
+  'property/archiveProperty',
+  async (id, { getState, rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('milik_token');
+      const state = getState();
+      
+      const response = await axios.put(
+        `${API_URL}/properties/${id}`,
+        {
+          status: 'archived',
+          updatedBy: state.auth?.currentUser?._id
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      return { id, message: response.data.message };
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to archive property');
+    }
+  }
+);
+
+export const restoreProperty = createAsyncThunk(
+  'property/restoreProperty',
+  async (id, { getState, rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('milik_token');
+      const state = getState();
+      
+      const response = await axios.put(
+        `${API_URL}/properties/${id}`,
+        {
+          status: 'active',
+          updatedBy: state.auth?.currentUser?._id
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      return { id, message: response.data.message };
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to restore property');
+    }
+  }
+);
+
 export const getPropertyById = createAsyncThunk(
   'property/getPropertyById',
   async (id, { rejectWithValue }) => {
@@ -276,6 +330,38 @@ const propertySlice = createSlice({
         state.pagination.total -= 1;
       })
       .addCase(deleteProperty.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // Archive Property
+      .addCase(archiveProperty.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(archiveProperty.fulfilled, (state, action) => {
+        state.loading = false;
+        state.properties = state.properties.map(p => 
+          p._id === action.payload.id ? { ...p, status: 'archived' } : p
+        );
+        state.success = true;
+      })
+      .addCase(archiveProperty.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // Restore Property
+      .addCase(restoreProperty.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(restoreProperty.fulfilled, (state, action) => {
+        state.loading = false;
+        state.properties = state.properties.map(p => 
+          p._id === action.payload.id ? { ...p, status: 'active' } : p
+        );
+        state.success = true;
+      })
+      .addCase(restoreProperty.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });

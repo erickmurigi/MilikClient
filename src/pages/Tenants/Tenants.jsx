@@ -17,6 +17,7 @@ import {
   FaUserEdit,
   FaBolt,
   FaChartLine,
+  FaTrash,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { getTenants, deleteTenant } from "../../redux/tenantsRedux";
@@ -64,7 +65,6 @@ const Tenants = () => {
   useEffect(() => {
     if (currentCompany?._id) {
       dispatch(getTenants({ business: currentCompany._id }));
-      console.log("Tenants initialized for company:", currentCompany._id);
     }
   }, [dispatch, currentCompany]);
 
@@ -95,8 +95,8 @@ const Tenants = () => {
         tenantName: tenant.name || "-",
         unitNumber: tenant.unit?.unitNumber || "-",
         propertyName: tenant.unit?.property?.propertyName || "-",
-        startDate: tenant.leaseStartDate
-          ? new Date(tenant.leaseStartDate).toLocaleDateString()
+        startDate: tenant.moveInDate
+          ? new Date(tenant.moveInDate).toLocaleDateString()
           : "-",
         rent: tenant.unit?.rent
           ? `Ksh ${tenant.unit.rent.toLocaleString()}`
@@ -205,11 +205,15 @@ const Tenants = () => {
       toast.warning("Please select at least one tenant");
       return;
     }
+    const selectedTenant = transformedTenants.find((t) => t.id === selectedTenants[0]);
+    const firstName = (selectedTenant?.tenantName || "Tenant").split(" ")[0];
+    const tabTitle = `${firstName}-${selectedTenant?.tenantCode || "TT0000"}`;
+
     if (selectedTenants.length === 1) {
-      navigate(`/tenant/${selectedTenants[0]}/statement`);
+      navigate(`/tenant/${selectedTenants[0]}/statement`, { state: { tabTitle } });
     } else {
       toast.info("Multiple tenants selected. Opening first tenant's statement.");
-      navigate(`/tenant/${selectedTenants[0]}/statement`);
+      navigate(`/tenant/${selectedTenants[0]}/statement`, { state: { tabTitle } });
     }
     setActionMenuOpen(false);
   };
@@ -252,8 +256,11 @@ const Tenants = () => {
   };
 
   // ===== CRUD ACTIONS =====
-  const handleDeleteTenant = async (tenantId) => {
-    if (!window.confirm("Delete this tenant?")) return;
+  const handleDeleteTenant = async (tenantId, tenantName) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to delete ${tenantName || 'this tenant'}? This action cannot be undone.`
+    );
+    if (!confirmed) return;
     try {
       await dispatch(deleteTenant(tenantId)).unwrap();
       toast.success("Tenant deleted successfully");
@@ -459,6 +466,25 @@ const Tenants = () => {
                     >
                       <FaChartLine size={12} />
                       <span>Review Rent for Selected Tenant</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (selectedTenants.length === 0) {
+                          toast.warning("Please select a tenant to delete");
+                          return;
+                        }
+                        if (!window.confirm(`Are you sure you want to delete ${selectedTenants.length} tenant(s)? This action cannot be undone.`)) {
+                          return;
+                        }
+                        selectedTenants.forEach((tenantId) => {
+                          handleDeleteTenant(tenantId);
+                        });
+                        setActionMenuOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs hover:bg-red-50 flex items-center gap-2 text-red-600 border-t border-gray-200 font-semibold"
+                    >
+                      <FaTrash size={12} />
+                      <span>Delete Selected Tenant(s)</span>
                     </button>
                   </div>
                 </div>
@@ -672,9 +698,11 @@ const Tenants = () => {
                               </h4>
                               <div className="flex flex-col gap-1">
                                 <button
-                                  onClick={() =>
-                                    navigate(`/tenant/${tenant.id}/statement`)
-                                  }
+                                  onClick={() => {
+                                    const firstName = (tenant.tenantName || "Tenant").split(" ")[0];
+                                    const tabTitle = `${firstName}-${tenant.tenantCode || "TT0000"}`;
+                                    navigate(`/tenant/${tenant.id}/statement`, { state: { tabTitle } });
+                                  }}
                                   className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded text-xs transition-colors"
                                 >
                                   💳 Statement
@@ -702,6 +730,12 @@ const Tenants = () => {
                                   className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded text-xs transition-colors"
                                 >
                                   📈 Escalations
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteTenant(tenant.id, tenant.tenantName)}
+                                  className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded text-xs transition-colors"
+                                >
+                                  🗑️ Delete
                                 </button>
                               </div>
                             </div>

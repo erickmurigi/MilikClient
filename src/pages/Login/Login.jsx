@@ -70,7 +70,34 @@ function Login() {
       toast.success('Login successful!');
       navigate('/moduleDashboard');
     } catch (err) {
-      const errorMessage = err.response?.data?.message || 'Login failed. Please try again.';
+      let errorMessage = 'Login failed. Please try again.';
+      
+      // Extract error message from different error sources
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.message) {
+        errorMessage = err.message;
+      } else if (err.response?.statusText) {
+        errorMessage = err.response.statusText;
+      }
+      
+      // Handle specific HTTP status codes
+      if (err.response?.status === 401) {
+        errorMessage = 'Invalid email or password';
+      } else if (err.response?.status === 403) {
+        if (errorMessage.includes('inactive')) {
+          errorMessage = 'Your account is inactive. Please contact support.';
+        } else if (errorMessage.includes('locked')) {
+          errorMessage = 'Your account is locked. Please contact support.';
+        }
+      } else if (err.response?.status === 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (!err.response) {
+        errorMessage = 'Network error. Please check your connection.';
+      }
+      
       toast.error(errorMessage);
       console.error('Login error:', err);
     } finally {

@@ -97,6 +97,7 @@ const TabManager = ({ darkMode }) => {
   // Keep tabs for BOTH contexts in memory; only filter visibility at render time
   useEffect(() => {
     const currentPath = location.pathname;
+    const requestedTitle = location.state?.tabTitle;
 
     // Skip dashboard as it's already there
     if (currentPath === '/dashboard') {
@@ -109,6 +110,13 @@ const TabManager = ({ darkMode }) => {
       const existingTab = prev.find(tab => tab.route === currentPath);
       
       if (existingTab) {
+        if (requestedTitle && existingTab.title !== requestedTitle) {
+          const updatedTabs = prev.map(tab =>
+            tab.id === existingTab.id ? { ...tab, title: requestedTitle } : tab
+          );
+          setActiveTab(existingTab.id);
+          return updatedTabs;
+        }
         // Tab already exists, just activate it
         setActiveTab(existingTab.id);
         return prev;
@@ -117,7 +125,7 @@ const TabManager = ({ darkMode }) => {
         const newTabId = generateUniqueTabId('tab');
         const newTab = {
           id: newTabId,
-          title: getPageTitle(currentPath),
+          title: requestedTitle || getPageTitle(currentPath),
           route: currentPath,
           closable: true,
           timestamp: Date.now()
@@ -127,7 +135,7 @@ const TabManager = ({ darkMode }) => {
         return [...prev, newTab];
       }
     });
-  }, [location.pathname]);
+  }, [location.pathname, location.state]);
 
   // Switch to tab (navigate without reload)
   const switchTab = (tabId, route) => {

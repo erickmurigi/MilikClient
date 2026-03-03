@@ -67,28 +67,24 @@ const Dashboard = ({ darkMode }) => {
 
     // Listen for new notifications
     const handleNewNotification = (notification) => {
-      console.log('New notification received:', notification);
       // Trigger a refresh of notifications to ensure consistency
       getNotifications(dispatch, currentCompany._id);
     };
 
     // Listen for new rent payments
     const handleNewPayment = (payment) => {
-      console.log('New payment received:', payment);
       // Trigger a refresh of rent payments and financial data
       getRentPayments(dispatch, currentCompany._id);
     };
 
     // Listen for new maintenance requests
     const handleNewMaintenance = (maintenance) => {
-      console.log('New maintenance received:', maintenance);
       // Trigger a refresh of maintenance data
       getMaintenances(dispatch, currentCompany._id);
     };
 
     // Listen for new leases
     const handleNewLease = (lease) => {
-      console.log('New lease received:', lease);
       // Trigger a refresh of lease data
       getLeases(dispatch, currentCompany._id);
     };

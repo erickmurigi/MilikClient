@@ -151,12 +151,15 @@ const AddTenant = () => {
     property: "",
     unit: "",
     moveInDate: "",
+    moveOutDate: "",
+    leaseType: "at_will",
     rent: "",
     paymentMethod: "",
     status: "active",
     emergencyContactName: "",
     emergencyContactPhone: "",
     emergencyContactRelationship: "",
+    utilities: [],
   });
 
   const [fieldErrors, setFieldErrors] = useState({});
@@ -308,6 +311,16 @@ const AddTenant = () => {
     if (!formData.paymentMethod) {
       errors.paymentMethod = "Payment method is required";
     }
+    if (formData.leaseType === "fixed" && !formData.moveOutDate) {
+      errors.moveOutDate = "Move-out date is required for fixed-term leases";
+    }
+    if (formData.leaseType === "fixed" && formData.moveInDate && formData.moveOutDate) {
+      const moveIn = new Date(formData.moveInDate);
+      const moveOut = new Date(formData.moveOutDate);
+      if (moveOut <= moveIn) {
+        errors.moveOutDate = "Move-out date must be after move-in date";
+      }
+    }
 
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -331,6 +344,7 @@ const AddTenant = () => {
         rent: parseFloat(formData.rent),
         paymentMethod: formData.paymentMethod,
         moveInDate: formData.moveInDate,
+        moveOutDate: formData.leaseType === "fixed" ? formData.moveOutDate : null,
         status: "active",
         emergencyContact: {
           name: formData.emergencyContactName || "",
@@ -343,7 +357,6 @@ const AddTenant = () => {
       // Dispatch createTenant action
       const result = await dispatch(createTenant(tenantData)).unwrap();
       
-      console.log("Tenant created successfully:", result);
       toast.success("Tenant created successfully!");
       navigate("/tenants");
     } catch (error) {
@@ -364,7 +377,7 @@ const AddTenant = () => {
           {/* Header */}
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-              Add New Tenant
+              Tenant Details
             </h1>
             <p className="mt-1 text-sm text-slate-600">
               Create a new tenant record with billing information
@@ -505,7 +518,7 @@ const AddTenant = () => {
                   <h3 className="text-lg font-bold text-slate-900 mb-4 border-b-2 border-blue-500 pb-2">
                     💰 Billing Information
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
                       <label className={labelClass}>
                         Move-In Date (Billing Anchor) <span className="text-red-500">*</span>
@@ -580,7 +593,46 @@ const AddTenant = () => {
                         <option value="inactive">Inactive</option>
                       </select>
                     </div>
+
+                    <div>
+                      <label className={labelClass}>
+                        Lease Type <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="leaseType"
+                        value={formData.leaseType}
+                        onChange={handleInputChange}
+                        className={inputClass}
+                      >
+                        <option value="at_will">At Will</option>
+                        <option value="fixed">Fixed Term</option>
+                      </select>
+                      <p className="mt-1 text-xs text-gray-600">
+                        At Will: No end date / Fixed Term: Requires end date
+                      </p>
+                    </div>
                   </div>
+
+                  {/* Move-Out Date for Fixed Leases */}
+                  {formData.leaseType === "fixed" && (
+                    <div className="mt-4">
+                      <label className={labelClass}>
+                        Move-Out Date (End of Lease) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        name="moveOutDate"
+                        value={formData.moveOutDate}
+                        onChange={handleInputChange}
+                        className={`w-full px-3 py-2 text-sm border border-slate-300 rounded-md shadow-sm transition-all duration-200 ease-out hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-600 ${
+                          fieldErrors.moveOutDate ? 'border-red-500' : ''
+                        }`}
+                      />
+                      {fieldErrors.moveOutDate && (
+                        <p className="mt-1 text-xs text-red-600">{fieldErrors.moveOutDate}</p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Prorated Rent Calculation Preview */}
                   {proratedInfo && (

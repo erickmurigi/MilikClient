@@ -3,6 +3,8 @@ import AES from 'crypto-js/aes';
 import Utf8 from 'crypto-js/enc-utf8';
 import { encode } from 'js-base64';
 import { clearClientSessionStorage } from './sessionCleanup';
+const STORAGE_KEY = import.meta.env.VITE_STORAGE_KEY || 'MilikPropertyManagement2026';
+
 
 // Use environment variable for API URL
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api/";
@@ -40,7 +42,7 @@ adminRequests.interceptors.request.use(
         const encryptedUser = localStorage.getItem(localStorageKey);
         if (encryptedUser) {
             try {
-                const decryptedUser = AES.decrypt(encryptedUser, 'DecryptBetterBiz').toString(Utf8);
+                const decryptedUser = AES.decrypt(encryptedUser, STORAGE_KEY).toString(Utf8);
                 const user = JSON.parse(decryptedUser);
                 if (user?.token) {
                     config.headers['Authorization'] = `Bearer ${user.token}`;
@@ -64,9 +66,12 @@ adminRequests.interceptors.response.use(
             // Server responded with error status
             switch (error.response.status) {
                 case 401:
-                    // Unauthorized - clear auth and redirect to login
-                    clearClientSessionStorage();
-                    window.location.href = '/login';
+                    // Unauthorized
+                    // Don't redirect if it's a login attempt - let the page handle it
+                    if (error.config?.url && !error.config.url.includes('/auth/login')) {
+                        clearClientSessionStorage();
+                        window.location.href = '/login';
+                    }
                     break;
                 case 403:
                     console.error('Access forbidden:', error.response.data.message);
