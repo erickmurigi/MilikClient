@@ -7,7 +7,7 @@ const STORAGE_KEY = import.meta.env.VITE_STORAGE_KEY || 'MilikPropertyManagement
 
 
 // Use environment variable for API URL
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api/";
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8800/api/";
 
 // Function to obfuscate keys
 const obfuscateKey = (key) => encode(key);

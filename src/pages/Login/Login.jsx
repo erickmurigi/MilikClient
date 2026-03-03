@@ -16,6 +16,7 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState('');
 
   useEffect(() => {
     // Check if already logged in
@@ -33,6 +34,9 @@ function Login() {
     }));
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+    if (serverError) {
+      setServerError('');
     }
   };
 
@@ -64,10 +68,12 @@ function Login() {
     }
     
     setLoading(true);
+    setServerError('');
     
     try {
       await dispatch(loginUser(formData.email, formData.password));
       toast.success('Login successful!');
+      setServerError('');
       navigate('/moduleDashboard');
     } catch (err) {
       let errorMessage = 'Login failed. Please try again.';
@@ -77,14 +83,18 @@ function Login() {
         errorMessage = err.response.data.message;
       } else if (err.response?.data?.error) {
         errorMessage = err.response.data.error;
-      } else if (err.message) {
+      } else if (err.response?.data?.msg) {
+        errorMessage = err.response.data.msg;
+      } else if (err.message && err.message !== 'Unauthorized') {
         errorMessage = err.message;
-      } else if (err.response?.statusText) {
+      } else if (err.response?.statusText && err.response?.statusText !== 'Unauthorized') {
         errorMessage = err.response.statusText;
       }
       
       // Handle specific HTTP status codes
       if (err.response?.status === 401) {
+        errorMessage = 'Invalid email or password';
+      } else if (err.response?.status === 400) {
         errorMessage = 'Invalid email or password';
       } else if (err.response?.status === 403) {
         if (errorMessage.includes('inactive')) {
@@ -92,12 +102,15 @@ function Login() {
         } else if (errorMessage.includes('locked')) {
           errorMessage = 'Your account is locked. Please contact support.';
         }
+      } else if (err.response?.status === 404) {
+        errorMessage = 'User not found. Please check your email.';
       } else if (err.response?.status === 500) {
         errorMessage = 'Server error. Please try again later.';
       } else if (!err.response) {
-        errorMessage = 'Network error. Please check your connection.';
+        errorMessage = 'Network error. Please check your connection and try again.';
       }
       
+      setServerError(errorMessage);
       toast.error(errorMessage);
       console.error('Login error:', err);
     } finally {
@@ -130,6 +143,15 @@ function Login() {
           <div className="p-8">
             <h2 className="text-2xl font-extrabold text-[#0B3B2E] mb-1 text-center">Welcome Back</h2>
             <p className="text-center text-sm font-semibold text-slate-600 mb-6">Sign in to continue</p>
+
+            {serverError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-300 rounded-lg">
+                <p className="text-sm font-semibold text-red-700 flex items-start gap-2">
+                  <span>⚠️</span>
+                  <span>{serverError}</span>
+                </p>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
