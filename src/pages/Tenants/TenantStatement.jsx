@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { getTenants } from "../../redux/tenantsRedux";
-import { getLeases } from "../../redux/apiCalls";
+import { getLeases, getUtilities } from "../../redux/apiCalls";
 import DashboardLayout from "../../components/Layout/DashboardLayout";
 import { toast } from "react-toastify";
 import {
@@ -20,55 +20,6 @@ import {
 
 const MILIK_GREEN = "bg-[#165946]";
 
-// Mock transactions data
-const mockTransactions = [
-  {
-    id: 1,
-    date: "2026-01-15",
-    description: "Monthly Rent - January",
-    type: "CHARGE",
-    amount: 15000,
-    balance: 15000,
-    transactionCode: "INV00001",
-  },
-  {
-    id: 2,
-    date: "2026-01-20",
-    description: "Rent Payment",
-    type: "PAYMENT",
-    amount: -15000,
-    balance: 0,
-    transactionCode: "RCP00001",
-  },
-  {
-    id: 3,
-    date: "2026-02-01",
-    description: "Service Charge - February",
-    type: "CHARGE",
-    amount: 2000,
-    balance: 2000,
-    transactionCode: "INV00002",
-  },
-  {
-    id: 4,
-    date: "2026-02-15",
-    description: "Monthly Rent - February",
-    type: "CHARGE",
-    amount: 15000,
-    balance: 17000,
-    transactionCode: "INV00003",
-  },
-  {
-    id: 5,
-    date: "2026-03-01",
-    description: "Rent Payment",
-    type: "PAYMENT",
-    amount: -17000,
-    balance: 0,
-    transactionCode: "RCP00002",
-  },
-];
-
 const TenantStatement = () => {
   const { id: tenantId } = useParams();
   const navigate = useNavigate();
@@ -78,10 +29,20 @@ const TenantStatement = () => {
   const [startDate, setStartDate] = useState("2026-01-01");
   const [endDate, setEndDate] = useState("2026-03-31");
   const [transactionType, setTransactionType] = useState("ALL");
+  const [escalationType, setEscalationType] = useState('percentage');
+  const [escalationRate, setEscalationRate] = useState(10);
+  const [escalationAmount, setEscalationAmount] = useState(1500);
+  const [escalationFrequency, setEscalationFrequency] = useState('yearly');
+  const [selectedSchedules, setSelectedSchedules] = useState([]);
   const currentCompany = useSelector((state) => state.company?.currentCompany);
 
   const tenantsFromStore = useSelector((state) => state.tenant?.tenants || []);
   const leasesFromStore = useSelector((state) => state.lease?.leases || []);
+  const rentPaymentsFromStore = useSelector((state) => state.rentPayment?.rentPayments || []);
+  const maintenanceFromStore = useSelector((state) => state.maintenance?.maintenances || []);
+  const expensesFromStore = useSelector((state) => state.expenseProperty?.expenseProperties || []);
+  const utilitiesFromStore = useSelector((state) => state.utility?.utilities || []);
+  
   const tenant = tenantsFromStore?.find((t) => t._id === tenantId);
   const tenantLease = useMemo(() => {
     return leasesFromStore.find((lease) => lease.tenant === tenantId || lease.tenant?._id === tenantId);
@@ -92,17 +53,61 @@ const TenantStatement = () => {
 
     dispatch(getTenants({ business: currentCompany._id }));
     getLeases(dispatch, currentCompany._id, null, tenantId);
+    getUtilities(dispatch, currentCompany._id);
   }, [dispatch, currentCompany?._id, tenantId]);
 
-  // Calculate statement data
+  // Build real transactions from Redis store
   const statementData = useMemo(() => {
-    const transactions = mockTransactions;
+    const transactions = [];
+    let transactionId = 1;
+
+    // Add rent payments
+    const tenantRentPayments = rentPaymentsFromStore.filter(
+      (p) => p.tenant === tenantId || p.tenant?._id === tenantId
+    );
+    tenantRentPayments.forEach((payment) => {
+      transactions.push({
+        id: transactionId++,
+        date: payment.paymentDate || payment.createdAt,
+        description: `Rent Payment - ${payment.referenceNumber || ""}`,
+        type: "PAYMENT",
+        amount: -(payment.amount || 0),
+        transactionCode: payment.referenceNumber || `RCP${transactionId}`,
+      });
+    });
+
+    // Add maintenance charges
+    const tenantMaintenanceCharges = maintenanceFromStore.filter(
+      (m) => m.tenant === tenantId || m.tenant?._id === tenantId
+    );
+    tenantMaintenanceCharges.forEach((maintenance) => {
+      if (maintenance.actualCost || maintenance.estimatedCost) {
+        transactions.push({
+          id: transactionId++,
+          date: maintenance.completedDate || maintenance.createdAt,
+          description: `Maintenance - ${maintenance.category || "General"}`,
+          type: "CHARGE",
+          amount: maintenance.actualCost || maintenance.estimatedCost || 0,
+          transactionCode: `MNT${transactionId}`,
+        });
+      }
+    });
+
+    // Sort by date
+    transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Calculate running balance
+    let runningBalance = 0;
+    transactions.forEach((t) => {
+      runningBalance += t.amount;
+      t.balance = runningBalance;
+    });
+
     const charges = transactions.filter((t) => t.type === "CHARGE");
     const payments = transactions.filter((t) => t.type === "PAYMENT");
     const totalCharges = charges.reduce((sum, t) => sum + t.amount, 0);
     const totalPayments = Math.abs(payments.reduce((sum, t) => sum + t.amount, 0));
-    const currentBalance =
-      totalCharges - totalPayments;
+    const currentBalance = totalCharges - totalPayments;
 
     return {
       transactions,
@@ -110,7 +115,7 @@ const TenantStatement = () => {
       totalPayments,
       currentBalance,
     };
-  }, []);
+  }, [rentPaymentsFromStore, maintenanceFromStore, tenantId]);
 
   const billingScheduleData = useMemo(() => {
     const baseRent = tenantLease?.rentAmount || tenant?.rent || 23000;
@@ -156,19 +161,25 @@ const TenantStatement = () => {
       const invoiceNum = `INV${String(invoiceCounter).padStart(5, '0')}`;
       const isPast = currentDate < new Date();
       
+      // Check if there's an actual rent payment for this period
+      const hasPaymentForPeriod = rentPaymentsFromStore.some((payment) => {
+        if (payment.tenant !== tenantId && payment.tenant?._id !== tenantId) return false;
+        const paymentDate = new Date(payment.paymentDate || payment.createdAt);
+        return paymentDate >= currentDate && paymentDate < nextDate;
+      });
+      
       scheduleData.push({
         from,
         to,
         description: monthName,
         rent: baseRent,
         utility: serviceCharge,
-        booked: isPast ? "Yes" : "No",
-        posted: isPast ? "Yes" : "No",
+        booked: hasPaymentForPeriod ? "Yes" : "No",
         frozen: "No",
-        invoice: isPast ? invoiceNum : "-"
+        invoice: hasPaymentForPeriod ? invoiceNum : "-"
       });
       
-      if (isPast) invoiceCounter++;
+      if (hasPaymentForPeriod) invoiceCounter++;
       currentDate = nextDate;
     }
 
@@ -181,8 +192,7 @@ const TenantStatement = () => {
     { id: "billing", label: "Billing Schedule", icon: <FaCalendarAlt /> },
     { id: "details", label: "Tenant Details", icon: <FaUser /> },
     { id: "charges", label: "Standing Charges", icon: <FaMoneyBillWave /> },
-    { id: "reviews", label: "Rent Reviews", icon: <FaChartBar /> },
-    { id: "escalations", label: "Escalations", icon: <FaCog /> },
+    { id: "reviews", label: "Rent Reviews / Escalations", icon: <FaChartBar /> },
   ];
 
   const handlePrint = () => {
@@ -399,96 +409,287 @@ const TenantStatement = () => {
     </div>
   );
 
-  const renderBillingSchedule = () => (
-    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
-        <h3 className="text-sm font-bold text-slate-900">Rent & Other Charges Schedule</h3>
-      </div>
+  const renderBillingSchedule = () => {
+    const handleSelectSchedule = (scheduleKey) => {
+      setSelectedSchedules(prev => 
+        prev.includes(scheduleKey) 
+          ? prev.filter(k => k !== scheduleKey)
+          : [...prev, scheduleKey]
+      );
+    };
 
-      <div className="px-4 py-2 border-b border-slate-200 bg-white">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-          <div className="md:col-span-2">
-            <label className="block text-[10px] text-slate-600 font-semibold mb-1">Defined Period</label>
-            <select className="w-full text-xs border border-slate-300 rounded px-2 py-1.5">
-              <option>Custom</option>
-              <option>This Year</option>
-              <option>Next 12 Months</option>
-            </select>
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-[10px] text-slate-600 font-semibold mb-1">From</label>
-            <input type="date" className="w-full text-xs border border-slate-300 rounded px-2 py-1.5" />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-[10px] text-slate-600 font-semibold mb-1">To</label>
-            <input type="date" className="w-full text-xs border border-slate-300 rounded px-2 py-1.5" />
-          </div>
-          <div className="md:col-span-6 flex gap-2 md:justify-end">
-            <button className={`${MILIK_GREEN} text-white text-xs font-semibold px-3 py-1.5 rounded`}>Search</button>
-            <button className="bg-slate-100 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded border border-slate-300">Reset</button>
-            <button className="bg-slate-100 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded border border-slate-300">Refresh</button>
+    const handleSelectAll = () => {
+      if (selectedSchedules.length === billingScheduleData.length) {
+        setSelectedSchedules([]);
+      } else {
+        setSelectedSchedules(billingScheduleData.map((_, idx) => idx));
+      }
+    };
+
+    const handleCreateInvoices = () => {
+      if (selectedSchedules.length === 0) {
+        toast.warning("Please select at least one billing period");
+        return;
+      }
+
+      const selectedRows = selectedSchedules.map(idx => billingScheduleData[idx]);
+      const periodsWithInvoices = selectedRows.filter(row => row.invoice !== "-");
+      const periodsWithoutInvoices = selectedRows.filter(row => row.invoice === "-");
+
+      if (periodsWithInvoices.length > 0) {
+        toast.warning(`${periodsWithInvoices.length} period(s) already have invoices: ${periodsWithInvoices.map(p => p.description).join(', ')}`);
+        return;
+      }
+
+      if (periodsWithoutInvoices.length === 0) {
+        toast.warning("No valid periods selected for invoicing");
+        return;
+      }
+
+      // TODO: Implement actual invoice creation API call
+      toast.success(`Creating ${periodsWithoutInvoices.length} invoice(s) for: ${periodsWithoutInvoices.map(p => p.description).join(', ')}`);
+      setSelectedSchedules([]);
+    };
+
+    const handleCancelInvoices = () => {
+      if (selectedSchedules.length === 0) {
+        toast.warning("Please select at least one billing period");
+        return;
+      }
+
+      const selectedRows = selectedSchedules.map(idx => billingScheduleData[idx]);
+      const invoicedPeriods = selectedRows.filter(row => row.invoice !== "-");
+
+      if (invoicedPeriods.length === 0) {
+        toast.warning("No invoiced periods selected");
+        return;
+      }
+
+      toast.info(`Canceling ${invoicedPeriods.length} invoice(s): ${invoicedPeriods.map(p => p.invoice).join(', ')}`);
+      // TODO: Implement actual invoice cancellation API call
+      setSelectedSchedules([]);
+    };
+
+    const handleEditSchedules = () => {
+      if (selectedSchedules.length === 0) {
+        toast.warning("Please select at least one billing period");
+        return;
+      }
+
+      toast.info(`Editing ${selectedSchedules.length} schedule(s)...`);
+      // TODO: Implement schedule editing modal/form
+    };
+
+    const handleDeleteSchedules = () => {
+      if (selectedSchedules.length === 0) {
+        toast.warning("Please select at least one billing period");
+        return;
+      }
+
+      const selectedRows = selectedSchedules.map(idx => billingScheduleData[idx]);
+      toast.warning(`Delete ${selectedSchedules.length} schedule(s)? ${selectedRows.map(p => p.description).join(', ')}`);
+      // TODO: Implement actual schedule deletion with confirmation
+      setSelectedSchedules([]);
+    };
+
+    const handleFreezeSchedules = () => {
+      if (selectedSchedules.length === 0) {
+        toast.warning("Please select at least one billing period");
+        return;
+      }
+
+      const selectedRows = selectedSchedules.map(idx => billingScheduleData[idx]);
+      const alreadyFrozen = selectedRows.filter(row => row.frozen === "Yes");
+      const notFrozen = selectedRows.filter(row => row.frozen !== "Yes");
+
+      if (notFrozen.length === 0) {
+        toast.info("Selected period(s) are already frozen");
+        return;
+      }
+
+      // TODO: Implement actual freeze API call
+      toast.success(`Freezing ${notFrozen.length} period(s): ${notFrozen.map(p => p.description).join(', ')}`);
+      setSelectedSchedules([]);
+    };
+
+    return (
+      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-slate-200 bg-slate-50">
+          <h3 className="text-sm font-bold text-slate-900">Rent & Other Charges Schedule</h3>
+        </div>
+
+        <div className="px-4 py-2 border-b border-slate-200 bg-white">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+            <div className="md:col-span-2">
+              <label className="block text-[10px] text-slate-600 font-semibold mb-1">Defined Period</label>
+              <select className="w-full text-xs border border-slate-300 rounded px-2 py-1.5">
+                <option>Custom</option>
+                <option>This Year</option>
+                <option>Next 12 Months</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-[10px] text-slate-600 font-semibold mb-1">From</label>
+              <input type="date" className="w-full text-xs border border-slate-300 rounded px-2 py-1.5" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-[10px] text-slate-600 font-semibold mb-1">To</label>
+              <input type="date" className="w-full text-xs border border-slate-300 rounded px-2 py-1.5" />
+            </div>
+            <div className="md:col-span-6 flex gap-2 md:justify-end">
+              <button className={`${MILIK_GREEN} text-white text-xs font-semibold px-3 py-1.5 rounded`}>Search</button>
+              <button className="bg-slate-100 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded border border-slate-300">Reset</button>
+              <button className="bg-slate-100 text-slate-700 text-xs font-semibold px-3 py-1.5 rounded border border-slate-300">Refresh</button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="overflow-auto">
-        <table className="w-full min-w-[1200px] text-xs">
-          <thead>
-            <tr className={`${MILIK_GREEN} text-white`}>
-              <th className="px-3 py-2 text-left font-semibold">From</th>
-              <th className="px-3 py-2 text-left font-semibold">To</th>
-              <th className="px-3 py-2 text-left font-semibold">Description</th>
-              <th className="px-3 py-2 text-right font-semibold">Rent Amount</th>
-              <th className="px-3 py-2 text-right font-semibold">S. Charge/Util.</th>
-              <th className="px-3 py-2 text-right font-semibold">Total</th>
-              <th className="px-3 py-2 text-center font-semibold">Booked</th>
-              <th className="px-3 py-2 text-center font-semibold">Posted</th>
-              <th className="px-3 py-2 text-center font-semibold">Frozen</th>
-              <th className="px-3 py-2 text-left font-semibold">Invoice #</th>
-              <th className="px-3 py-2 text-left font-semibold">Code</th>
-            </tr>
-          </thead>
-          <tbody>
-            {billingScheduleData.map((row, index) => {
-              const total = row.rent + row.utility;
-              const isProcessed = row.booked === "Yes" || row.posted === "Yes";
+        {/* Action Buttons */}
+        <div className="px-4 py-3 border-b border-slate-200 bg-gray-50">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleCreateInvoices}
+              disabled={selectedSchedules.length === 0}
+              className={`flex items-center gap-1 px-3 py-2 rounded text-xs font-semibold transition-colors ${
+                selectedSchedules.length === 0
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
+            >
+              <FaFileInvoiceDollar size={12} />
+              Create Invoice
+            </button>
+            <button
+              onClick={handleCancelInvoices}
+              disabled={selectedSchedules.length === 0}
+              className={`flex items-center gap-1 px-3 py-2 rounded text-xs font-semibold transition-colors ${
+                selectedSchedules.length === 0
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-red-600 hover:bg-red-700 text-white'
+              }`}
+            >
+              <FaPrint size={12} />
+              Cancel Invoice
+            </button>
+            <button
+              onClick={handleEditSchedules}
+              disabled={selectedSchedules.length === 0}
+              className={`flex items-center gap-1 px-3 py-2 rounded text-xs font-semibold transition-colors ${
+                selectedSchedules.length === 0
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-orange-600 hover:bg-orange-700 text-white'
+              }`}
+            >
+              <FaCog size={12} />
+              Edit Schedule
+            </button>
+            <button
+              onClick={handleDeleteSchedules}
+              disabled={selectedSchedules.length === 0}
+              className={`flex items-center gap-1 px-3 py-2 rounded text-xs font-semibold transition-colors ${
+                selectedSchedules.length === 0
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-600 hover:bg-gray-700 text-white'
+              }`}
+            >
+              <FaDownload size={12} />
+              Delete Schedule
+            </button>
+            <button
+              onClick={handleFreezeSchedules}
+              disabled={selectedSchedules.length === 0}
+              className={`flex items-center gap-1 px-3 py-2 rounded text-xs font-semibold transition-colors ${
+                selectedSchedules.length === 0
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-purple-600 hover:bg-purple-700 text-white'
+              }`}
+            >
+              <FaCalendarAlt size={12} />
+              Freeze Period
+            </button>
+            {selectedSchedules.length > 0 && (
+              <span className="ml-auto flex items-center text-xs text-gray-600 font-semibold">
+                {selectedSchedules.length} selected
+              </span>
+            )}
+          </div>
+        </div>
 
-              return (
-                <tr
-                  key={`${row.from}-${row.description}`}
-                  className={`${index % 2 === 0 ? "bg-white" : "bg-slate-50"} border-b border-slate-200 hover:bg-emerald-50/40`}
-                >
-                  <td className="px-3 py-2 text-slate-800">{row.from}</td>
-                  <td className="px-3 py-2 text-slate-800">{row.to}</td>
-                  <td className="px-3 py-2 font-medium text-slate-900">{row.description}</td>
-                  <td className="px-3 py-2 text-right text-slate-900">{row.rent.toLocaleString()}</td>
-                  <td className="px-3 py-2 text-right text-slate-900">{row.utility ? row.utility.toLocaleString() : "-"}</td>
-                  <td className="px-3 py-2 text-right font-semibold text-slate-900">{total.toLocaleString()}</td>
-                  <td className="px-3 py-2 text-center">
-                    <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-semibold ${row.booked === "Yes" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>
-                      {row.booked}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-center">
-                    <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-semibold ${row.posted === "Yes" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>
-                      {row.posted}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-center text-slate-700">{row.frozen}</td>
-                  <td className={`px-3 py-2 ${isProcessed ? "text-emerald-700 font-semibold" : "text-slate-500"}`}>
-                    {row.invoice}
-                  </td>
-                  <td className="px-3 py-2 text-slate-900 font-semibold whitespace-nowrap">
-                    {row.invoice !== "-" ? row.invoice : "-"}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="overflow-auto">
+          <table className="w-full min-w-[1200px] text-xs">
+            <thead>
+              <tr className={`${MILIK_GREEN} text-white`}>
+                <th className="px-3 py-2 text-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedSchedules.length === billingScheduleData.length && billingScheduleData.length > 0}
+                    onChange={handleSelectAll}
+                    className="cursor-pointer"
+                  />
+                </th>
+                <th className="px-3 py-2 text-left font-semibold">From</th>
+                <th className="px-3 py-2 text-left font-semibold">To</th>
+                <th className="px-3 py-2 text-left font-semibold">Description</th>
+                <th className="px-3 py-2 text-right font-semibold">Rent Amount</th>
+                <th className="px-3 py-2 text-right font-semibold">S. Charge/Util.</th>
+                <th className="px-3 py-2 text-right font-semibold">Total</th>
+                <th className="px-3 py-2 text-center font-semibold">Frozen</th>
+                <th className="px-3 py-2 text-center font-semibold">Booked</th>
+                <th className="px-3 py-2 text-left font-semibold">Invoice #</th>
+              </tr>
+            </thead>
+            <tbody>
+              {billingScheduleData.map((row, index) => {
+                const total = row.rent + row.utility;
+                const isProcessed = row.booked === "Yes";
+                const isSelected = selectedSchedules.includes(index);
+
+                return (
+                  <tr
+                    key={`${row.from}-${row.description}`}
+                    className={`${
+                      isSelected 
+                        ? "bg-blue-50" 
+                        : index % 2 === 0 ? "bg-white" : "bg-slate-50"
+                    } border-b border-slate-200 hover:bg-emerald-50/40 cursor-pointer`}
+                    onClick={() => handleSelectSchedule(index)}
+                  >
+                    <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => handleSelectSchedule(index)}
+                        className="cursor-pointer"
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-slate-800">{row.from}</td>
+                    <td className="px-3 py-2 text-slate-800">{row.to}</td>
+                    <td className="px-3 py-2 font-medium text-slate-900">{row.description}</td>
+                    <td className="px-3 py-2 text-right text-slate-900">{row.rent.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right text-slate-900">{row.utility ? row.utility.toLocaleString() : "-"}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-slate-900">{total.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-semibold ${row.frozen === "Yes" ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-600"}`}>
+                        {row.frozen}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-semibold ${row.booked === "Yes" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>
+                        {row.booked}
+                      </span>
+                    </td>
+                    <td className={`px-3 py-2 ${isProcessed ? "text-emerald-700 font-semibold" : "text-slate-500"}`}>
+                      {row.invoice}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderTenantDetails = () => (
     <div className="bg-white border border-gray-200 rounded-lg p-6">
@@ -497,7 +698,7 @@ const TenantStatement = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
             <label className="block text-sm font-semibold text-gray-600 mb-2">Tenant Name</label>
-            <p className="text-lg font-bold text-gray-900">{tenant?.name || "N/A"}</p>
+            <p className="text-lg font-bold text-gray-900">{tenant?.firstName} {tenant?.lastName}</p>
           </div>
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
             <label className="block text-sm font-semibold text-gray-600 mb-2">Email</label>
@@ -509,7 +710,7 @@ const TenantStatement = () => {
           </div>
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
             <label className="block text-sm font-semibold text-gray-600 mb-2">ID Number</label>
-            <p className="text-lg font-bold text-gray-900">{tenant?.idNumber || "N/A"}</p>
+            <p className="text-lg font-bold text-gray-900">{tenant?.idDocument || "N/A"}</p>
           </div>
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
             <label className="block text-sm font-semibold text-gray-600 mb-2">Unit</label>
@@ -518,24 +719,18 @@ const TenantStatement = () => {
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
             <label className="block text-sm font-semibold text-gray-600 mb-2">Property</label>
             <p className="text-lg font-bold text-gray-900">
-              {tenant?.unit?.property?.name || "N/A"}
+              {tenant?.unit?.property?.propertyName || "N/A"}
             </p>
           </div>
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
             <label className="block text-sm font-semibold text-gray-600 mb-2">Move-In Date</label>
             <p className="text-lg font-bold text-gray-900">
-              {tenant?.moveInDate ? new Date(tenant.moveInDate).toLocaleDateString() : "N/A"}
+              {tenantLease?.startDate ? new Date(tenantLease.startDate).toLocaleDateString() : (tenant?.moveInDate ? new Date(tenant.moveInDate).toLocaleDateString() : "N/A")}
             </p>
           </div>
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
-            <label className="block text-sm font-semibold text-gray-600 mb-2">Lease Type</label>
-            <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
-              tenant?.moveOutDate && new Date(tenant.moveOutDate) > new Date()
-                ? "bg-blue-100 text-blue-800"
-                : "bg-orange-100 text-orange-800"
-            }`}>
-              {tenant?.moveOutDate && new Date(tenant.moveOutDate) > new Date() ? "FIXED" : "AT-WILL"}
-            </span>
+            <label className="block text-sm font-semibold text-gray-600 mb-2">Rent Amount</label>
+            <p className="text-lg font-bold text-gray-900">Ksh {(tenantLease?.rentAmount || tenant?.rent || 0).toLocaleString()}</p>
           </div>
         </div>
       ) : (
@@ -544,186 +739,254 @@ const TenantStatement = () => {
     </div>
   );
 
-  const renderStandingCharges = () => (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      <h3 className="text-lg font-bold text-gray-900 mb-4">Standing Charges</h3>
-      <p className="text-gray-600 mb-6">Recurring charges attached to this tenancy</p>
+  const renderStandingCharges = () => {
+    // Filter utilities for this tenant's property or company
+    const relevantUtilities = utilitiesFromStore.filter((util) => 
+      util.isActive && (util.business === currentCompany?._id || util.business?._id === currentCompany?._id)
+    );
 
-      <div className="space-y-4">
-        <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-          <div className="flex justify-between items-start">
-            <div>
-              <h4 className="font-semibold text-gray-900">Service Charge</h4>
-              <p className="text-sm text-gray-600 mt-1">Building maintenance and management</p>
-            </div>
-            <div className="text-right">
-              <div className="text-lg font-bold text-gray-900">KES 2,000</div>
-              <div className="text-xs text-gray-600 font-medium">Monthly</div>
+    const totalStandingCharges = relevantUtilities.reduce((sum, util) => sum + (util.unitCost || 0), 0);
+
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <h3 className="text-lg font-bold text-gray-900 mb-4">Standing Charges</h3>
+        <p className="text-gray-600 mb-6">Recurring charges attached to this tenancy</p>
+
+        {relevantUtilities.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-600">No standing charges configured yet.</p>
+            <p className="text-sm text-gray-500 mt-2">Add utilities in System Setup to see them here.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {relevantUtilities.map((utility) => (
+              <div key={utility._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-semibold text-gray-900">{utility.name}</h4>
+                    <p className="text-sm text-gray-600 mt-1">{utility.description || "No description"}</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-bold text-gray-900">KES {(utility.unitCost || 0).toLocaleString()}</div>
+                    <div className="text-xs text-gray-600 font-medium capitalize">{utility.billingCycle || "Monthly"}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <span className="font-bold">Total Monthly Standing Charges:</span>
+                <span className="float-right font-bold">KES {totalStandingCharges.toLocaleString()}</span>
+              </p>
             </div>
           </div>
-        </div>
-
-        <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-          <div className="flex justify-between items-start">
-            <div>
-              <h4 className="font-semibold text-gray-900">Garbage Collection</h4>
-              <p className="text-sm text-gray-600 mt-1">Waste management and disposal</p>
-            </div>
-            <div className="text-right">
-              <div className="text-lg font-bold text-gray-900">KES 500</div>
-              <div className="text-xs text-gray-600 font-medium">Monthly</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-          <div className="flex justify-between items-start">
-            <div>
-              <h4 className="font-semibold text-gray-900">Security Charges</h4>
-              <p className="text-sm text-gray-600 mt-1">24/7 security services</p>
-            </div>
-            <div className="text-right">
-              <div className="text-lg font-bold text-gray-900">KES 1,000</div>
-              <div className="text-xs text-gray-600 font-medium">Monthly</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-          <div className="flex justify-between items-start">
-            <div>
-              <h4 className="font-semibold text-gray-900">Parking Fee</h4>
-              <p className="text-sm text-gray-600 mt-1">Parking space maintenance</p>
-            </div>
-            <div className="text-right">
-              <div className="text-lg font-bold text-gray-900">KES 500</div>
-              <div className="text-xs text-gray-600 font-medium">Monthly</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <span className="font-bold">Total Monthly Standing Charges:</span>
-            <span className="float-right font-bold">KES 4,000</span>
-          </p>
-        </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
-  const renderRentReviews = () => (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      <h3 className="text-lg font-bold text-gray-900 mb-4">Rent Reviews</h3>
-      <p className="text-gray-600 mb-6">Historical rent changes and scheduled reviews</p>
+  const renderRentReviewsAndEscalations = () => {
+    const currentRent = tenantLease?.rentAmount || tenant?.rent || 0;
+    const nextReviewDate = tenantLease?.endDate 
+      ? new Date(tenantLease.endDate).toLocaleDateString() 
+      : "01-Jan-2027";
 
-      <div className="space-y-4">
-        <div className="border-l-4 border-green-500 bg-green-50 p-4 rounded">
-          <div className="flex justify-between items-start">
-            <div>
-              <h4 className="font-semibold text-gray-900">January 2024</h4>
-              <p className="text-sm text-gray-600">Initial lease rate</p>
-            </div>
-            <div className="text-right">
-              <div className="text-lg font-bold text-gray-900">KES 15,000</div>
-              <span className="inline-block px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800 mt-1">
-                Active
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-l-4 border-blue-500 bg-blue-50 p-4 rounded">
-          <div className="flex justify-between items-start">
-            <div>
-              <h4 className="font-semibold text-gray-900">January 2026</h4>
-              <p className="text-sm text-gray-600">Next scheduled review</p>
-            </div>
-            <div className="text-right">
-              <div className="text-lg font-bold text-gray-900">KES 15,750</div>
-              <span className="inline-block px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800 mt-1">
-                Pending
-              </span>
-            </div>
-          </div>
-          <p className="text-xs text-blue-700 mt-2">5% increase expected</p>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderEscalations = () => (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      <h3 className="text-lg font-bold text-gray-900 mb-4">Rent Escalations</h3>
-      <p className="text-gray-600 mb-6">Automatic rent increase configuration</p>
-
+    return (
       <div className="space-y-6">
-        <div className="border border-gray-200 rounded-lg p-6 bg-gradient-to-br from-orange-50 to-white">
-          <h4 className="font-bold text-gray-900 mb-4">Fixed Percentage Increase</h4>
+        {/* Rent Reviews Section */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Rent Reviews</h3>
+          <p className="text-gray-600 mb-6">Historical rent changes and scheduled reviews</p>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white border border-gray-200 rounded-lg p-3">
-              <p className="text-xs text-gray-600 font-medium">Current Rent</p>
-              <p className="text-lg font-bold text-gray-900 mt-1">
-                KES {(tenant?.rent || 0).toLocaleString()}
-              </p>
+          <div className="space-y-4">
+            <div className="border-l-4 border-green-500 bg-green-50 p-4 rounded">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="font-semibold text-gray-900">
+                    {tenantLease?.startDate 
+                      ? new Date(tenantLease.startDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                      : "January 2024"}
+                  </h4>
+                  <p className="text-sm text-gray-600">Initial lease rate</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-gray-900">KES {currentRent.toLocaleString()}</div>
+                  <span className="inline-block px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800 mt-1">
+                    Active
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-lg p-3">
-              <p className="text-xs text-gray-600 font-medium">Increase Rate</p>
-              <p className="text-lg font-bold text-orange-600 mt-1">10%</p>
-              <p className="text-xs text-gray-600">Annually</p>
+            <div className="border-l-4 border-blue-500 bg-blue-50 p-4 rounded">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="font-semibold text-gray-900">Next Scheduled Review</h4>
+                  <p className="text-sm text-gray-600">{nextReviewDate}</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-bold text-gray-900">
+                    KES {(currentRent * 1.05).toLocaleString()}
+                  </div>
+                  <span className="inline-block px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800 mt-1">
+                    Pending
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-blue-700 mt-2">5% increase expected</p>
             </div>
-
-            <div className="bg-white border border-gray-200 rounded-lg p-3">
-              <p className="text-xs text-gray-600 font-medium">Next Review</p>
-              <p className="text-lg font-bold text-gray-900 mt-1">01-Jan-2027</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-green-50 to-white border border-green-300 rounded-lg p-3">
-              <p className="text-xs text-gray-600 font-medium">New Rent</p>
-              <p className="text-lg font-bold text-green-600 mt-1">
-                KES {Math.round((tenant?.rent || 0) * 1.1).toLocaleString()}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
-            <p className="text-sm text-blue-800">
-              <span className="font-semibold">Increase Amount:</span>
-              <span className="float-right font-bold text-green-600">
-                + KES {Math.round((tenant?.rent || 0) * 0.1).toLocaleString()}
-              </span>
-            </p>
           </div>
         </div>
 
-        <div className="border border-gray-200 rounded-lg p-6 bg-gradient-to-br from-purple-50 to-white">
-          <h4 className="font-bold text-gray-900 mb-4">Fixed Amount Increase</h4>
+        {/* Escalations Section */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Rent Escalations</h3>
+          <p className="text-gray-600 mb-6">Automatic rent increase configuration</p>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="bg-white border border-gray-200 rounded-lg p-3">
-              <p className="text-xs text-gray-600 font-medium">Current Rent</p>
-              <p className="text-lg font-bold text-gray-900 mt-1">
-                KES {(tenant?.rent || 0).toLocaleString()}
-              </p>
-            </div>
-
-            <div className="bg-white border border-gray-200 rounded-lg p-3">
-              <p className="text-xs text-gray-600 font-medium">Fixed Increase</p>
-              <p className="text-lg font-bold text-purple-600 mt-1">KES 1,500</p>
-              <p className="text-xs text-gray-600">Per review</p>
-            </div>
-
-            <div className="bg-white border border-gray-200 rounded-lg p-3">
-              <p className="text-xs text-gray-600 font-medium">Frequency</p>
-              <p className="text-lg font-bold text-gray-900 mt-1">Yearly</p>
-            </div>
+          {/* Escalation Type Selector */}
+          <div className="mb-6 flex gap-2">
+            <button
+              onClick={() => setEscalationType('percentage')}
+              className={`px-4 py-2 rounded font-semibold transition-colors ${
+                escalationType === 'percentage'
+                  ? 'bg-orange-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Percentage Increase
+            </button>
+            <button
+              onClick={() => setEscalationType('amount')}
+              className={`px-4 py-2 rounded font-semibold transition-colors ${
+                escalationType === 'amount'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Fixed Amount Increase
+            </button>
           </div>
+
+          {/* Percentage Increase Configuration */}
+          {escalationType === 'percentage' && (
+            <div className="border border-gray-200 rounded-lg p-6 bg-gradient-to-br from-orange-50 to-white">
+              <h4 className="font-bold text-gray-900 mb-4">Fixed Percentage Increase</h4>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 font-medium">Current Rent</p>
+                  <p className="text-lg font-bold text-gray-900 mt-1">
+                    KES {currentRent.toLocaleString()}
+                  </p>
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 font-medium mb-2">Increase Rate</p>
+                  <input
+                    type="number"
+                    value={escalationRate}
+                    onChange={(e) => setEscalationRate(Math.max(0, Math.min(100, Number(e.target.value))))}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                    min="0"
+                    max="100"
+                  />
+                  <p className="text-xs text-gray-600 mt-1">% Annually</p>
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 font-medium">Next Review</p>
+                  <p className="text-lg font-bold text-gray-900 mt-1">{nextReviewDate}</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-green-50 to-white border border-green-300 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 font-medium">New Rent</p>
+                  <p className="text-lg font-bold text-green-600 mt-1">
+                    KES {Math.round(currentRent * (1 + escalationRate / 100)).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                <p className="text-sm text-blue-800">
+                  <span className="font-semibold">Increase Amount:</span>
+                  <span className="float-right font-bold text-green-600">
+                    + KES {Math.round(currentRent * (escalationRate / 100)).toLocaleString()}
+                  </span>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Fixed Amount Increase Configuration */}
+          {escalationType === 'amount' && (
+            <div className="border border-gray-200 rounded-lg p-6 bg-gradient-to-br from-purple-50 to-white">
+              <h4 className="font-bold text-gray-900 mb-4">Fixed Amount Increase</h4>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 font-medium">Current Rent</p>
+                  <p className="text-lg font-bold text-gray-900 mt-1">
+                    KES {currentRent.toLocaleString()}
+                  </p>
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 font-medium mb-2">Fixed Increase</p>
+                  <input
+                    type="number"
+                    value={escalationAmount}
+                    onChange={(e) => setEscalationAmount(Math.max(0, Number(e.target.value)))}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                    min="0"
+                  />
+                  <p className="text-xs text-gray-600 mt-1">Per review</p>
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 font-medium mb-2">Frequency</p>
+                  <select
+                    value={escalationFrequency}
+                    onChange={(e) => setEscalationFrequency(e.target.value)}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                  >
+                    <option value="yearly">Yearly</option>
+                    <option value="biannual">Bi-annual</option>
+                    <option value="quarterly">Quarterly</option>
+                  </select>
+                </div>
+
+                <div className="bg-gradient-to-br from-green-50 to-white border border-green-300 rounded-lg p-3">
+                  <p className="text-xs text-gray-600 font-medium">New Rent</p>
+                  <p className="text-lg font-bold text-green-600 mt-1">
+                    KES {(currentRent + escalationAmount).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                <p className="text-sm text-blue-800">
+                  <span className="font-semibold">Increase Amount:</span>
+                  <span className="float-right font-bold text-green-600">
+                    + KES {escalationAmount.toLocaleString()}
+                  </span>
+                </p>
+              </div>
+
+              <div className="mt-4 flex gap-2 justify-end">
+                <button className="bg-gray-100 text-gray-700 px-4 py-2 rounded font-semibold hover:bg-gray-200">
+                  Cancel
+                </button>
+                <button className={`${MILIK_GREEN} hover:bg-[#0A3127] text-white px-4 py-2 rounded font-semibold`}>
+                  Save Escalation
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderContent = () => {
     switch (activeTab) {
@@ -736,9 +999,7 @@ const TenantStatement = () => {
       case "charges":
         return renderStandingCharges();
       case "reviews":
-        return renderRentReviews();
-      case "escalations":
-        return renderEscalations();
+        return renderRentReviewsAndEscalations();
       default:
         return renderStatement();
     }
@@ -857,8 +1118,8 @@ const TenantStatement = () => {
           </div>
 
           {/* Scrollable Content Area */}
-          <div className="space-y-4">
-
+          <div className="space-y-4 mt-6">
+            {renderContent()}
           </div>
         </div>
       </div>
@@ -867,28 +1128,42 @@ const TenantStatement = () => {
       <style>{`
         @media print {
           body {
-            background: white;
+            background: white !important;
           }
+          /* Hide all buttons */
           button {
             display: none !important;
           }
+          /* Hide checkboxes */
+          input[type="checkbox"] {
+            display: none !important;
+          }
+          /* Hide elements with no-print class */
           .no-print {
             display: none !important;
           }
-          /* Hide the entire tab navigation */
+          /* Hide the entire tab navigation container */
           .tabs-container {
+            display: none !important;
+          }
+          /* Hide the flex container inside tabs-container */
+          .tabs-container .flex {
             display: none !important;
           }
           /* Hide filter section */
           .filter-section {
             display: none !important;
           }
-          /* Hide all tab content except statement */
+          /* Hide tab content wrapper, only show statement content */
           .tab-content {
             display: none !important;
           }
           .statement-tab {
             display: block !important;
+          }
+          /* Hide action buttons bar */
+          .bg-gray-50 {
+            display: none !important;
           }
           /* Print optimizations */
           .bg-gradient-to-br {
@@ -908,9 +1183,13 @@ const TenantStatement = () => {
           .transaction-table tr {
             page-break-inside: avoid;
           }
-          /* Hide back button */
-          button:first-child {
+          /* Hide action buttons and back button area */
+          .flex.items-center.justify-between {
             display: none !important;
+          }
+          /* Keep tenant info card visible */
+          .bg-slate-50.rounded-lg {
+            display: block !important;
           }
         }
       `}</style>
