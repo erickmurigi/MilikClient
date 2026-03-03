@@ -43,29 +43,29 @@ const FinancialOverview = ({ darkMode }) => {
     return `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`;
   };
 
-  const revenueByMonth = new Array(12).fill(0);
-  const expenseByMonth = new Array(12).fill(0);
-
-  rentPayments.forEach(payment => {
-    const date = parseDate(payment.paymentDate || payment.createdAt);
-    if (!date || date.getFullYear() !== currentYear) return;
-    revenueByMonth[date.getMonth()] += Number(payment.amount || 0);
-  });
-
-  propertyExpenses.forEach(expense => {
-    const date = parseDate(expense.date || expense.createdAt);
-    if (!date || date.getFullYear() !== currentYear) return;
-    expenseByMonth[date.getMonth()] += Number(expense.amount || 0);
-  });
-
-  maintenances.forEach(maintenance => {
-    const date = parseDate(maintenance.completedDate || maintenance.createdAt);
-    if (!date || date.getFullYear() !== currentYear) return;
-    const cost = Number(maintenance.actualCost || maintenance.estimatedCost || 0);
-    expenseByMonth[date.getMonth()] += cost;
-  });
-
   const financialData = useMemo(() => {
+    const revenueByMonth = new Array(12).fill(0);
+    const expenseByMonth = new Array(12).fill(0);
+
+    rentPayments.forEach(payment => {
+      const date = parseDate(payment.paymentDate || payment.createdAt);
+      if (!date || date.getFullYear() !== currentYear) return;
+      revenueByMonth[date.getMonth()] += Number(payment.amount || 0);
+    });
+
+    propertyExpenses.forEach(expense => {
+      const date = parseDate(expense.date || expense.createdAt);
+      if (!date || date.getFullYear() !== currentYear) return;
+      expenseByMonth[date.getMonth()] += Number(expense.amount || 0);
+    });
+
+    maintenances.forEach(maintenance => {
+      const date = parseDate(maintenance.completedDate || maintenance.createdAt);
+      if (!date || date.getFullYear() !== currentYear) return;
+      const cost = Number(maintenance.actualCost || maintenance.estimatedCost || 0);
+      expenseByMonth[date.getMonth()] += cost;
+    });
+
     return MONTHS.map((month, index) => {
       const revenue = revenueByMonth[index];
       const expenses = expenseByMonth[index];
@@ -76,7 +76,7 @@ const FinancialOverview = ({ darkMode }) => {
         net: revenue - expenses
       };
     });
-  }, [rentPayments, propertyExpenses, maintenances]);
+  }, [rentPayments, propertyExpenses, maintenances, currentYear]);
 
   const thisMonthRevenue = financialData[currentMonthIndex]?.revenue || 0;
   const thisMonthExpenses = financialData[currentMonthIndex]?.expenses || 0;
@@ -176,7 +176,7 @@ const FinancialOverview = ({ darkMode }) => {
 
       {/* Chart Section - Full Width */}
       <div className="w-full">
-        <div className="h-64 w-full">
+        <div className="h-64 w-full" style={{ minHeight: '256px', minWidth: '100px' }}>
           <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={financialData}
