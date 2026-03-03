@@ -175,7 +175,7 @@ const FinancialOverview = ({ darkMode }) => {
       </div>
 
       {/* Chart Section - Full Width */}
-      <div className="w-full" style={{ height: '256px', width: '100%' }}>
+      <div className="w-full" style={{ height: '320px', width: '100%' }}>
           <ResponsiveContainer width="100%" height="100%">
               <AreaChart
                 data={financialData}
@@ -247,75 +247,6 @@ const FinancialOverview = ({ darkMode }) => {
                 />
               </AreaChart>
             </ResponsiveContainer>
-      </div>
-
-      {/* Bottom Metrics Row */}
-      <div className={`grid grid-cols-4 gap-2 mt-4 pt-4 border-t ${
-        darkMode ? 'border-gray-700' : 'border-gray-200'
-      }`}>
-        {/* AVG. Rent */}
-        <div className={`p-3 rounded-lg text-center transition-all hover:shadow-md ${
-          darkMode ? 'bg-[#1f4a35]/20 border border-[#31694E]/30' : 'bg-[#dfebed]/60 border border-[#31694E]/25'
-        }`}>
-          <div className={`text-[9px] font-bold uppercase tracking-wide mb-1.5 ${
-            darkMode ? 'text-gray-300' : 'text-[#31694E]'
-          }`}>
-            Avg. Rent
-          </div>
-          <div className={`text-lg font-extrabold leading-tight ${darkMode ? 'text-white' : 'text-[#1f4a35]'}`}>
-            {formatMoney(averageRent).split(' ')[1]}
-          </div>
-          <div className={`text-[8px] font-semibold mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            per unit
-          </div>
-        </div>
-
-        {/* Late Payments */}
-        <div className={`p-3 rounded-lg text-center transition-all hover:shadow-md ${
-          darkMode ? 'bg-[#E85C0D]/20 border border-[#E85C0D]/30' : 'bg-orange-50/60 border border-[#E85C0D]/25'
-        }`}>
-          <div className={`text-[9px] font-bold uppercase tracking-wide mb-1.5 text-[#E85C0D]`}>
-            Late Payments
-          </div>
-          <div className="text-lg font-extrabold text-[#E85C0D]">{overduePaymentsCount}</div>
-          <div className={`text-[8px] font-semibold mt-1 ${darkMode ? 'text-orange-300' : 'text-orange-700'}`}>
-            overdue
-          </div>
-        </div>
-
-        {/* Vacancy Rate */}
-        <div className={`p-3 rounded-lg text-center transition-all hover:shadow-md ${
-          darkMode ? 'bg-[#31694E]/20 border border-[#31694E]/30' : 'bg-[#dfebed]/60 border border-[#31694E]/25'
-        }`}>
-          <div className={`text-[9px] font-bold uppercase tracking-wide mb-1.5 ${
-            darkMode ? 'text-gray-300' : 'text-[#31694E]'
-          }`}>
-            Vacancy
-          </div>
-          <div className="text-lg font-extrabold text-[#31694E]">{vacancyRate.toFixed(1)}%</div>
-          <div className={`text-[8px] font-semibold mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            rate
-          </div>
-        </div>
-
-        {/* YTD Profit */}
-        <div className={`p-3 rounded-lg text-center transition-all hover:shadow-md ${
-          darkMode ? 'bg-[#31694E]/20 border border-[#31694E]/30' : 'bg-[#dfebed]/60 border border-[#31694E]/25'
-        }`}>
-          <div className={`text-[9px] font-bold uppercase tracking-wide mb-1.5 ${
-            darkMode ? 'text-gray-300' : 'text-[#31694E]'
-          }`}>
-            YTD Profit
-          </div>
-          <div className="text-lg font-extrabold text-[#31694E] leading-tight">{formatShort(ytdProfit)}</div>
-          <div className={`text-[8px] font-semibold mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-            2026
-          </div>
-        </div>
-      </div>
-
-      <div className={`mt-3 text-[11px] font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-        Live updates every 30 seconds
       </div>
     </div>
   );
