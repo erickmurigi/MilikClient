@@ -175,10 +175,10 @@ const FinancialOverview = ({ darkMode }) => {
       </div>
 
       {/* Chart Section - Full Width */}
-      <div className="w-full" style={{ height: '320px', width: '100%' }}>
+      <div className="w-full" style={{ height: '320px', minHeight: '320px' }}>
           <ResponsiveContainer width="100%" height="100%">
               <AreaChart
-                data={financialData}
+                data={financialData || []}
                 margin={{ top: 5, right: 15, left: -25, bottom: 0 }}
               >
                 <defs>

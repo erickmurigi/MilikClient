@@ -37,14 +37,34 @@ const MetricsGrid = ({ darkMode }) => {
   // Calculate financial metrics
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
+  const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+  const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
   const thisMonthPayments = rentPayments.filter(p => {
     const paymentDate = new Date(p.createdAt);
     return paymentDate.getMonth() === currentMonth && paymentDate.getFullYear() === currentYear;
   });
+
+  const lastMonthPayments = rentPayments.filter(p => {
+    const paymentDate = new Date(p.createdAt);
+    return paymentDate.getMonth() === previousMonth && paymentDate.getFullYear() === previousYear;
+  });
   
   const totalCollected = rentPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
   const monthlyCollected = thisMonthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const lastMonthCollected = lastMonthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
   const outstandingBalance = units.reduce((sum, u) => sum + (u.outstandingBalance || 0), 0);
+
+  // Calculate percentage changes
+  const monthlyChangePercent = lastMonthCollected > 0 
+    ? (((monthlyCollected - lastMonthCollected) / lastMonthCollected) * 100).toFixed(1)
+    : 0;
+  const monthlyChangeSign = monthlyChangePercent >= 0 ? '+' : '';
+
+  // Occupancy change - track if available
+  const propertiesChange = '—';
+  const unitsChange = '—';
+  const occupancyChange = '—';
 
   const formatCurrency = (value) => {
     if (value >= 1000000) {
@@ -63,7 +83,7 @@ const MetricsGrid = ({ darkMode }) => {
       icon: <FaBuilding />, 
       color: 'from-[#1e5a4a] to-[#0f3d2e]', 
       iconBg: 'bg-[#1e5a4a]/20',
-      change: '+2.3%',
+      change: propertiesChange,
       loading: propertiesLoading 
     },
     { 
@@ -73,7 +93,7 @@ const MetricsGrid = ({ darkMode }) => {
       icon: <FaHome />, 
       color: 'from-[#31694E] to-[#1f4a35]',  
       iconBg: 'bg-[#31694E]/25',
-      change: '+5.1%',
+      change: unitsChange,
       loading: propertiesLoading 
     },
     { 
@@ -83,7 +103,7 @@ const MetricsGrid = ({ darkMode }) => {
       icon: <FaChartPie />, 
       color: 'from-[#4a9976] to-[#31694E]', 
       iconBg: 'bg-[#4a9976]/25',
-      change: '+1.8%',
+      change: occupancyChange,
       loading: propertiesLoading 
     },
     { 
@@ -93,7 +113,7 @@ const MetricsGrid = ({ darkMode }) => {
       icon: <FaMoneyBillWave />, 
       color: 'from-[#E85C0D] to-[#c7490a]', 
       iconBg: 'bg-[#E85C0D]/25',
-      change: '+12.5%',
+      change: '—',
       loading: propertiesLoading 
     },
     { 
@@ -103,7 +123,7 @@ const MetricsGrid = ({ darkMode }) => {
       icon: <FaWallet />, 
       color: 'from-[#ff8c42] to-[#E85C0D]',  
       iconBg: 'bg-[#ff8c42]/25',
-      change: '-23.4%',
+      change: monthlyChangeSign + monthlyChangePercent + '%',
       loading: propertiesLoading 
     },
     { 
@@ -113,10 +133,10 @@ const MetricsGrid = ({ darkMode }) => {
       icon: <FaExclamationCircle />, 
       color: 'from-[#E85C0D] to-[#d64c06]', 
       iconBg: 'bg-[#E85C0D]/20',
-      change: '+15.2%',
+      change: '—',
       loading: propertiesLoading 
     }
-  ], [totalProperties, totalUnits, occupancyRate, totalCollected, monthlyCollected, outstandingBalance, propertiesLoading, formatCurrency]);
+  ], [totalProperties, totalUnits, occupancyRate, totalCollected, monthlyCollected, outstandingBalance, monthlyChangePercent, monthlyChangeSign, propertiesLoading, formatCurrency]);
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
@@ -133,7 +153,7 @@ const MetricsGrid = ({ darkMode }) => {
               <div className="text-white text-lg">{metric.icon}</div>
             </div>
             <span className={`text-xs font-bold px-2 py-1 rounded-md ${
-              metric.change.startsWith('+') ? 'bg-[#4a9976]/35 text-white' : 'bg-[#E85C0D]/35 text-white'
+              metric.change === '—' ? 'bg-gray-500/35 text-white' : metric.change.startsWith('+') ? 'bg-[#4a9976]/35 text-white' : 'bg-[#E85C0D]/35 text-white'
             }`}>
               {metric.change}
             </span>

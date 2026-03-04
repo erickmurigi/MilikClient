@@ -22,6 +22,7 @@ import {
   FaArchive,
   FaUndo,
   FaChevronDown,
+  FaMoneyBillWave,
 } from "react-icons/fa";
 import { getLandlords, deleteLandlord, updateLandlord } from "../../redux/apiCalls";
 import MilikConfirmDialog from "../../components/Modals/MilikConfirmDialog";
@@ -756,6 +757,16 @@ const Landlords = () => {
               >
                 <FaPlus className="text-xs" />
                 <span>Add Landlord</span>
+              </button>
+
+              {/* View Payments */}
+              <button
+                onClick={() => navigate("/landlord-payments")}
+                className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${MILIK_ORANGE} ${MILIK_ORANGE_HOVER}`}
+                title="View landlord payments"
+              >
+                <FaMoneyBillWave className="text-xs" />
+                <span>Payments</span>
               </button>
 
               <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">

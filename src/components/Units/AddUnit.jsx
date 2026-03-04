@@ -1,13 +1,12 @@
 // components/Units/AddUnit.jsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import DashboardLayout from "../Layout/DashboardLayout";
 import { FaSave, FaTimes, FaChevronDown, FaSpinner, FaPlus, FaTrash, FaCalculator } from "react-icons/fa";
 import { toast } from "react-toastify";
-import { createUnit } from "../../redux/unitRedux";
+import { createUnit, getUnits, updateUnit } from "../../redux/unitRedux";
 import { getProperties } from "../../redux/propertyRedux";
-import { getUtilities } from "../../redux/apiCalls";
 
 // Orange theme constants
 const MILIK_ORANGE_BG = "bg-orange-600";
@@ -125,12 +124,13 @@ function MilikSelect({
 const AddUnit = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { id: unitId } = useParams();
+  const isEditMode = Boolean(unitId);
   
   const { currentCompany } = useSelector((state) => state.company);
   const { currentUser } = useSelector((state) => state.auth);
-  const { isFetching: loading } = useSelector((state) => state.unit);
+  const { isFetching: loading, units = [] } = useSelector((state) => state.unit);
   const properties = useSelector((state) => state.property?.properties || []);
-  const utilities = useSelector((state) => state.utility?.utilities || []);
 
   const [formData, setFormData] = useState({
     unitNumber: "",
@@ -148,13 +148,38 @@ const AddUnit = () => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [generalError, setGeneralError] = useState("");
 
-  // Fetch properties and utilities on mount
+  // Fetch properties and existing unit (if editing) on mount
   useEffect(() => {
     if (currentCompany?._id) {
       dispatch(getProperties({ business: currentCompany._id }));
-      getUtilities(dispatch, currentCompany._id);
+      
+      // If editing, fetch units to get the current unit data
+      if (isEditMode) {
+        dispatch(getUnits({ business: currentCompany._id }));
+      }
     }
-  }, [dispatch, currentCompany]);
+  }, [dispatch, currentCompany, isEditMode]);
+
+  // Populate form data when editing an existing unit
+  useEffect(() => {
+    if (isEditMode && units.length > 0) {
+      const existingUnit = units.find((u) => u._id === unitId);
+      if (existingUnit) {
+        setFormData({
+          unitNumber: existingUnit.unitNumber || "",
+          property: existingUnit.property?._id || existingUnit.property || "",
+          unitType: existingUnit.unitType || "",
+          rent: existingUnit.rent?.toString() || "",
+          deposit: existingUnit.deposit?.toString() || "",
+          status: existingUnit.status || "vacant",
+          description: existingUnit.description || "",
+          amenities: existingUnit.amenities?.join(", ") || "",
+          utilities: existingUnit.utilities || [],
+          billingFrequency: existingUnit.billingFrequency || "monthly",
+        });
+      }
+    }
+  }, [isEditMode, unitId, units]);
 
   // Input classes for consistency
   const inputClass =
@@ -300,19 +325,26 @@ const AddUnit = () => {
       setFieldErrors({});
       setGeneralError("");
       
-      await dispatch(createUnit(unitData)).unwrap();
+      if (isEditMode) {
+        // Update existing unit
+        await dispatch(updateUnit({ id: unitId, data: unitData })).unwrap();
+        toast.success("Unit updated successfully!");
+      } else {
+        // Create new unit
+        await dispatch(createUnit(unitData)).unwrap();
+        toast.success("Unit created successfully!");
+      }
       
-      toast.success("Unit created successfully!");
       navigate("/units");
     } catch (err) {
-      console.error("Unit creation error:", err);
+      console.error("Unit operation error:", err);
       
       const backendMessage =
         err?.message ||
         err?.error ||
         err?.data?.message ||
         err?.response?.data?.message ||
-        "Failed to create unit";
+        (isEditMode ? "Failed to update unit" : "Failed to create unit");
 
       setGeneralError(backendMessage);
       toast.error(backendMessage);
@@ -345,7 +377,9 @@ const AddUnit = () => {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Unit Details</h1>
-          <p className="text-sm text-slate-600 mt-1">Create a new unit for a property</p>
+          <p className="text-sm text-slate-600 mt-1">
+            {isEditMode ? "Edit unit information" : "Create a new unit for a property"}
+          </p>
         </div>
 
         {/* Form Card */}
@@ -490,7 +524,6 @@ const AddUnit = () => {
               ) : (
                 <div className="space-y-3">
                   {formData.utilities.map((util, idx) => {
-                    const selectedUtil = utilities.find((u) => u._id === util.utility);
                     return (
                       <div
                         key={idx}
@@ -499,13 +532,13 @@ const AddUnit = () => {
                         {/* Utility Selection */}
                         <div>
                           <MilikSelect
-                            label="Utility"
-                            placeholder="Select utility"
-                            items={utilities}
+                            label="Service Charge/Utility"
+                            placeholder="Select Type"
+                            items={["Water", "Garbage", "Electricity", "Service Charge", "Security", "Others"]}
                             value={util.utility}
                             onChange={(val) => updateUtility(idx, "utility", val)}
-                            getLabel={(u) => u.name}
-                            getValue={(u) => u._id}
+                            getLabel={(x) => x}
+                            getValue={(x) => x}
                             disabled={loading}
                           />
                         </div>
@@ -537,14 +570,6 @@ const AddUnit = () => {
                             />
                             <span className="text-xs font-medium text-slate-700">Include in Rent</span>
                           </label>
-                        </div>
-
-                        {/* Billing Cycle Display */}
-                        <div>
-                          <label className={labelClass}>Cycle</label>
-                          <div className="h-10 flex items-center px-3 bg-slate-100 border border-slate-200 rounded-md text-xs font-semibold text-slate-700">
-                            {selectedUtil?.billingCycle || "—"}
-                          </div>
                         </div>
 
                         {/* Remove Button */}
@@ -727,11 +752,11 @@ const AddUnit = () => {
                         <MilikSelect
                           label="Utility"
                           placeholder="Select utility"
-                          items={utilities}
+                          items={["Water", "Garbage", "Electricity", "Service Charge", "Security", "Others"]}
                           value={util.utility}
                           onChange={(val) => updateUtility(index, "utility", val)}
-                          getLabel={(u) => u.name}
-                          getValue={(u) => u._id}
+                          getLabel={(x) => x}
+                          getValue={(x) => x}
                           disabled={loading}
                         />
                       </div>

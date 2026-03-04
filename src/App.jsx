@@ -12,6 +12,7 @@ import SetupAdmin from "./pages/Login/SetupAdmin";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import Landlords from "./pages/Landlord/Landlord";
 import AddLandlord from "./components/Landlord/AddLandlord";
+import LandlordPayments from "./pages/Landlord/LandlordPayments";
 import Properties from "./pages/Properties/Properties";
 import Units from "./pages/Units/Units";
 import AddUnit from "./components/Units/AddUnit";
@@ -19,6 +20,7 @@ import Tenants from "./pages/Tenants/Tenants";
 import AddTenant from "./pages/Tenants/AddTenant";
 import TenantStatement from "./pages/Tenants/TenantStatement";
 import RentalInvoices from "./pages/Tenants/RentalInvoices";
+import Receipts from "./pages/Tenants/Receipts";
 import Leases from "./pages/Lease/Lease";
 import Vacants from "./pages/Vacants/Vacants";
 import Maintenances from "./pages/Maintenances/Maintenances";
@@ -77,18 +79,19 @@ function App() {
         <Route path="/system-setup/audit" element={<ProtectedRoute><SystemSetupPage /></ProtectedRoute>} />
         <Route path="/landlords" element={<ProtectedRoute><Landlords /></ProtectedRoute>} />
         <Route path="/landlords/new" element={<ProtectedRoute><AddLandlord /></ProtectedRoute>} />
+        <Route path="/landlord-payments" element={<ProtectedRoute><LandlordPayments /></ProtectedRoute>} />
         <Route path="/properties" element={<ProtectedRoute><Properties /></ProtectedRoute>} />
         <Route path="/units" element={<ProtectedRoute><Units /></ProtectedRoute>} />
         <Route path="/units/new" element={<ProtectedRoute><AddUnit /></ProtectedRoute>} />
+        <Route path="/units/:id" element={<ProtectedRoute><AddUnit /></ProtectedRoute>} />
         <Route path="/tenants" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
         <Route path="/tenant/new" element={<ProtectedRoute><AddTenant /></ProtectedRoute>} />
         <Route path="/tenant/:id/statement" element={<ProtectedRoute><TenantStatement /></ProtectedRoute>} />
-        <Route path="/tenant/:id/billing" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
-        <Route path="/tenant/:id/charges" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
-        <Route path="/tenant/:id/escalations" element={<ProtectedRoute><Tenants /></ProtectedRoute>} />
         <Route path="/tenant/:id/edit" element={<ProtectedRoute><AddTenant /></ProtectedRoute>} />
         <Route path="/invoices/rental" element={<ProtectedRoute><RentalInvoices /></ProtectedRoute>} />
         <Route path="/invoices/rental/:id" element={<ProtectedRoute><RentalInvoices /></ProtectedRoute>} />
+        <Route path="/receipts" element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
+        <Route path="/receipts/:id" element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
         <Route path="/leases" element={<ProtectedRoute><Leases /></ProtectedRoute>} />
         <Route path="/vacants" element={<ProtectedRoute><Vacants /></ProtectedRoute>} />
         <Route path="/maintenances" element={<ProtectedRoute><Maintenances /></ProtectedRoute>} />

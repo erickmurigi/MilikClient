@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { getTenants } from "../../redux/tenantsRedux";
 import { getLeases, getUtilities } from "../../redux/apiCalls";
@@ -17,12 +17,18 @@ import {
   FaMoneyBillWave,
   FaChartBar,
   FaCog,
+  FaPlus,
+  FaEdit,
+  FaTrash,
+  FaCheck,
+  FaTimes,
 } from "react-icons/fa";
 
 const MILIK_GREEN = "bg-[#165946]";
 
 const TenantStatement = () => {
   const { id: tenantId } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
@@ -30,10 +36,24 @@ const TenantStatement = () => {
   const [startDate, setStartDate] = useState("2026-01-01");
   const [endDate, setEndDate] = useState("2026-03-31");
   const [transactionType, setTransactionType] = useState("ALL");
-  const [escalationType, setEscalationType] = useState('percentage');
-  const [escalationRate, setEscalationRate] = useState(10);
-  const [escalationAmount, setEscalationAmount] = useState(1500);
-  const [escalationFrequency, setEscalationFrequency] = useState('yearly');
+  const [reviewFormOpen, setReviewFormOpen] = useState(false);
+  const [editingReviewId, setEditingReviewId] = useState(null);
+  const [reviewRecords, setReviewRecords] = useState(() => {
+    try {
+      const storageKey = `rentReviews_${tenantId}`;
+      const stored = localStorage.getItem(storageKey);
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      return [];
+    }
+  });
+  const [reviewForm, setReviewForm] = useState({
+    type: "percentage",
+    value: 5,
+    frequency: "yearly",
+    effectiveDate: new Date().toISOString().split("T")[0],
+    note: "",
+  });
   const [selectedSchedules, setSelectedSchedules] = useState([]);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [invoiceRefresh, setInvoiceRefresh] = useState(0);
@@ -55,8 +75,45 @@ const TenantStatement = () => {
   const maintenanceFromStore = useSelector((state) => state.maintenance?.maintenances || []);
   const expensesFromStore = useSelector((state) => state.expenseProperty?.expenseProperties || []);
   const utilitiesFromStore = useSelector((state) => state.utility?.utilities || []);
+  const unitsFromStore = useSelector((state) => state.unit?.units || []);
+  const propertiesFromStore = useSelector((state) => state.property?.properties || []);
   
   const tenant = tenantsFromStore?.find((t) => t._id === tenantId);
+  
+  // Helper to resolve property name from tenant data
+  const resolveTenantPropertyName = (tenant) => {
+    if (!tenant) return "-";
+    
+    // Level 1: Check direct property fields
+    const directPropertyName = tenant?.unit?.property?.propertyName || tenant?.property?.propertyName || tenant?.propertyName;
+    if (directPropertyName) return directPropertyName;
+
+    // Level 2: Unit ID → Unit record → Property
+    const tenantUnitId = tenant?.unit?._id || tenant?.unit;
+    const matchedUnit = unitsFromStore.find((unit) => unit?._id === tenantUnitId);
+    const propertyIdFromUnit = matchedUnit?.property?._id || matchedUnit?.property;
+    
+    // Level 3: Property ID → Property record
+    const propertyIdFromTenant = tenant?.property?._id || tenant?.property;
+    const resolvedPropertyId = propertyIdFromUnit || propertyIdFromTenant;
+    const matchedProperty = propertiesFromStore.find((property) => property?._id === resolvedPropertyId);
+
+    return matchedUnit?.property?.propertyName || matchedProperty?.propertyName || matchedProperty?.name || "-";
+  };
+  
+  // Helper to resolve unit number
+  const resolveTenantUnitNumber = (tenant) => {
+    if (!tenant) return "-";
+    
+    // Check direct unit number
+    if (tenant?.unit?.unitNumber) return tenant.unit.unitNumber;
+    
+    // Unit ID → Unit record
+    const tenantUnitId = tenant?.unit?._id || tenant?.unit;
+    const matchedUnit = unitsFromStore.find((unit) => unit?._id === tenantUnitId);
+    
+    return matchedUnit?.unitNumber || "-";
+  };
   const tenantLease = useMemo(() => {
     return leasesFromStore.find((lease) => lease.tenant === tenantId || lease.tenant?._id === tenantId);
   }, [leasesFromStore, tenantId]);
@@ -66,6 +123,26 @@ const TenantStatement = () => {
     const storageKey = `createdInvoices_${tenantId}`;
     localStorage.setItem(storageKey, JSON.stringify(createdInvoices));
   }, [createdInvoices, tenantId]);
+
+  useEffect(() => {
+    try {
+      const storageKey = `rentReviews_${tenantId}`;
+      const stored = localStorage.getItem(storageKey);
+      setReviewRecords(stored ? JSON.parse(stored) : []);
+    } catch (error) {
+      setReviewRecords([]);
+    }
+  }, [tenantId]);
+
+  useEffect(() => {
+    const storageKey = `rentReviews_${tenantId}`;
+    localStorage.setItem(storageKey, JSON.stringify(reviewRecords));
+  }, [reviewRecords, tenantId]);
+
+  // Set browser tab title to MILIK
+  useEffect(() => {
+    document.title = 'MILIK';
+  }, []);
 
   useEffect(() => {
     if (!currentCompany?._id) return;
@@ -232,11 +309,45 @@ const TenantStatement = () => {
   const billingScheduleData = useMemo(() => {
     const baseRent = tenantLease?.rentAmount || tenant?.rent || 23000;
     
-    // Calculate standing charges dynamically from utilities
-    const relevantUtilities = utilitiesFromStore.filter((util) => 
-      util.isActive && (util.business === currentCompany?._id || util.business?._id === currentCompany?._id)
-    );
-    const serviceCharge = relevantUtilities.length === 0 ? null : relevantUtilities.reduce((sum, util) => sum + (util.unitCost || 0), 0);
+    // Get tenant's utilities from multiple sources (in order of preference)
+    let tenantUtilities = [];
+    let serviceCharge = 0;
+    let tenantUtilityNames = [];
+    
+    // Priority 1: Tenant's own utilities array
+    if (tenant?.utilities && tenant.utilities.length > 0) {
+      tenantUtilities = tenant.utilities;
+    } 
+    // Priority 2: Unit's utilities (fallback)
+    else if (tenant?.unit?.utilities && tenant.unit.utilities.length > 0) {
+      tenantUtilities = tenant.unit.utilities;
+    }
+    // Priority 3: Try to find unit from store and get its utilities
+    else if (unitsFromStore && unitsFromStore.length > 0) {
+      const tenantUnitId = tenant?.unit?._id || tenant?.unit;
+      const matchedUnit = unitsFromStore.find((u) => u?._id === tenantUnitId);
+      if (matchedUnit?.utilities && matchedUnit.utilities.length > 0) {
+        tenantUtilities = matchedUnit.utilities;
+      }
+    }
+    
+    // Calculate service charge and utility names
+    if (tenantUtilities.length > 0) {
+      tenantUtilities.forEach((util) => {
+        const charge = parseFloat(util.unitCharge) || 0;
+        const utilityName = util.utilityLabel || util.utility || "Unknown";
+        
+        // Add to names list
+        if (!tenantUtilityNames.includes(utilityName)) {
+          tenantUtilityNames.push(utilityName);
+        }
+        
+        // Add to charge if not included in rent
+        if (!util.isIncluded) {
+          serviceCharge += charge;
+        }
+      });
+    }
     
     const scheduleData = [];
     let invoiceCounter = 1;
@@ -305,6 +416,7 @@ const TenantStatement = () => {
         description: monthName,
         rent: baseRent,
         utility: serviceCharge,
+        utilityNames: tenantUtilityNames.length > 0 ? tenantUtilityNames : [], // Store utility names for display
         booked: isBooked ? "Yes" : "No",
         frozen: "No",
         invoice: shouldShowInvoice ? (createdInvoiceNumber || invoiceNum) : "-",
@@ -317,7 +429,7 @@ const TenantStatement = () => {
     }
 
     return scheduleData;
-  }, [tenantLease, tenant, utilitiesFromStore, currentCompany, rentPaymentsFromStore, tenantId, createdInvoices]);
+  }, [tenantLease, tenant, unitsFromStore, rentPaymentsFromStore, tenantId, createdInvoices]);
 
   // Tabs configuration
   const tabs = [
@@ -326,6 +438,7 @@ const TenantStatement = () => {
     { id: "details", label: "Tenant Details", icon: <FaUser /> },
     { id: "charges", label: "Standing Charges", icon: <FaMoneyBillWave /> },
     { id: "reviews", label: "Rent Reviews / Escalations", icon: <FaChartBar /> },
+    { id: "actions", label: "Actions", icon: <FaCog /> },
   ];
 
   const handlePrint = () => {
@@ -333,7 +446,8 @@ const TenantStatement = () => {
   };
 
   const handleDownload = () => {
-    toast.info("Download feature coming soon");
+    // Trigger print dialog - user can save as PDF from there
+    window.print();
   };
 
   // TAB RENDERERS
@@ -538,6 +652,27 @@ const TenantStatement = () => {
             </div>
           </div>
         )}
+        
+        {/* Print-Only Footer */}
+        <div className="print-footer" style={{ display: 'none' }}>
+          <p style={{ marginBottom: '5px' }}>
+            Generated on {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} at {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '10px', color: '#9CA3AF' }}>
+            <span>Powered by</span>
+            <img 
+              src="/logo.png" 
+              alt="MILIK Logo" 
+              style={{ 
+                width: '20px', 
+                height: '20px',
+                display: 'inline-block',
+                verticalAlign: 'middle'
+              }} 
+            />
+            <span>MILIK - Property Management System</span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -798,7 +933,16 @@ const TenantStatement = () => {
                     <td className="px-3 py-2 text-slate-800">{row.to}</td>
                     <td className="px-3 py-2 font-medium text-slate-900">{row.description}</td>
                     <td className="px-3 py-2 text-right text-slate-900">{row.rent.toLocaleString()}</td>
-                    <td className="px-3 py-2 text-right text-slate-900">{row.utility ? row.utility.toLocaleString() : "-"}</td>
+                    <td className="px-3 py-2 text-right text-slate-900">
+                      <div>
+                        <div className="font-bold">{row.utility ? row.utility.toLocaleString() : "-"}</div>
+                        {row.utilityNames && row.utilityNames.length > 0 && (
+                          <div className="text-[9px] text-slate-500 font-medium mt-0.5">
+                            {row.utilityNames.join(", ")}
+                          </div>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-3 py-2 text-right font-semibold text-slate-900">{total.toLocaleString()}</td>
                     <td className="px-3 py-2 text-center">
                       <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-semibold ${row.frozen === "Yes" ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-600"}`}>
@@ -830,7 +974,7 @@ const TenantStatement = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
             <label className="block text-sm font-semibold text-gray-600 mb-2">Tenant Name</label>
-            <p className="text-lg font-bold text-gray-900">{tenant?.firstName} {tenant?.lastName}</p>
+            <p className="text-lg font-bold text-gray-900">{tenant?.name || (tenant?.firstName && tenant?.lastName ? `${tenant.firstName} ${tenant.lastName}` : "N/A")}</p>
           </div>
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
             <label className="block text-sm font-semibold text-gray-600 mb-2">Email</label>
@@ -842,16 +986,16 @@ const TenantStatement = () => {
           </div>
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
             <label className="block text-sm font-semibold text-gray-600 mb-2">ID Number</label>
-            <p className="text-lg font-bold text-gray-900">{tenant?.idDocument || "N/A"}</p>
+            <p className="text-lg font-bold text-gray-900">{tenant?.idDocument || tenant?.idNumber || "N/A"}</p>
           </div>
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
             <label className="block text-sm font-semibold text-gray-600 mb-2">Unit</label>
-            <p className="text-lg font-bold text-gray-900">{tenant?.unit?.unitNumber || "N/A"}</p>
+            <p className="text-lg font-bold text-gray-900">{resolveTenantUnitNumber(tenant)}</p>
           </div>
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
             <label className="block text-sm font-semibold text-gray-600 mb-2">Property</label>
             <p className="text-lg font-bold text-gray-900">
-              {tenant?.unit?.property?.propertyName || "N/A"}
+              {resolveTenantPropertyName(tenant)}
             </p>
           </div>
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
@@ -872,35 +1016,44 @@ const TenantStatement = () => {
   );
 
   const renderStandingCharges = () => {
-    // Filter utilities for this tenant's property or company
-    const relevantUtilities = utilitiesFromStore.filter((util) => 
-      util.isActive && (util.business === currentCompany?._id || util.business?._id === currentCompany?._id)
-    );
-
-    const totalStandingCharges = relevantUtilities.reduce((sum, util) => sum + (util.unitCost || 0), 0);
+    // Get tenant's utilities (standing charges) with fallback to unit utilities
+    let tenantUtilities = tenant?.utilities || [];
+    
+    // If tenant has no utilities, try to get them from the unit
+    if (tenantUtilities.length === 0 && tenant?.unit?.utilities && tenant.unit.utilities.length > 0) {
+      tenantUtilities = tenant.unit.utilities;
+    }
+    
+    const totalStandingCharges = tenantUtilities.reduce((sum, util) => sum + (parseFloat(util.unitCharge) || 0), 0);
 
     return (
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <h3 className="text-lg font-bold text-gray-900 mb-4">Standing Charges</h3>
         <p className="text-gray-600 mb-6">Recurring charges attached to this tenancy</p>
 
-        {relevantUtilities.length === 0 ? (
+        {tenantUtilities.length === 0 ? (
           <div className="text-center py-8">
-            <p className="text-gray-600">No standing charges configured yet.</p>
-            <p className="text-sm text-gray-500 mt-2">Add utilities in System Setup to see them here.</p>
+            <p className="text-gray-600">No standing charges for this tenant.</p>
+            <p className="text-sm text-gray-500 mt-2">Utilities will appear here when added to the tenant record.</p>
           </div>
         ) : (
           <div className="space-y-4">
-            {relevantUtilities.map((utility) => (
-              <div key={utility._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+            {tenantUtilities.map((utility, idx) => (
+              <div key={idx} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h4 className="font-semibold text-gray-900">{utility.name}</h4>
-                    <p className="text-sm text-gray-600 mt-1">{utility.description || "No description"}</p>
+                    <h4 className="font-semibold text-gray-900">{utility.utilityLabel || utility.utility}</h4>
+                    <p className="text-sm text-gray-600 mt-1">Monthly charge for this tenant</p>
                   </div>
                   <div className="text-right">
-                    <div className="text-lg font-bold text-gray-900">KES {(utility.unitCost || 0).toLocaleString()}</div>
-                    <div className="text-xs text-gray-600 font-medium capitalize">{utility.billingCycle || "Monthly"}</div>
+                    <div className="text-lg font-bold text-gray-900">Ksh {(parseFloat(utility.unitCharge) || 0).toLocaleString()}</div>
+                    <div className="text-xs text-gray-600 font-medium mt-1">
+                      {utility.isIncluded ? (
+                        <span className="text-green-600">✓ Included in Rent</span>
+                      ) : (
+                        <span className="text-orange-600">Tenant Pays</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -909,7 +1062,7 @@ const TenantStatement = () => {
             <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-800">
                 <span className="font-bold">Total Monthly Standing Charges:</span>
-                <span className="float-right font-bold">KES {totalStandingCharges.toLocaleString()}</span>
+                <span className="float-right font-bold">Ksh {totalStandingCharges.toLocaleString()}</span>
               </p>
             </div>
           </div>
@@ -919,200 +1072,592 @@ const TenantStatement = () => {
   };
 
   const renderRentReviewsAndEscalations = () => {
-    const currentRent = tenantLease?.rentAmount || tenant?.rent || 0;
-    const nextReviewDate = tenantLease?.endDate 
-      ? new Date(tenantLease.endDate).toLocaleDateString() 
-      : "01-Jan-2027";
+    const baseRent = tenantLease?.rentAmount || tenant?.rent || 0;
+    const sortedRecords = [...reviewRecords].sort(
+      (a, b) => new Date(a.effectiveDate) - new Date(b.effectiveDate)
+    );
+
+    const computeNewRent = (current, type, value) => {
+      const numericValue = Number(value) || 0;
+      if (type === "percentage") {
+        return Math.round(current * (1 + numericValue / 100));
+      }
+      return Math.round(current + numericValue);
+    };
+
+    const appliedOnly = sortedRecords.filter((record) => record.status === "Applied");
+    const currentEffectiveRent = appliedOnly.reduce((rent, record) => {
+      return computeNewRent(rent, record.type, record.value);
+    }, baseRent);
+
+    const pendingRecords = sortedRecords.filter((record) => record.status !== "Applied");
+    const nextPendingRecord = pendingRecords.length > 0 ? pendingRecords[0] : null;
+    const projectedRent = nextPendingRecord
+      ? computeNewRent(currentEffectiveRent, nextPendingRecord.type, nextPendingRecord.value)
+      : currentEffectiveRent;
+
+    const computedRows = sortedRecords.reduce(
+      (acc, record) => {
+        const previousRent = acc.runningRent;
+        const resultingRent = computeNewRent(previousRent, record.type, record.value);
+        acc.rows.push({ ...record, previousRent, resultingRent });
+        if (record.status === "Applied") {
+          acc.runningRent = resultingRent;
+        }
+        return acc;
+      },
+      { runningRent: baseRent, rows: [] }
+    ).rows;
+
+    const resetReviewForm = () => {
+      setReviewForm({
+        type: "percentage",
+        value: 5,
+        frequency: "yearly",
+        effectiveDate: new Date().toISOString().split("T")[0],
+        note: "",
+      });
+      setEditingReviewId(null);
+      setReviewFormOpen(false);
+    };
+
+    const handleSaveReview = () => {
+      if (!reviewForm.effectiveDate) {
+        toast.error("Effective date is required");
+        return;
+      }
+      if (!reviewForm.value || Number(reviewForm.value) <= 0) {
+        toast.error("Review value must be greater than zero");
+        return;
+      }
+
+      if (editingReviewId) {
+        setReviewRecords((prev) =>
+          prev.map((record) =>
+            record.id === editingReviewId
+              ? {
+                  ...record,
+                  ...reviewForm,
+                  updatedAt: new Date().toISOString(),
+                }
+              : record
+          )
+        );
+        toast.success("Review updated");
+      } else {
+        const newRecord = {
+          id: `REV-${Date.now()}`,
+          ...reviewForm,
+          status: "Scheduled",
+          createdAt: new Date().toISOString(),
+        };
+        setReviewRecords((prev) => [...prev, newRecord]);
+        toast.success("Review created");
+      }
+      resetReviewForm();
+    };
+
+    const handleEditReview = (record) => {
+      setEditingReviewId(record.id);
+      setReviewForm({
+        type: record.type,
+        value: record.value,
+        frequency: record.frequency,
+        effectiveDate: record.effectiveDate,
+        note: record.note || "",
+      });
+      setReviewFormOpen(true);
+    };
+
+    const handleDeleteReview = (reviewId) => {
+      setReviewRecords((prev) => prev.filter((record) => record.id !== reviewId));
+      toast.success("Review deleted");
+      if (editingReviewId === reviewId) resetReviewForm();
+    };
+
+    const handleApplyReview = (reviewId) => {
+      setReviewRecords((prev) =>
+        prev.map((record) =>
+          record.id === reviewId
+            ? { ...record, status: "Applied", appliedAt: new Date().toISOString() }
+            : record
+        )
+      );
+      toast.success("Review applied to effective rent");
+    };
+
+    const formatFrequency = (frequency) => {
+      if (frequency === "biannual") return "Bi-Annual";
+      if (frequency === "quarterly") return "Quarterly";
+      return "Yearly";
+    };
 
     return (
       <div className="space-y-6">
-        {/* Rent Reviews Section */}
         <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Rent Reviews</h3>
-          <p className="text-gray-600 mb-6">Historical rent changes and scheduled reviews</p>
-
-          <div className="space-y-4">
-            <div className="border-l-4 border-green-500 bg-green-50 p-4 rounded">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h4 className="font-semibold text-gray-900">
-                    {tenantLease?.startDate 
-                      ? new Date(tenantLease.startDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-                      : "January 2024"}
-                  </h4>
-                  <p className="text-sm text-gray-600">Initial lease rate</p>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-bold text-gray-900">KES {currentRent.toLocaleString()}</div>
-                  <span className="inline-block px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800 mt-1">
-                    Active
-                  </span>
-                </div>
-              </div>
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Rent Reviews & Escalations</h3>
+              <p className="text-gray-600 text-sm mt-1">
+                Manage rent adjustments with full review and escalation controls.
+              </p>
             </div>
-
-            <div className="border-l-4 border-blue-500 bg-blue-50 p-4 rounded">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h4 className="font-semibold text-gray-900">Next Scheduled Review</h4>
-                  <p className="text-sm text-gray-600">{nextReviewDate}</p>
-                </div>
-                <div className="text-right">
-                  <div className="text-lg font-bold text-gray-900">
-                    KES {(currentRent * 1.05).toLocaleString()}
-                  </div>
-                  <span className="inline-block px-2 py-1 rounded text-xs font-semibold bg-blue-100 text-blue-800 mt-1">
-                    Pending
-                  </span>
-                </div>
-              </div>
-              <p className="text-xs text-blue-700 mt-2">5% increase expected</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Escalations Section */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Rent Escalations</h3>
-          <p className="text-gray-600 mb-6">Automatic rent increase configuration</p>
-
-          {/* Escalation Type Selector */}
-          <div className="mb-6 flex gap-2">
             <button
-              onClick={() => setEscalationType('percentage')}
-              className={`px-4 py-2 rounded font-semibold transition-colors ${
-                escalationType === 'percentage'
-                  ? 'bg-orange-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              onClick={() => {
+                setEditingReviewId(null);
+                setReviewFormOpen(true);
+              }}
+              className={`${MILIK_GREEN} hover:bg-[#0A3127] text-white px-4 py-2 rounded font-semibold flex items-center gap-2`}
             >
-              Percentage Increase
-            </button>
-            <button
-              onClick={() => setEscalationType('amount')}
-              className={`px-4 py-2 rounded font-semibold transition-colors ${
-                escalationType === 'amount'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Fixed Amount Increase
+              <FaPlus /> Add Review / Escalation
             </button>
           </div>
 
-          {/* Percentage Increase Configuration */}
-          {escalationType === 'percentage' && (
-            <div className="border border-gray-200 rounded-lg p-6 bg-gradient-to-br from-orange-50 to-white">
-              <h4 className="font-bold text-gray-900 mb-4">Fixed Percentage Increase</h4>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5">
+            <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
+              <p className="text-xs text-slate-600 font-semibold">Base Rent</p>
+              <p className="text-lg font-bold text-slate-900 mt-1">Ksh {baseRent.toLocaleString()}</p>
+            </div>
+            <div className="border border-green-200 rounded-lg p-3 bg-green-50">
+              <p className="text-xs text-green-700 font-semibold">Current Effective Rent</p>
+              <p className="text-lg font-bold text-green-700 mt-1">Ksh {currentEffectiveRent.toLocaleString()}</p>
+            </div>
+            <div className="border border-blue-200 rounded-lg p-3 bg-blue-50">
+              <p className="text-xs text-blue-700 font-semibold">Scheduled Reviews</p>
+              <p className="text-lg font-bold text-blue-700 mt-1">{pendingRecords.length}</p>
+            </div>
+            <div className="border border-orange-200 rounded-lg p-3 bg-orange-50">
+              <p className="text-xs text-orange-700 font-semibold">Projected Next Rent</p>
+              <p className="text-lg font-bold text-orange-700 mt-1">Ksh {projectedRent.toLocaleString()}</p>
+            </div>
+          </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <div className="bg-white border border-gray-200 rounded-lg p-3">
-                  <p className="text-xs text-gray-600 font-medium">Current Rent</p>
-                  <p className="text-lg font-bold text-gray-900 mt-1">
-                    KES {currentRent.toLocaleString()}
-                  </p>
+          {reviewFormOpen && (
+            <div className="border border-slate-200 rounded-lg p-4 bg-slate-50 mb-5">
+              <h4 className="font-bold text-slate-900 mb-3">
+                {editingReviewId ? "Edit Review / Escalation" : "New Review / Escalation"}
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Type</label>
+                  <select
+                    value={reviewForm.type}
+                    onChange={(e) => setReviewForm((prev) => ({ ...prev, type: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                  >
+                    <option value="percentage">Percentage (%)</option>
+                    <option value="amount">Fixed Amount (Ksh)</option>
+                  </select>
                 </div>
-
-                <div className="bg-white border border-gray-200 rounded-lg p-3">
-                  <p className="text-xs text-gray-600 font-medium mb-2">Increase Rate</p>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">
+                    {reviewForm.type === "percentage" ? "Increase %" : "Increase Amount"}
+                  </label>
                   <input
                     type="number"
-                    value={escalationRate}
-                    onChange={(e) => setEscalationRate(Math.max(0, Math.min(100, Number(e.target.value))))}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
                     min="0"
-                    max="100"
+                    value={reviewForm.value}
+                    onChange={(e) =>
+                      setReviewForm((prev) => ({ ...prev, value: Math.max(0, Number(e.target.value)) }))
+                    }
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
                   />
-                  <p className="text-xs text-gray-600 mt-1">% Annually</p>
                 </div>
-
-                <div className="bg-white border border-gray-200 rounded-lg p-3">
-                  <p className="text-xs text-gray-600 font-medium">Next Review</p>
-                  <p className="text-lg font-bold text-gray-900 mt-1">{nextReviewDate}</p>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Frequency</label>
+                  <select
+                    value={reviewForm.frequency}
+                    onChange={(e) => setReviewForm((prev) => ({ ...prev, frequency: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                  >
+                    <option value="yearly">Yearly</option>
+                    <option value="biannual">Bi-Annual</option>
+                    <option value="quarterly">Quarterly</option>
+                  </select>
                 </div>
-
-                <div className="bg-gradient-to-br from-green-50 to-white border border-green-300 rounded-lg p-3">
-                  <p className="text-xs text-gray-600 font-medium">New Rent</p>
-                  <p className="text-lg font-bold text-green-600 mt-1">
-                    KES {Math.round(currentRent * (1 + escalationRate / 100)).toLocaleString()}
-                  </p>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Effective Date</label>
+                  <input
+                    type="date"
+                    value={reviewForm.effectiveDate}
+                    onChange={(e) => setReviewForm((prev) => ({ ...prev, effectiveDate: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Projected Rent</label>
+                  <div className="mt-1 h-[42px] px-3 rounded-md border border-green-300 bg-green-50 flex items-center font-bold text-green-700 text-sm">
+                    Ksh {computeNewRent(currentEffectiveRent, reviewForm.type, reviewForm.value).toLocaleString()}
+                  </div>
                 </div>
               </div>
-
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded">
-                <p className="text-sm text-blue-800">
-                  <span className="font-semibold">Increase Amount:</span>
-                  <span className="float-right font-bold text-green-600">
-                    + KES {Math.round(currentRent * (escalationRate / 100)).toLocaleString()}
-                  </span>
-                </p>
+              <div className="mt-3">
+                <label className="text-xs font-semibold text-slate-700">Notes</label>
+                <textarea
+                  rows={2}
+                  value={reviewForm.note}
+                  onChange={(e) => setReviewForm((prev) => ({ ...prev, note: e.target.value }))}
+                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                  placeholder="Reason for escalation/review"
+                />
+              </div>
+              <div className="mt-3 flex justify-end gap-2">
+                <button
+                  onClick={resetReviewForm}
+                  className="px-4 py-2 rounded border border-slate-300 text-slate-700 font-semibold text-sm hover:bg-slate-100 flex items-center gap-2"
+                >
+                  <FaTimes /> Cancel
+                </button>
+                <button
+                  onClick={handleSaveReview}
+                  className={`${MILIK_GREEN} hover:bg-[#0A3127] text-white px-4 py-2 rounded font-semibold text-sm`}
+                >
+                  {editingReviewId ? "Update" : "Save"}
+                </button>
               </div>
             </div>
           )}
 
-          {/* Fixed Amount Increase Configuration */}
-          {escalationType === 'amount' && (
-            <div className="border border-gray-200 rounded-lg p-6 bg-gradient-to-br from-purple-50 to-white">
-              <h4 className="font-bold text-gray-900 mb-4">Fixed Amount Increase</h4>
+          <div className="overflow-auto border border-slate-200 rounded-lg">
+            <table className="w-full min-w-[980px] text-sm">
+              <thead>
+                <tr className={`${MILIK_GREEN} text-white text-xs`}>
+                  <th className="px-3 py-2 text-left">Effective Date</th>
+                  <th className="px-3 py-2 text-left">Type</th>
+                  <th className="px-3 py-2 text-left">Frequency</th>
+                  <th className="px-3 py-2 text-right">Increase</th>
+                  <th className="px-3 py-2 text-right">Resulting Rent</th>
+                  <th className="px-3 py-2 text-left">Status</th>
+                  <th className="px-3 py-2 text-left">Notes</th>
+                  <th className="px-3 py-2 text-center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {computedRows.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="px-3 py-8 text-center text-slate-500">
+                      No rent review/escalation records yet.
+                    </td>
+                  </tr>
+                ) : (
+                  computedRows.map((record, index) => {
+                    const isApplied = record.status === "Applied";
+                    return (
+                      <tr
+                        key={record.id}
+                        className={`${index % 2 === 0 ? "bg-white" : "bg-slate-50"} border-b border-slate-200`}
+                      >
+                        <td className="px-3 py-2 text-slate-800">
+                          {new Date(record.effectiveDate).toLocaleDateString()}
+                        </td>
+                        <td className="px-3 py-2 text-slate-800 capitalize">{record.type}</td>
+                        <td className="px-3 py-2 text-slate-800">{formatFrequency(record.frequency)}</td>
+                        <td className="px-3 py-2 text-right text-slate-900 font-semibold">
+                          {record.type === "percentage"
+                            ? `${Number(record.value)}%`
+                            : `Ksh ${Number(record.value).toLocaleString()}`}
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold text-slate-900">
+                          Ksh {record.resultingRent.toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={`inline-flex px-2 py-1 rounded text-xs font-semibold ${
+                              isApplied
+                                ? "bg-green-100 text-green-700"
+                                : "bg-amber-100 text-amber-700"
+                            }`}
+                          >
+                            {record.status}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-slate-700 max-w-[220px] truncate">
+                          {record.note || "-"}
+                        </td>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center justify-center gap-2">
+                            {!isApplied && (
+                              <button
+                                onClick={() => handleApplyReview(record.id)}
+                                className="px-2 py-1 text-xs rounded bg-green-600 text-white hover:bg-green-700 flex items-center gap-1"
+                                title="Apply"
+                              >
+                                <FaCheck /> Apply
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleEditReview(record)}
+                              className="px-2 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700"
+                              title="Edit"
+                            >
+                              <FaEdit />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteReview(record.id)}
+                              className="px-2 py-1 text-xs rounded bg-red-600 text-white hover:bg-red-700"
+                              title="Delete"
+                            >
+                              <FaTrash />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <div className="bg-white border border-gray-200 rounded-lg p-3">
-                  <p className="text-xs text-gray-600 font-medium">Current Rent</p>
-                  <p className="text-lg font-bold text-gray-900 mt-1">
-                    KES {currentRent.toLocaleString()}
-                  </p>
-                </div>
+  const handlePrintReceipt = (receipt) => {
+    const printWindow = window.open('', '_blank');
+    const receiptHTML = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Receipt #${receipt.receiptNumber}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: white;
+          }
+          .receipt-container {
+            max-width: 600px;
+            margin: 0 auto;
+            border: 2px solid #165946;
+            padding: 30px;
+            border-radius: 8px;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #165946;
+            padding-bottom: 15px;
+          }
+          .company-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #165946;
+            margin-bottom: 5px;
+          }
+          .receipt-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-top: 15px;
+          }
+          .receipt-number {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+          }
+          .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 14px;
+          }
+          .detail-label {
+            font-weight: bold;
+            color: #333;
+          }
+          .detail-value {
+            color: #666;
+          }
+          .divider {
+            border-top: 1px solid #ddd;
+            margin: 15px 0;
+          }
+          .amount-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 4px;
+          }
+          .total-amount {
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: bold;
+            color: #165946;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #999;
+          }
+          @media print {
+            body {
+              background: white;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="receipt-container">
+          <div class="header">
+            <div class="company-name">${currentCompany?.companyName || 'MILIK'}</div>
+            <div class="receipt-title">RENT RECEIPT</div>
+            <div class="receipt-number">Receipt #${receipt.receiptNumber}</div>
+          </div>
+          
+          <div class="detail-row">
+            <span class="detail-label">Tenant Name:</span>
+            <span class="detail-value">${tenant?.name || '-'}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Reference:</span>
+            <span class="detail-value">${receipt.referenceNumber || '-'}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Payment Date:</span>
+            <span class="detail-value">${new Date(receipt.paymentDate).toLocaleDateString()}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Payment Method:</span>
+            <span class="detail-value">${receipt.paymentMethod || '-'}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Payment Type:</span>
+            <span class="detail-value">${receipt.paymentType || '-'}</span>
+          </div>
+          
+          <div class="divider"></div>
+          
+          <div class="amount-section">
+            <div class="total-amount">
+              <span>Amount Received:</span>
+              <span>Ksh ${(receipt.amount || 0).toLocaleString()}</span>
+            </div>
+          </div>
+          
+          <div class="divider"></div>
+          
+          <div class="detail-row">
+            <span class="detail-label">Status:</span>
+            <span class="detail-value">${receipt.isConfirmed ? 'CONFIRMED' : 'PENDING'}</span>
+          </div>
+          
+          <div class="footer">
+            <p>Thank you for your payment</p>
+            <p>This is an electronically generated receipt</p>
+          </div>
+        </div>
+        <script>
+          window.onload = function() {
+            window.print();
+          }
+        </script>
+      </body>
+      </html>
+    `;
+    printWindow.document.write(receiptHTML);
+    printWindow.document.close();
+  };
 
-                <div className="bg-white border border-gray-200 rounded-lg p-3">
-                  <p className="text-xs text-gray-600 font-medium mb-2">Fixed Increase</p>
-                  <input
-                    type="number"
-                    value={escalationAmount}
-                    onChange={(e) => setEscalationAmount(Math.max(0, Number(e.target.value)))}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                    min="0"
-                  />
-                  <p className="text-xs text-gray-600 mt-1">Per review</p>
-                </div>
+  const renderActions = () => {
+    const tenantReceipts = rentPaymentsFromStore.filter(
+      (p) => p.tenant === tenantId || p.tenant?._id === tenantId
+    );
 
-                <div className="bg-white border border-gray-200 rounded-lg p-3">
-                  <p className="text-xs text-gray-600 font-medium mb-2">Frequency</p>
-                  <select
-                    value={escalationFrequency}
-                    onChange={(e) => setEscalationFrequency(e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-                  >
-                    <option value="yearly">Yearly</option>
-                    <option value="biannual">Bi-annual</option>
-                    <option value="quarterly">Quarterly</option>
-                  </select>
-                </div>
+    return (
+      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+          <h3 className="text-lg font-bold text-slate-900">Tenant Actions & Receipts</h3>
+        </div>
 
-                <div className="bg-gradient-to-br from-green-50 to-white border border-green-300 rounded-lg p-3">
-                  <p className="text-xs text-gray-600 font-medium">New Rent</p>
-                  <p className="text-lg font-bold text-green-600 mt-1">
-                    KES {(currentRent + escalationAmount).toLocaleString()}
-                  </p>
-                </div>
-              </div>
+        {/* Quick Actions */}
+        <div className="px-6 py-4 border-b border-slate-200">
+          <h4 className="text-sm font-semibold text-slate-800 mb-4">Quick Actions</h4>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => {
+                navigate(`/receipts/${tenantId}`);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded font-semibold text-sm transition-colors"
+            >
+              <FaMoneyBillWave size={16} />
+              View All Receipts
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold text-sm transition-colors"
+            >
+              <FaPrint size={16} />
+              Print Statement
+            </button>
+            <button
+              onClick={() => navigate(`/tenant/${tenantId}/edit`)}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-semibold text-sm transition-colors"
+            >
+              <FaEdit size={16} />
+              Edit Tenant
+            </button>
+          </div>
+        </div>
 
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded">
-                <p className="text-sm text-blue-800">
-                  <span className="font-semibold">Increase Amount:</span>
-                  <span className="float-right font-bold text-green-600">
-                    + KES {escalationAmount.toLocaleString()}
-                  </span>
-                </p>
-              </div>
-
-              <div className="mt-4 flex gap-2 justify-end">
-                <button className="bg-gray-100 text-gray-700 px-4 py-2 rounded font-semibold hover:bg-gray-200">
-                  Cancel
-                </button>
-                <button className={`${MILIK_GREEN} hover:bg-[#0A3127] text-white px-4 py-2 rounded font-semibold`}>
-                  Save Escalation
-                </button>
-              </div>
+        {/* Receipts History */}
+        <div className="px-6 py-4">
+          <h4 className="text-sm font-semibold text-slate-800 mb-4">Recent Receipts</h4>
+          {tenantReceipts.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p>No receipts found for this tenant</p>
+            </div>
+          ) : (
+            <div className="overflow-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-slate-100 border-b border-slate-200">
+                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Receipt #</th>
+                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Date</th>
+                    <th className="px-4 py-2 text-left font-semibold text-slate-700">Type</th>
+                    <th className="px-4 py-2 text-right font-semibold text-slate-700">Amount</th>
+                    <th className="px-4 py-2 text-center font-semibold text-slate-700">Status</th>
+                    <th className="px-4 py-2 text-center font-semibold text-slate-700">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tenantReceipts.slice().reverse().map((receipt) => (
+                    <tr key={receipt._id} className="border-b border-slate-200 hover:bg-slate-50">
+                      <td className="px-4 py-3 font-mono text-slate-700">{receipt.receiptNumber}</td>
+                      <td className="px-4 py-3 text-slate-600">
+                        {new Date(receipt.paymentDate).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{receipt.paymentType}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                        Ksh {(receipt.amount || 0).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span
+                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ${
+                            receipt.isConfirmed
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}
+                        >
+                          {receipt.isConfirmed ? 'Confirmed' : 'Pending'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <button
+                          onClick={() => handlePrintReceipt(receipt)}
+                          className="text-blue-600 hover:text-blue-800 font-semibold flex items-center justify-center gap-1 mx-auto"
+                          title="Print Receipt"
+                        >
+                          <FaPrint size={14} />
+                          <span className="text-xs">Print</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
@@ -1132,6 +1677,8 @@ const TenantStatement = () => {
         return renderStandingCharges();
       case "reviews":
         return renderRentReviewsAndEscalations();
+      case "actions":
+        return renderActions();
       default:
         return renderStatement();
     }
@@ -1161,8 +1708,68 @@ const TenantStatement = () => {
     <DashboardLayout>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 p-4">
         <div className="mx-auto" style={{ maxWidth: "95%" }}>
+          {/* Print-Only Company Header */}
+          <div className="print-only-header" style={{ display: 'none' }}>
+            <div style={{ textAlign: 'center', paddingBottom: '10px', marginBottom: '10px' }}>
+              <h1 style={{ fontSize: '26px', fontWeight: 'bold', color: '#165946', marginBottom: '12px', letterSpacing: '1px' }}>
+                {currentCompany?.companyName || currentCompany?.name || 'System Admin'}
+              </h1>
+              {currentCompany?.companyEmail && (
+                <p style={{ fontSize: '13px', color: '#4B5563', marginBottom: '3px' }}>
+                  Email: {currentCompany.companyEmail}
+                </p>
+              )}
+              {currentCompany?.companyPhone && (
+                <p style={{ fontSize: '13px', color: '#4B5563', marginBottom: '3px' }}>
+                  Phone: {currentCompany.companyPhone}
+                </p>
+              )}
+              {currentCompany?.companyAddress && (
+                <p style={{ fontSize: '13px', color: '#4B5563', marginBottom: '10px' }}>
+                  Address: {currentCompany.companyAddress}
+                </p>
+              )}
+              <div style={{ borderBottom: '3px solid #165946', margin: '10px auto', width: '100%' }}></div>
+            </div>
+            <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1F2937', textAlign: 'center', marginBottom: '15px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Tenant Statement
+            </h2>
+            {/* Tenant Details Section */}
+            <div style={{ 
+              backgroundColor: '#F9FAFB', 
+              border: '2px solid #E5E7EB', 
+              borderRadius: '8px', 
+              padding: '15px', 
+              marginBottom: '20px' 
+            }}>
+              <h3 style={{ fontSize: '14px', fontWeight: 'bold', color: '#165946', marginBottom: '12px', borderBottom: '1px solid #D1D5DB', paddingBottom: '6px' }}>
+                TENANT INFORMATION
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#6B7280', marginBottom: '3px' }}>Tenant Name</p>
+                  <p style={{ fontSize: '13px', fontWeight: '600', color: '#1F2937' }}>{tenant?.tenantName || tenant?.name || '-'}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#6B7280', marginBottom: '3px' }}>Unit Number</p>
+                  <p style={{ fontSize: '13px', fontWeight: '600', color: '#1F2937' }}>{resolveTenantUnitNumber(tenant)}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#6B7280', marginBottom: '3px' }}>Property</p>
+                  <p style={{ fontSize: '13px', fontWeight: '600', color: '#1F2937' }}>{resolveTenantPropertyName(tenant)}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#6B7280', marginBottom: '3px' }}>Monthly Rent</p>
+                  <p style={{ fontSize: '13px', fontWeight: '600', color: '#1F2937' }}>
+                    Ksh {(tenantLease?.rentAmount || tenant?.rent || 0).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Header Section - Sticky */}
-          <div className="sticky top-0 z-10 bg-white rounded-lg shadow-lg border border-slate-200 mb-6 p-4">
+          <div className="sticky top-0 z-10 bg-white rounded-lg shadow-lg border border-slate-200 mb-6 p-4 no-print">
             {/* Back and Action Buttons */}
             <div className="mb-4 flex items-center justify-between">
               <div>
@@ -1174,33 +1781,43 @@ const TenantStatement = () => {
                   Back to Tenants
                 </button>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={handlePrint}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold flex items-center gap-2 shadow-md"
-                >
-                  <FaPrint size={16} />
-                  Print
-                </button>
-                <button
-                  onClick={handleDownload}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold flex items-center gap-2 shadow-md"
-                >
-                  <FaDownload size={16} />
-                  Download PDF
-                </button>
-              </div>
+              {/* Show Print and Download buttons only in Statement tab */}
+              {activeTab === 'statement' && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => navigate(`/receipts/${tenantId}`)}
+                    className="bg-[#FF8C00] hover:bg-[#e67e00] text-white px-4 py-2 rounded font-semibold flex items-center gap-2 shadow-md"
+                  >
+                    <FaMoneyBillWave size={16} />
+                    Receipts
+                  </button>
+                  <button
+                    onClick={handlePrint}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded font-semibold flex items-center gap-2 shadow-md"
+                  >
+                    <FaPrint size={16} />
+                    Print
+                  </button>
+                  <button
+                    onClick={handleDownload}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold flex items-center gap-2 shadow-md"
+                  >
+                    <FaDownload size={16} />
+                    Download PDF
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Tenant Information Card */}
-            <div className="bg-slate-50 rounded-lg px-4 py-3">
+            <div className="bg-slate-50 rounded-lg px-4 py-3 print-tenant-info">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
                   <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">
                     Tenant Name
                   </p>
                   <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">
-                    {tenant ? `${tenant.firstName || ""} ${tenant.lastName || ""}`.trim() : "Loading..."}
+                    {tenant?.tenantName || tenant?.name || "Loading..."}
                   </p>
                 </div>
                 <div>
@@ -1214,7 +1831,7 @@ const TenantStatement = () => {
                     Unit
                   </p>
                   <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">
-                    {tenant?.unit?.unitNumber || "-"}
+                    {resolveTenantUnitNumber(tenant)}
                   </p>
                 </div>
                 <div>
@@ -1222,7 +1839,7 @@ const TenantStatement = () => {
                     Property
                   </p>
                   <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">
-                    {tenant?.unit?.property?.propertyName || "-"}
+                    {resolveTenantPropertyName(tenant)}
                   </p>
                 </div>
               </div>
@@ -1259,69 +1876,159 @@ const TenantStatement = () => {
       {/* Print Styles */}
       <style>{`
         @media print {
+          @page {
+            margin: 0.75in;
+            size: A4;
+          }
+          
           body {
             background: white !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
+          
+          /* Hide all navigation and system tabs */
+          .fixed {
+            display: none !important;
+          }
+          
+          /* Reset padding added for fixed elements */
+          .pt-36 {
+            padding-top: 0 !important;
+          }
+          
+          .pt-4 {
+            padding-top: 0 !important;
+          }
+          
+          /* Hide bottom module tabs */
+          .pb-20 {
+            padding-bottom: 0 !important;
+          }
+          
+          /* Show print-only header */
+          .print-only-header {
+            display: block !important;
+            page-break-after: avoid;
+          }
+          
           /* Hide all buttons */
           button {
             display: none !important;
           }
+          
           /* Hide checkboxes */
           input[type="checkbox"] {
             display: none !important;
           }
+          
           /* Hide elements with no-print class */
           .no-print {
             display: none !important;
           }
+          
           /* Hide the entire tab navigation container */
           .tabs-container {
             display: none !important;
           }
+          
           /* Hide the flex container inside tabs-container */
           .tabs-container .flex {
             display: none !important;
           }
+          
           /* Hide filter section */
           .filter-section {
             display: none !important;
           }
+          
           /* Hide tab content wrapper, only show statement content */
           .tab-content {
             display: none !important;
           }
+          
           .statement-tab {
             display: block !important;
           }
+          
           /* Hide action buttons bar */
           .bg-gray-50 {
             display: none !important;
           }
+          
           /* Print optimizations */
           .bg-gradient-to-br {
             background: white !important;
           }
+          
           .shadow-sm, .shadow-md, .shadow-lg {
             box-shadow: none !important;
           }
+          
+          /* Style tenant info card for print */
+          .print-tenant-info {
+            background: white !important;
+            border: 2px solid #E5E7EB !important;
+            padding: 15px !important;
+            margin-bottom: 20px !important;
+            page-break-after: avoid;
+          }
+          
+          .print-tenant-info p {
+            font-size: 12px !important;
+          }
+          
           /* Optimize transaction table for printing */
           .transaction-table {
             height: auto !important;
             break-inside: avoid;
           }
+          
           .transaction-table tbody {
             page-break-inside: avoid;
           }
+          
           .transaction-table tr {
             page-break-inside: avoid;
+            page-break-after: auto;
           }
+          
           /* Hide action buttons and back button area */
           .flex.items-center.justify-between {
             display: none !important;
           }
-          /* Keep tenant info card visible */
-          .bg-slate-50.rounded-lg {
+          
+          /* Optimize colors for print */
+          .bg-blue-600, .bg-green-600, .bg-orange-600, .bg-red-600 {
+            background-color: white !important;
+            border: 1px solid #000 !important;
+          }
+          
+          /* Make text darker for better print readability */
+          .text-gray-600, .text-gray-700 {
+            color: #000 !important;
+          }
+          
+          /* Card styling for print */
+          .bg-white {
+            border: 1px solid #E5E7EB !important;
+          }
+          
+          /* Summary cards styling */
+          .bg-blue-50, .bg-orange-50, .bg-green-50 {
+            background: white !important;
+            border: 2px solid #165946 !important;
+          }
+          
+          /* Footer spacing */
+          .print-footer {
             display: block !important;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #E5E7EB;
+            text-align: center;
+            font-size: 11px;
+            color: #6B7280;
           }
         }
       `}</style>

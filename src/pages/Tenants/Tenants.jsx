@@ -17,7 +17,9 @@ import {
   FaUserEdit,
   FaBolt,
   FaChartLine,
+  FaMoneyBillWave,
   FaTrash,
+  FaSpinner,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { getTenants, deleteTenant } from "../../redux/tenantsRedux";
@@ -35,6 +37,10 @@ const Tenants = () => {
   const { tenants: tenantsData = [], isFetching } = useSelector(
     (state) => state.tenant || { tenants: [], isFetching: false }
   );
+  const units = useSelector((state) => state.unit?.units || []);
+  const properties = useSelector((state) => state.property?.properties || []);
+  const { rentPayments = [] } = useSelector((state) => state.rentPayment || {});
+  const { leases = [] } = useSelector((state) => state.lease || {});
 
   // ===== UI STATE =====
   const [currentPage, setCurrentPage] = useState(1);
@@ -42,6 +48,8 @@ const Tenants = () => {
   const [selectedTenants, setSelectedTenants] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const actionMenuRef = useRef(null);
 
   // ===== FILTERS =====
@@ -84,30 +92,115 @@ const Tenants = () => {
   }, []);
 
   // ===== TRANSFORM TENANT DATA =====
-  const transformedTenants = useMemo(() => {
-    return (Array.isArray(tenantsData) ? tenantsData : []).map((tenant, index) => {
-      // Auto-generate tenant code: TT + 4 digits
-      const tenantCode = tenant.tenantCode || `TT${String(index + 1).padStart(4, '0')}`;
+  // Helper function to resolve tenant's property name using multi-level lookup
+  const resolveTenantPropertyName = (tenant, unitsFromStore = [], propertiesFromStore = []) => {
+    // Level 1: Check direct property fields
+    const directPropertyName = tenant?.unit?.property?.propertyName || tenant?.property?.propertyName || tenant?.propertyName;
+    if (directPropertyName) return directPropertyName;
+
+    // Level 2: Unit ID → Unit record → Property
+    const tenantUnitId = tenant?.unit?._id || tenant?.unit;
+    const matchedUnit = unitsFromStore.find((unit) => unit?._id === tenantUnitId);
+    const propertyIdFromUnit = matchedUnit?.property?._id || matchedUnit?.property;
+    
+    // Level 3: Property ID → Property record
+    const propertyIdFromTenant = tenant?.property?._id || tenant?.property;
+    const resolvedPropertyId = propertyIdFromUnit || propertyIdFromTenant;
+    const matchedProperty = propertiesFromStore.find((property) => property?._id === resolvedPropertyId);
+
+    return matchedUnit?.property?.propertyName || matchedProperty?.propertyName || matchedProperty?.name || "-";
+  };
+
+  // Helper function to calculate actual balance (rent + utilities owed - confirmed payments)
+  const calculateTenantBalance = (tenantId, tenantData) => {
+    // Get all confirmed receipt payments for this tenant
+    const tenantPayments = rentPayments.filter((p) => p.tenant === tenantId || p.tenant?._id === tenantId);
+    const totalConfirmedReceipts = tenantPayments
+      .filter((p) => p.isConfirmed === true)
+      .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+    // Calculate total rent owed
+    // Method 1: Try to get from lease data
+    const tenantLease = leases.find((l) => l.tenant === tenantId || l.tenant?._id === tenantId);
+    let totalRentOwed = 0;
+
+    if (tenantLease) {
+      // Lease exists - use lease amount as monthly rent
+      const monthlyRent = tenantLease.rent || 0;
+      const startDate = new Date(tenantLease.startDate || tenantData?.moveInDate);
+      const endDate = tenantLease.endDate ? new Date(tenantLease.endDate) : new Date();
       
+      // Calculate months elapsed
+      const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 + 
+                        (endDate.getMonth() - startDate.getMonth());
+      const monthsElapsed = Math.max(1, monthsDiff + 1); // At least 1 month
+      
+      totalRentOwed = monthlyRent * monthsElapsed;
+    } else if (tenantData?.unit?.rent) {
+      // No lease - estimate from unit rent and move-in date
+      const monthlyRent = tenantData.unit.rent;
+      const startDate = new Date(tenantData.moveInDate || Date.now());
+      const today = new Date();
+      
+      // Calculate months elapsed
+      const monthsDiff = (today.getFullYear() - startDate.getFullYear()) * 12 + 
+                        (today.getMonth() - startDate.getMonth());
+      const monthsElapsed = Math.max(1, monthsDiff + 1); // At least 1 month
+      
+      totalRentOwed = monthlyRent * monthsElapsed;
+    }
+
+    // Calculate total utility charges owed (exclude utilities marked as included in rent)
+    let totalUtilitiesOwed = 0;
+    
+    // Check tenant's utilities first
+    const tenantUtilities = tenantData?.utilities || [];
+    if (Array.isArray(tenantUtilities)) {
+      totalUtilitiesOwed += tenantUtilities
+        .filter((util) => util.isIncluded !== true) // Only count utilities not included in rent
+        .reduce((sum, util) => sum + (util.unitCharge || util.amount || 0), 0);
+    }
+    
+    // If no tenant utilities, check unit utilities
+    if (tenantUtilities.length === 0 && tenantData?.unit?.utilities) {
+      const unitUtilities = tenantData.unit.utilities || [];
+      if (Array.isArray(unitUtilities)) {
+        totalUtilitiesOwed += unitUtilities
+          .filter((util) => util.isIncluded !== true) // Only count utilities not included in rent
+          .reduce((sum, util) => sum + (util.unitCharge || util.amount || 0), 0);
+      }
+    }
+
+    // Balance = (Rent Owed + Utilities Owed) - Confirmed Receipts
+    // If negative, tenant owes money. If positive, tenant has overpaid (credit)
+    const balance = (totalRentOwed + totalUtilitiesOwed) - totalConfirmedReceipts;
+    
+    return balance;
+  };
+
+  const transformedTenants = useMemo(() => {
+    return (Array.isArray(tenantsData) ? tenantsData : []).map((tenant) => {
+      const balance = calculateTenantBalance(tenant._id, tenant);
       return {
         id: tenant._id,
-        tenantCode: tenantCode,
+        tenantCode: tenant.tenantCode || "-",
         tenantName: tenant.name || "-",
         unitNumber: tenant.unit?.unitNumber || "-",
-        propertyName: tenant.unit?.property?.propertyName || "-",
+        propertyName: resolveTenantPropertyName(tenant, units, properties),
         startDate: tenant.moveInDate
           ? new Date(tenant.moveInDate).toLocaleDateString()
           : "-",
         rent: tenant.unit?.rent
           ? `Ksh ${tenant.unit.rent.toLocaleString()}`
           : "-",
+        balance: balance,
         status: (tenant.status || "active").toLowerCase(),
         phone: tenant.phone || "-",
         email: tenant.email || "-",
         accountBalance: tenant.accountBalance ?? 0,
       };
     });
-  }, [tenantsData]);
+  }, [tenantsData, units, properties, rentPayments, leases]);
 
   // ===== FILTER TENANTS =====
   const filteredTenants = useMemo(() => {
@@ -231,6 +324,15 @@ const Tenants = () => {
     setActionMenuOpen(false);
   };
 
+  const handleViewReceipts = () => {
+    if (selectedTenants.length === 0) {
+      toast.warning("Please select at least one tenant");
+      return;
+    }
+    navigate(`/receipts/${selectedTenants[0]}`);
+    setActionMenuOpen(false);
+  };
+
   const handleAddUtility = () => {
     if (selectedTenants.length === 0) {
       toast.warning("Please select at least one tenant");
@@ -256,17 +358,45 @@ const Tenants = () => {
   };
 
   // ===== CRUD ACTIONS =====
-  const handleDeleteTenant = async (tenantId, tenantName) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete ${tenantName || 'this tenant'}? This action cannot be undone.`
-    );
-    if (!confirmed) return;
-    try {
-      await dispatch(deleteTenant(tenantId)).unwrap();
-      toast.success("Tenant deleted successfully");
-      setSelectedTenants((prev) => prev.filter((id) => id !== tenantId));
-    } catch (error) {
-      toast.error(error?.message || "Failed to delete tenant");
+  const handleDeleteSelectedTenants = async () => {
+    if (selectedTenants.length === 0) {
+      toast.warning("Please select at least one tenant to delete");
+      return;
+    }
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteTenants = async () => {
+    setIsDeleting(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const tenantId of selectedTenants) {
+      try {
+        await dispatch(deleteTenant(tenantId)).unwrap();
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to delete tenant ${tenantId}:`, error);
+        failCount++;
+      }
+    }
+
+    setIsDeleting(false);
+    setShowDeleteModal(false);
+    setSelectedTenants([]);
+    setSelectAll(false);
+    setActionMenuOpen(false);
+
+    if (successCount > 0) {
+      toast.success(`Successfully deleted ${successCount} tenant(s)`);
+    }
+    if (failCount > 0) {
+      toast.error(`Failed to delete ${failCount} tenant(s)`);
+    }
+
+    // Refresh tenant list
+    if (currentCompany?._id) {
+      dispatch(getTenants({ business: currentCompany._id }));
     }
   };
 
@@ -454,6 +584,13 @@ const Tenants = () => {
                       <span>Edit Tenant Details</span>
                     </button>
                     <button
+                      onClick={handleViewReceipts}
+                      className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                    >
+                      <FaMoneyBillWave size={12} />
+                      <span>View Tenant Receipts</span>
+                    </button>
+                    <button
                       onClick={handleAddUtility}
                       className="w-full text-left px-4 py-2 text-xs hover:bg-gray-100 flex items-center gap-2 text-gray-700"
                     >
@@ -468,19 +605,7 @@ const Tenants = () => {
                       <span>Review Rent for Selected Tenant</span>
                     </button>
                     <button
-                      onClick={() => {
-                        if (selectedTenants.length === 0) {
-                          toast.warning("Please select a tenant to delete");
-                          return;
-                        }
-                        if (!window.confirm(`Are you sure you want to delete ${selectedTenants.length} tenant(s)? This action cannot be undone.`)) {
-                          return;
-                        }
-                        selectedTenants.forEach((tenantId) => {
-                          handleDeleteTenant(tenantId);
-                        });
-                        setActionMenuOpen(false);
-                      }}
+                      onClick={handleDeleteSelectedTenants}
                       className="w-full text-left px-4 py-2 text-xs hover:bg-red-50 flex items-center gap-2 text-red-600 border-t border-gray-200 font-semibold"
                     >
                       <FaTrash size={12} />
@@ -536,6 +661,9 @@ const Tenants = () => {
                 </th>
                 <th className="px-2 py-1.5 text-right font-bold border-r border-gray-400 min-w-[100px]">
                   Rent
+                </th>
+                <th className="px-2 py-1.5 text-right font-bold border-r border-gray-400 min-w-[110px]">
+                  Balance
                 </th>
                 <th className="px-2 py-1.5 text-center font-bold border-r border-gray-400 min-w-[80px]">
                   Status
@@ -598,6 +726,15 @@ const Tenants = () => {
                       <td className="px-2 py-1 font-bold text-gray-900 text-right border-r border-gray-200">
                         {tenant.rent}
                       </td>
+                      <td className="px-2 py-1 font-bold text-right border-r border-gray-200">
+                        <span className={`${
+                          tenant.balance >= 0 
+                            ? 'text-green-600' 
+                            : 'text-red-600'
+                        }`}>
+                          Ksh {tenant.balance.toLocaleString()}
+                        </span>
+                      </td>
                       <td className="px-2 py-1 text-center border-r border-gray-200">
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
@@ -617,7 +754,7 @@ const Tenants = () => {
                     {/* Expanded Details Row */}
                     {expandedTenants.includes(tenant.id) && (
                       <tr className="bg-gray-100 border-b border-gray-200">
-                        <td colSpan="10" className="px-3 py-2">
+                        <td colSpan="11" className="px-3 py-2">
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
                             {/* Tenant & Contact Details */}
                             <div>
@@ -705,34 +842,17 @@ const Tenants = () => {
                                   }}
                                   className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded text-xs transition-colors"
                                 >
-                                  💳 Statement
+                                  💳 View Statement
                                 </button>
                                 <button
-                                  onClick={() =>
-                                    navigate(`/tenant/${tenant.id}/billing`)
-                                  }
-                                  className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white font-bold rounded text-xs transition-colors"
-                                >
-                                  📅 Schedule
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    navigate(`/tenant/${tenant.id}/charges`)
-                                  }
-                                  className="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white font-bold rounded text-xs transition-colors"
-                                >
-                                  🔧 Charges
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    navigate(`/tenant/${tenant.id}/escalations`)
-                                  }
-                                  className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded text-xs transition-colors"
-                                >
-                                  📈 Escalations
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteTenant(tenant.id, tenant.tenantName)}
+                                  onClick={() => {
+                                    if (selectedTenants.length === 0) {
+                                      toast.warning("Please select a tenant to delete");
+                                      return;
+                                    }
+                                    setSelectedTenants([tenant.id]);
+                                    setShowDeleteModal(true);
+                                  }}
                                   className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded text-xs transition-colors"
                                 >
                                   🗑️ Delete
@@ -747,7 +867,7 @@ const Tenants = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="10" className="px-3 py-4 text-center text-gray-600 font-semibold text-xs">
+                  <td colSpan="11" className="px-3 py-4 text-center text-gray-600 font-semibold text-xs">
                     No tenants found. Try adjusting filters or create a new tenant.
                   </td>
                 </tr>
@@ -818,6 +938,81 @@ const Tenants = () => {
           </div>
         </div>
       </div>
+
+      {/* ===== DELETE CONFIRMATION MODAL ===== */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/0 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-md transform transition-all">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-t-lg">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <FaTrash size={18} />
+                Confirm Delete
+              </h3>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              <p className="text-gray-700 mb-4">
+                Are you sure you want to delete <strong>{selectedTenants.length}</strong> tenant(s)?
+              </p>
+              <p className="text-sm text-red-600 font-semibold">
+                ⚠️ This action cannot be undone!
+              </p>
+              
+              {selectedTenants.length > 0 && (
+                <div className="mt-4 p-3 bg-gray-50 rounded border border-gray-200">
+                  <p className="text-xs text-gray-600 mb-2">Tenants to be deleted:</p>
+                  <ul className="text-xs text-gray-700 space-y-1 max-h-32 overflow-y-auto">
+                    {selectedTenants.slice(0, 10).map((tenantId) => {
+                      const tenant = transformedTenants.find(t => t.id === tenantId);
+                      return tenant ? (
+                        <li key={tenantId} className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                          <span className="font-semibold">{tenant.tenantCode}</span> - {tenant.tenantName}
+                        </li>
+                      ) : null;
+                    })}
+                    {selectedTenants.length > 10 && (
+                      <li className="text-gray-500 italic">
+                        ...and {selectedTenants.length - 10} more
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex gap-3 px-6 py-4 bg-gray-50 rounded-b-lg">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteTenants}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isDeleting ? (
+                  <>
+                    <FaSpinner className="animate-spin" size={14} />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <FaTrash size={14} />
+                    Delete {selectedTenants.length} Tenant(s)
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 };

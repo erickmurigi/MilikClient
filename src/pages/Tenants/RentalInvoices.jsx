@@ -112,6 +112,7 @@ const RentalInvoices = () => {
   const tenantsFromStore = useSelector((state) => state.tenant?.tenants || []);
   const propertiesFromStore = useSelector((state) => state.property?.properties || []);
   const unitsFromStore = useSelector((state) => state.unit?.units || []);
+  const rentPayments = useSelector((state) => state.rentPayment?.rentPayments || []);
 
   useEffect(() => {
     if (!currentCompany?._id) return;
@@ -221,10 +222,15 @@ const RentalInvoices = () => {
           typeof entry === "object"
             ? entry?.createdAt || entry?.createdDate || null
             : null;
-        const status =
-          typeof entry === "object"
-            ? entry?.status || "Issued"
-            : "Issued";
+
+        // Calculate status based on confirmed payments
+        const confirmedPayments = rentPayments.filter(
+          (payment) =>
+            payment.isConfirmed === true &&
+            (payment.tenant?._id === tenant._id || payment.tenant === tenant._id)
+        );
+        const totalPaid = confirmedPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        const status = totalPaid >= amount ? "Paid" : "Issued";
 
         allInvoices.push({
           key: `${tenant._id}_${period}`,
@@ -253,7 +259,7 @@ const RentalInvoices = () => {
       const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return bDate - aDate;
     });
-  }, [tenantId, tenantsFromStore, unitsFromStore, propertiesFromStore, refreshTick]);
+  }, [tenantId, tenantsFromStore, unitsFromStore, propertiesFromStore, refreshTick, rentPayments]);
 
   const uniqueProperties = useMemo(() => {
     return [

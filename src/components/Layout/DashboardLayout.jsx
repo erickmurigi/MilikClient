@@ -638,7 +638,6 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
             <button
               onClick={() => {
                 setActiveMenu(activeMenu === item.id ? null : item.id);
-                setActiveSubMenu(null);
               }}
               className={`px-4 py-2 text-sm font-bold text-white transition-colors ${
                 activeMenu === item.id
