@@ -22,6 +22,7 @@ import maintenanceReducer from "./maintenanceRedux"
 import leaseReducer from "./leasesRedux"
 import expensePropertyReducer from "./expensePropertyRedux"
 import notificationPropertyReducer from "./notificationPropertyRedux"
+import companySettingsReducer from "./companySettingsRedux"
 
 // WARNING: Client-side encryption provides minimal security
 // Sensitive data should never be stored in localStorage
@@ -69,7 +70,7 @@ const rootReducer = combineReducers({
   lease: leaseReducer,
   expenseProperty: expensePropertyReducer,
   notification: notificationPropertyReducer,
-
+  companySettings: companySettingsReducer,
 
   
 });

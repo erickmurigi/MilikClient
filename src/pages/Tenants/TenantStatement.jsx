@@ -382,17 +382,22 @@ const TenantStatement = () => {
     currentDate.setDate(1);
 
     while (currentDate < endDate) {
-      const nextDate = new Date(currentDate);
-      nextDate.setMonth(nextDate.getMonth() + 1);
-      const lastDay = new Date(nextDate.getFullYear(), nextDate.getMonth(), 0).getDate();
-      const fromDay = currentDate.getDate();
-      const from = `${String(fromDay).padStart(2, '0')}/${String(currentDate.getMonth() + 1).padStart(2, '0')}/${currentDate.getFullYear()}`;
-      const monthTo = currentDate.getMonth() === 11 ? 1 : currentDate.getMonth() + 2;
-      const yearTo = currentDate.getMonth() === 11 ? currentDate.getFullYear() + 1 : currentDate.getFullYear();
-      const to = `${String(lastDay).padStart(2, '0')}/${String(monthTo).padStart(2, '0')}/${yearTo}`;
+      // Get start of current month
+      const from = `${String(currentDate.getDate()).padStart(2, '0')}/${String(currentDate.getMonth() + 1).padStart(2, '0')}/${currentDate.getFullYear()}`;
+      
+      // Get last day of current month for the "to" date
+      const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
+      const monthForTo = currentDate.getMonth() + 1; // Same month
+      const yearForTo = currentDate.getFullYear();
+      const to = `${String(lastDayOfMonth).padStart(2, '0')}/${String(monthForTo).padStart(2, '0')}/${yearForTo}`;
+      
       const monthName = currentDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
       const invoiceNum = `INV${String(invoiceCounter).padStart(5, '0')}`;
       const isPast = currentDate < new Date();
+      
+      // Move to next month
+      const nextDate = new Date(currentDate);
+      nextDate.setMonth(nextDate.getMonth() + 1);
       
       // Check if there's an actual rent payment for this period
       const hasPaymentForPeriod = rentPaymentsFromStore.some((payment) => {

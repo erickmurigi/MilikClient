@@ -194,19 +194,41 @@ const AddTenant = () => {
   // Load utilities when unit is selected
   useEffect(() => {
     if (formData.unit && availableUnits.length > 0) {
-      const selectedUnit = availableUnits.find(u => u._id === formData.unit);
+      const selectedUnit = availableUnits.find((u) => u._id === formData.unit);
       if (selectedUnit) {
         // Auto-populate rent from unit
-        setFormData(prev => ({
-          ...prev,
-          rent: selectedUnit.rent || "",
-          // Load utilities from unit
-          utilities: (selectedUnit.utilities || []).map(util => ({
-            utility: util.utility?._id || util.utility || "",
-            utilityLabel: util.utility?.name || "Unknown Utility",
+        const mappedUtilities = (selectedUnit.utilities || []).map((util) => {
+          let utilityLabel = "Unknown Utility";
+          let utilityValue = "";
+          
+          // Case 1: utility is a populated object (from .populate())
+          if (util.utility && typeof util.utility === 'object' && !Array.isArray(util.utility)) {
+            utilityValue = util.utility._id || "";
+            utilityLabel = util.utility.name || util.utility.utilityName || "Unknown Utility";
+          }
+          // Case 2: utility is a non-empty string
+          else if (util.utility && typeof util.utility === 'string' && util.utility.trim() !== '') {
+            utilityValue = util.utility;
+            utilityLabel = util.utility;
+          }
+          // Case 3: utility field is missing/null/undefined/empty - use fallback
+          else {
+            utilityValue = "";
+            utilityLabel = "Unknown Utility";
+          }
+          
+          return {
+            utility: utilityValue,
+            utilityLabel: utilityLabel,
             isIncluded: util.isIncluded,
             unitCharge: util.unitCharge || 0,
-          }))
+          };
+        });
+        
+        setFormData((prev) => ({
+          ...prev,
+          rent: selectedUnit.rent || "",
+          utilities: mappedUtilities,
         }));
       }
     }
@@ -523,12 +545,8 @@ const AddTenant = () => {
                       items={availableUnits}
                       value={formData.unit}
                       onChange={(val) => {
-                        const selectedUnit = availableUnits.find(u => u._id === val);
-                        setFormData((prev) => ({
-                          ...prev,
-                          unit: val,
-                          rent: selectedUnit?.rent || "",
-                        }));
+                        // Just set the unit value - let the useEffect handle populating rent and utilities
+                        setFormData((prev) => ({ ...prev, unit: val }));
                         if (fieldErrors.unit) {
                           setFieldErrors((prev) => ({ ...prev, unit: "" }));
                         }
@@ -562,7 +580,6 @@ const AddTenant = () => {
                         <p className="mt-1 text-xs text-red-600">{fieldErrors.moveInDate}</p>
                       )}
                       <p className="mt-1 text-xs text-orange-600 font-semibold">
-                        ⚠️ Billing anchor
                       </p>
                     </div>
 

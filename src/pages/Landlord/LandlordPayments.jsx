@@ -74,8 +74,8 @@ const LandlordPayments = () => {
     return landlords.map((landlord) => {
       // Get properties owned by this landlord
       const landlordProperties = properties.filter((prop) => {
-        // Check if landlord is in the property's landlords array
-        return prop.landlords?.some((ll) => ll._id === landlord._id || ll === landlord._id);
+        // Check if landlord is in the property's landlords array by landlordId
+        return prop.landlords?.some((ll) => ll.landlordId === landlord._id);
       });
 
       // Calculate total rent from all properties

@@ -33,6 +33,7 @@ import CompanySetupPage from "./pages/companySetup/CompanySetupPage";
 import SystemSetupPage from "./pages/SystemSetup/SystemSetup";
 import AddCompanyWizard from "./pages/SystemSetup/AddCompanyWizard";
 import AddUserPage from "./pages/SystemSetup/AddUsers";
+import CompanySettings from "./pages/SystemSetup/CompanySettings";
 
 function ProtectedRoute({ children }) {
   const { currentUser } = useSelector((state) => state.auth);
@@ -102,6 +103,7 @@ function App() {
         <Route path="/properties/edit/:id" element={<ProtectedRoute><EditProperty /></ProtectedRoute>} />
         <Route path="/add-user" element={<ProtectedRoute><AddUserPage /></ProtectedRoute>} />
         <Route path="/company-setup" element={<ProtectedRoute><CompanySetupPage /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><CompanySettings /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );
