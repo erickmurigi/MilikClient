@@ -86,6 +86,23 @@ export const rentPaymentSlice = createSlice({
         confirmRentPaymentFailure: (state) => {
             state.isFetching = false
             state.error = true
+        },
+
+        // Unconfirm rent payment
+        unconfirmRentPaymentStart: (state) => {
+            state.isFetching = true
+            state.error = false
+        },
+        unconfirmRentPaymentSuccess: (state, action) => {
+            state.isFetching = false
+            const index = state.rentPayments.findIndex((item) => item._id === action.payload._id)
+            if (index !== -1) {
+                state.rentPayments[index] = action.payload
+            }
+        },
+        unconfirmRentPaymentFailure: (state) => {
+            state.isFetching = false
+            state.error = true
         }
     }
 })
@@ -105,7 +122,10 @@ export const {
     deleteRentPaymentFailure,
     confirmRentPaymentStart,
     confirmRentPaymentSuccess,
-    confirmRentPaymentFailure
+    confirmRentPaymentFailure,
+    unconfirmRentPaymentStart,
+    unconfirmRentPaymentSuccess,
+    unconfirmRentPaymentFailure
 } = rentPaymentSlice.actions
 
 export default rentPaymentSlice.reducer

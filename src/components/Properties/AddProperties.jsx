@@ -182,6 +182,11 @@ function MilikSelect({
                     type="button"
                     key={v}
                     onClick={() => {
+                      console.log("🎯 Landlord dropdown option clicked:", {
+                        id: v,
+                        label: getLabel(it),
+                        fullObject: it
+                      });
                       onChange?.(v, it);
                       setOpen(false);
                     }}
@@ -484,14 +489,26 @@ const AddProperty = () => {
    * - Autofill Landlord Name + Contact Information
    */
   const handleSelectLandlord = (landlordId, landlordObj) => {
-    const updated = [...formData.landlords];
-    const primary = updated[0] || { isPrimary: true };
+    console.log("🔍 handleSelectLandlord called with:");
+    console.log("  landlordId:", landlordId);
+    console.log("  landlordObj:", landlordObj);
+    
+     const updated = [...formData.landlords];
+     const primary = updated[0] || { isPrimary: true };
 
     const displayName =
       landlordObj?.fullName ||
       landlordObj?.name ||
       landlordObj?.landlordName ||
+       landlordObj?.landlord ||
       "";
+   
+     if (!displayName || !displayName.trim()) {
+       console.error("❌ Landlord name is empty:", landlordObj);
+       setFieldErrors((prev) => ({ ...prev, landlord: "Landlord name is missing. Please refresh and try again." }));
+       return;
+     }
+
     const contact =
       landlordObj?.email ||
       landlordObj?.phone ||
@@ -501,10 +518,12 @@ const AddProperty = () => {
     updated[0] = {
       ...primary,
       landlordId,
-      name: displayName,
+       name: displayName.trim(),
       contact: contact,
       isPrimary: true,
     };
+
+    console.log("  Updated landlords[0]:", updated[0]);
 
     setFormData((prev) => ({ ...prev, landlords: updated }));
     if (fieldErrors.landlord) {
@@ -673,6 +692,9 @@ const AddProperty = () => {
       createdBy: currentUser?._id,
       updatedBy: currentUser?._id,
     };
+
+    console.log("📤 SENDING PROPERTY DATA TO BACKEND:");
+    console.log("Landlords array:", JSON.stringify(propertyData.landlords, null, 2));
 
     try {
       setFieldErrors({});

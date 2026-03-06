@@ -1,17 +1,8 @@
 /* eslint-disable react/prop-types */
 import { createContext, useEffect, useReducer } from "react";
-import AES from 'crypto-js/aes';
-import Utf8 from 'crypto-js/enc-utf8';
-import { encode } from 'js-base64';
-
-// Function to obfuscate keys
-const obfuscateKey = (key) => encode(key);
-
-// Obfuscated key for localStorage
-const localStorageKey = obfuscateKey('user');
 
 const INITIAL_STATE = {
-    user: null, // Initialize as null, let initializer handle decryption
+    user: null,
     loading: false,
     error: null,
 };
@@ -28,7 +19,7 @@ const AuthReducer = (state, action) => {
             };
         case "LOGIN_SUCCESS":
             return {
-                user: action.payload, // Expecting { details, isAdmin, token }
+                user: action.payload,
                 loading: false,
                 error: null,
             };
@@ -44,46 +35,58 @@ const AuthReducer = (state, action) => {
                 loading: false,
                 error: null,
             };
+        case "SYNC_FROM_STORAGE":
+            return {
+                user: action.payload,
+                loading: false,
+                error: null,
+            };
         default:
             return state;
     }
 };
 
-const secretKey = 'DecryptBetterBiz';
-
-const encryptData = (data) => {
-    return AES.encrypt(JSON.stringify(data), secretKey).toString();
-};
-
-const decryptData = (ciphertext) => {
-    const bytes = AES.decrypt(ciphertext, secretKey);
-    const decryptedData = JSON.parse(bytes.toString(Utf8));
-    return decryptedData;
-};
-
 export const AuthContextProvider = ({ children }) => {
     const [state, dispatch] = useReducer(AuthReducer, INITIAL_STATE, (initial) => {
-        const encryptedData = localStorage.getItem(localStorageKey);
-        if (encryptedData) {
+        // Sync from Redux-persisted localStorage on mount
+        const user = localStorage.getItem('milik_user');
+        if (user) {
             try {
-                const decryptedUser = decryptData(encryptedData);
-                return { ...initial, user: decryptedUser };
+                return { ...initial, user: JSON.parse(user) };
             } catch (error) {
-                console.error('Failed to decrypt user data:', error);
+                console.error('Failed to parse user from localStorage:', error);
                 return initial;
             }
         }
         return initial;
     });
 
+    // Keep in sync with localStorage whenever Redux updates it
     useEffect(() => {
-        if (state.user) {
-            const encryptedUser = encryptData(state.user);
-            localStorage.setItem(localStorageKey, encryptedUser);
-        } else {
-            localStorage.removeItem(localStorageKey);
-        }
-    }, [state.user]);
+        const handleStorageChange = () => {
+            const user = localStorage.getItem('milik_user');
+            if (user) {
+                try {
+                    dispatch({ type: 'SYNC_FROM_STORAGE', payload: JSON.parse(user) });
+                } catch (error) {
+                    console.error('Failed to sync user from storage:', error);
+                }
+            } else {
+                dispatch({ type: 'LOGOUT' });
+            }
+        };
+
+        // Listen for storage changes (from other tabs/contexts)
+        window.addEventListener('storage', handleStorageChange);
+        
+        // Also check localStorage changes periodically (within same tab)
+        const interval = setInterval(handleStorageChange, 500);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            clearInterval(interval);
+        };
+    }, []);
 
     return (
         <AuthContext.Provider value={{ user: state.user, loading: state.loading, error: state.error, dispatch }}>

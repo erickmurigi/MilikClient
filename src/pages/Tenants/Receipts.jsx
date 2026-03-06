@@ -23,6 +23,7 @@ import {
   deleteRentPayment,
   getRentPayments,
   updateRentPayment,
+  unconfirmRentPayment,
 } from "../../redux/apiCalls";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
@@ -398,6 +399,21 @@ const Receipts = () => {
     }
   };
 
+  const handleUnconfirmOne = async (receipt) => {
+    if (!receipt.isConfirmed) {
+      toast.info("Receipt is not confirmed. Cannot unconfirm an unconfirmed receipt.");
+      return;
+    }
+
+    try {
+      await unconfirmRentPayment(dispatch, receipt._id);
+      toast.success("Receipt unconfirmed. You can now delete it.");
+      await loadData();
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to unconfirm receipt");
+    }
+  };
+
   const toggleSelection = (receiptId) => {
     setSelectedIds((prev) =>
       prev.includes(receiptId) ? prev.filter((id) => id !== receiptId) : [...prev, receiptId]
@@ -635,12 +651,12 @@ const Receipts = () => {
                               onChange={() => toggleSelection(receipt._id)}
                             />
                           </td>
-                          <td className="px-3 py-2 font-semibold text-slate-900">{receipt.receiptNumber || "-"}</td>
-                          <td className="px-3 py-2 text-slate-700">{formatDate(receipt.paymentDate)}</td>
-                          <td className="px-3 py-2 text-slate-700">{getTenantName(receipt, tenants)}</td>
-                          <td className="px-3 py-2 text-slate-700">{getUnitName(receipt, tenants)}</td>
-                          <td className="px-3 py-2 text-slate-700 capitalize">{receipt.paymentType || "-"}</td>
-                          <td className="px-3 py-2 text-slate-700 capitalize">{(receipt.paymentMethod || "-").replace("_", " ")}</td>
+                          <td className="px-3 py-2 font-bold text-slate-900">{receipt.receiptNumber || "-"}</td>
+                          <td className="px-3 py-2 font-semibold text-slate-900">{formatDate(receipt.paymentDate)}</td>
+                          <td className="px-3 py-2 font-semibold text-slate-900">{getTenantName(receipt, tenants)}</td>
+                          <td className="px-3 py-2 font-semibold text-slate-900">{getUnitName(receipt, tenants)}</td>
+                          <td className="px-3 py-2 font-semibold text-slate-900 capitalize">{receipt.paymentType || "-"}</td>
+                          <td className="px-3 py-2 font-semibold text-slate-900 capitalize">{(receipt.paymentMethod || "-").replace("_", " ")}</td>
                           <td className="px-3 py-2 text-right font-bold text-slate-900">
                             Ksh {Number(receipt.amount || 0).toLocaleString()}
                           </td>
@@ -655,7 +671,7 @@ const Receipts = () => {
                               {receipt.isConfirmed ? "Confirmed" : "Pending"}
                             </span>
                           </td>
-                          <td className="px-3 py-2 text-slate-700">{receipt.referenceNumber || "-"}</td>
+                          <td className="px-3 py-2 font-semibold text-slate-900">{receipt.referenceNumber || "-"}</td>
                           <td className="px-3 py-2">
                             <div className="flex items-center justify-center gap-1">
                               <button
@@ -679,6 +695,14 @@ const Receipts = () => {
                                 disabled={receipt.isConfirmed}
                               >
                                 <FaCheck size={11} />
+                              </button>
+                              <button
+                                onClick={() => handleUnconfirmOne(receipt)}
+                                className="px-2 py-1 rounded bg-orange-600 hover:bg-orange-700 text-white"
+                                title="Unconfirm"
+                                disabled={!receipt.isConfirmed}
+                              >
+                                <FaTimes size={11} />
                               </button>
                               <button
                                 onClick={() => handleDeleteOne(receipt._id)}
@@ -968,6 +992,46 @@ const Receipts = () => {
               </div>
             </div>
             <div className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2">
+              {!activeReceipt.isConfirmed && (
+                <button
+                  onClick={() => {
+                    handleConfirmOne(activeReceipt);
+                    setShowView(false);
+                  }}
+                  className="px-4 py-2 text-xs rounded-md text-white font-semibold bg-green-600 hover:bg-green-700 flex items-center gap-2"
+                >
+                  <FaCheck /> Confirm
+                </button>
+              )}
+              {activeReceipt.isConfirmed && (
+                <button
+                  onClick={() => {
+                    handleUnconfirmOne(activeReceipt);
+                    setShowView(false);
+                  }}
+                  className="px-4 py-2 text-xs rounded-md text-white font-semibold bg-orange-600 hover:bg-orange-700 flex items-center gap-2"
+                >
+                  <FaTimes /> Unconfirm
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  openEditForm(activeReceipt);
+                  setShowView(false);
+                }}
+                className="px-4 py-2 text-xs rounded-md text-white font-semibold bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+              >
+                <FaEdit /> Edit
+              </button>
+              <button
+                onClick={() => {
+                  handleDeleteOne(activeReceipt._id);
+                  setShowView(false);
+                }}
+                className="px-4 py-2 text-xs rounded-md text-white font-semibold bg-red-600 hover:bg-red-700 flex items-center gap-2"
+              >
+                <FaTrash /> Delete
+              </button>
               <button
                 onClick={() => handlePrintReceipt(activeReceipt)}
                 className="px-4 py-2 text-xs rounded-md text-white font-semibold bg-purple-600 hover:bg-purple-700 flex items-center gap-2"

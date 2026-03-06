@@ -705,9 +705,9 @@ const RentalInvoices = () => {
                           />
                         </td>
                         <td className="px-3 py-2 text-blue-700 font-bold">{invoice.id}</td>
-                        {!tenantId && <td className="px-3 py-2 text-slate-800 font-semibold">{invoice.tenantName}</td>}
-                        {!tenantId && <td className="px-3 py-2 text-slate-800">{invoice.propertyName}</td>}
-                        <td className="px-3 py-2 text-slate-800">{invoice.unitName}</td>
+                        {!tenantId && <td className="px-3 py-2 text-slate-900 font-bold">{invoice.tenantName}</td>}
+                        {!tenantId && <td className="px-3 py-2 text-slate-900 font-semibold">{invoice.propertyName}</td>}
+                        <td className="px-3 py-2 text-slate-900 font-semibold">{invoice.unitName}</td>
                         <td className="px-3 py-2 text-orange-700 font-semibold">{invoice.period}</td>
                         <td className="px-3 py-2 text-right text-slate-900 font-bold">
                           KES {Number(invoice.amount || 0).toLocaleString()}

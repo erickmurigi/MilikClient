@@ -99,7 +99,10 @@ import {
   deleteRentPaymentFailure,
   confirmRentPaymentStart,
   confirmRentPaymentSuccess,
-  confirmRentPaymentFailure
+  confirmRentPaymentFailure,
+  unconfirmRentPaymentStart,
+  unconfirmRentPaymentSuccess,
+  unconfirmRentPaymentFailure
 } from "../redux/rentPaymentRedux";
 
 import {
@@ -939,6 +942,19 @@ export const confirmRentPayment = async (dispatch, id, confirmData) => {
     return res.data;
   } catch (err) {
     dispatch(confirmRentPaymentFailure());
+    throw err;
+  }
+};
+
+// Unconfirm rent payment - allows unconfirming to enable deletion
+export const unconfirmRentPayment = async (dispatch, id) => {
+  dispatch(unconfirmRentPaymentStart());
+  try {
+    const res = await adminRequests.put(`/rent-payments/unconfirm/${id}`, {});
+    dispatch(unconfirmRentPaymentSuccess(res.data.data || res.data));
+    return res.data;
+  } catch (err) {
+    dispatch(unconfirmRentPaymentFailure());
     throw err;
   }
 };

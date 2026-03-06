@@ -4,9 +4,7 @@ import {
   FaBuilding,
   FaHome,
   FaChartPie,
-  FaMoneyBillWave,
-  FaWallet,
-  FaExclamationCircle
+  FaMoneyBillWave
 } from 'react-icons/fa';
 import { getProperties } from '../../redux/propertyRedux';
 
@@ -37,29 +35,13 @@ const MetricsGrid = ({ darkMode }) => {
   // Calculate financial metrics
   const currentMonth = new Date().getMonth();
   const currentYear = new Date().getFullYear();
-  const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-  const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
   const thisMonthPayments = rentPayments.filter(p => {
     const paymentDate = new Date(p.createdAt);
     return paymentDate.getMonth() === currentMonth && paymentDate.getFullYear() === currentYear;
   });
 
-  const lastMonthPayments = rentPayments.filter(p => {
-    const paymentDate = new Date(p.createdAt);
-    return paymentDate.getMonth() === previousMonth && paymentDate.getFullYear() === previousYear;
-  });
-  
-  const totalCollected = rentPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
   const monthlyCollected = thisMonthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-  const lastMonthCollected = lastMonthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-  const outstandingBalance = units.reduce((sum, u) => sum + (u.outstandingBalance || 0), 0);
-
-  // Calculate percentage changes
-  const monthlyChangePercent = lastMonthCollected > 0 
-    ? (((monthlyCollected - lastMonthCollected) / lastMonthCollected) * 100).toFixed(1)
-    : 0;
-  const monthlyChangeSign = monthlyChangePercent >= 0 ? '+' : '';
 
   // Occupancy change - track if available
   const propertiesChange = '—';
@@ -108,38 +90,18 @@ const MetricsGrid = ({ darkMode }) => {
     },
     { 
       id: 4, 
-      label: 'Total Collected', 
-      value: formatCurrency(totalCollected), 
+      label: 'Total Collected This Month', 
+      value: formatCurrency(monthlyCollected), 
       icon: <FaMoneyBillWave />, 
       color: 'from-[#E85C0D] to-[#c7490a]', 
       iconBg: 'bg-[#E85C0D]/25',
       change: '—',
       loading: propertiesLoading 
-    },
-    { 
-      id: 5, 
-      label: 'This Month', 
-      value: formatCurrency(monthlyCollected), 
-      icon: <FaWallet />, 
-      color: 'from-[#ff8c42] to-[#E85C0D]',  
-      iconBg: 'bg-[#ff8c42]/25',
-      change: monthlyChangeSign + monthlyChangePercent + '%',
-      loading: propertiesLoading 
-    },
-    { 
-      id: 6, 
-      label: 'Outstanding Balance', 
-      value: formatCurrency(outstandingBalance), 
-      icon: <FaExclamationCircle />, 
-      color: 'from-[#E85C0D] to-[#d64c06]', 
-      iconBg: 'bg-[#E85C0D]/20',
-      change: '—',
-      loading: propertiesLoading 
     }
-  ], [totalProperties, totalUnits, occupancyRate, totalCollected, monthlyCollected, outstandingBalance, monthlyChangePercent, monthlyChangeSign, propertiesLoading, formatCurrency]);
+  ], [totalProperties, totalUnits, occupancyRate, monthlyCollected, propertiesLoading, formatCurrency]);
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       {metrics.map((metric) => (
         <div 
           key={metric.id}

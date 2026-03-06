@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { FaMoneyBillWave, FaTools, FaFileContract, FaUsers } from 'react-icons/fa';
+import { FaMoneyBillWave, FaTools, FaFileContract, FaUsers, FaCalendarAlt, FaReceipt } from 'react-icons/fa';
 import { markAllNotificationsAsRead } from '../../redux/apiCalls';
 
 const RecentActivity = ({ darkMode }) => {
@@ -13,8 +13,8 @@ const RecentActivity = ({ darkMode }) => {
   const currentUser = useSelector(state => state.auth?.currentUser);
 
   const [newActivityIds, setNewActivityIds] = useState(new Set());
-  const [showAll, setShowAll] = useState(false);
   const previousIdsRef = useRef(new Set());
+  const oneDayMs = 1000 * 60 * 60 * 24;
 
   const parseDate = (value) => {
     const date = new Date(value);
@@ -47,6 +47,11 @@ const RecentActivity = ({ darkMode }) => {
   };
 
   const activities = useMemo(() => {
+    const now = Date.now();
+    const tenantNameById = new Map(
+      tenants.map((tenant) => [tenant?._id?.toString(), tenant?.name || 'Tenant'])
+    );
+
     const notificationActivities = notifications.map((item) => ({
       id: `notif-${item._id}`,
       type: notificationTypeToActivityType[item.type] || 'maintenance',
@@ -56,7 +61,26 @@ const RecentActivity = ({ darkMode }) => {
       isRead: item.isRead
     }));
 
-    const paymentActivities = rentPayments.slice(0, 3).map((payment) => ({
+    const sortedPayments = [...rentPayments].sort(
+      (a, b) => new Date(b.paymentDate || b.createdAt || 0) - new Date(a.paymentDate || a.createdAt || 0)
+    );
+
+    const receiptActivities = sortedPayments
+      .filter((payment) => Boolean(payment?.receiptNumber))
+      .slice(0, 4)
+      .map((payment) => ({
+        id: `receipt-${payment._id}`,
+        type: 'receipt',
+        title: 'New Receipt Added',
+        description: `${payment.receiptNumber ? `${payment.receiptNumber} • ` : ''}KSh ${(Number(payment.amount || 0)).toLocaleString()}${payment.unit?.unitNumber ? ` for Unit ${payment.unit.unitNumber}` : ''}`,
+        time: payment.createdAt || payment.paymentDate,
+        isRead: true
+      }));
+
+    const paymentActivities = sortedPayments
+      .filter((payment) => !payment?.receiptNumber)
+      .slice(0, 3)
+      .map((payment) => ({
       id: `payment-${payment._id}`,
       type: 'payment',
       title: payment.isConfirmed ? 'Rent Payment Confirmed' : 'Rent Payment Received',
@@ -74,21 +98,43 @@ const RecentActivity = ({ darkMode }) => {
       isRead: true
     }));
 
-    const leaseActivities = leases
+    const billingScheduleActivities = tenants
+      .filter((tenant) => {
+        if (!tenant?.moveOutDate) return false;
+        const daysToScheduleEnd = Math.ceil((new Date(tenant.moveOutDate).getTime() - now) / oneDayMs);
+        return daysToScheduleEnd >= 0 && daysToScheduleEnd <= 30;
+      })
+      .slice(0, 3)
+      .map((tenant) => {
+        const daysToScheduleEnd = Math.ceil((new Date(tenant.moveOutDate).getTime() - now) / oneDayMs);
+        return {
+          id: `billing-schedule-${tenant._id}`,
+          type: 'billing',
+          title: 'Billing Schedule Expiring Soon',
+          description: `${tenant.name || 'Tenant'} billing schedule ends in ${daysToScheduleEnd} day${daysToScheduleEnd === 1 ? '' : 's'} (${new Date(tenant.moveOutDate).toLocaleDateString()})`,
+          time: tenant.updatedAt || tenant.createdAt || tenant.moveOutDate,
+          isRead: false
+        };
+      });
+
+    const fixedLeaseExpiryActivities = leases
       .filter(lease => {
         if (!lease?.endDate) return false;
         const endDate = new Date(lease.endDate);
-        const daysToExpiry = (endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-        return daysToExpiry >= 0 && daysToExpiry <= 30;
+        const daysToExpiry = Math.ceil((endDate.getTime() - now) / oneDayMs);
+        const leaseType = lease?.leaseType || lease?.tenant?.leaseType;
+        const isFixedLease = leaseType ? leaseType === 'fixed' : true;
+        const isActive = !lease?.status || lease.status === 'active';
+        return isFixedLease && isActive && daysToExpiry >= 0 && daysToExpiry <= 30;
       })
-      .slice(0, 2)
+      .slice(0, 3)
       .map((lease) => ({
-        id: `lease-${lease._id}`,
+        id: `fixed-lease-${lease._id}`,
         type: 'lease',
-        title: 'Lease Expiring Soon',
-        description: `Lease ends on ${new Date(lease.endDate).toLocaleDateString()}`,
+        title: 'Fixed Lease Expiring Soon',
+        description: `${typeof lease.tenant === 'object' ? (lease.tenant?.name || 'Tenant') : (tenantNameById.get(lease?.tenant?.toString()) || 'Tenant')} lease ends on ${new Date(lease.endDate).toLocaleDateString()}`,
         time: lease.updatedAt || lease.createdAt,
-        isRead: true
+        isRead: false
       }));
 
     const tenantActivities = tenants.slice(0, 2).map((tenant) => ({
@@ -102,16 +148,19 @@ const RecentActivity = ({ darkMode }) => {
 
     return [
       ...notificationActivities,
+      ...billingScheduleActivities,
+      ...fixedLeaseExpiryActivities,
+      ...receiptActivities,
       ...paymentActivities,
       ...maintenanceActivities,
-      ...leaseActivities,
       ...tenantActivities
     ]
       .filter(item => item.time)
       .sort((a, b) => new Date(b.time) - new Date(a.time));
   }, [notifications, rentPayments, maintenances, leases, tenants]);
 
-  const displayedActivities = showAll ? activities : activities.slice(0, 2);
+  // Show all items; height constraint displays 2, scroll reveals rest
+  const displayedActivities = activities;
 
   useEffect(() => {
     const currentIds = new Set(activities.map(item => item.id));
@@ -158,9 +207,11 @@ const RecentActivity = ({ darkMode }) => {
 
     const icons = {
       payment: <FaMoneyBillWave className={colorClass} />,
+      receipt: <FaReceipt className={colorClass} />,
       maintenance: <FaTools className={colorClass} />,
       lease: <FaFileContract className={colorClass} />,
-      tenant: <FaUsers className={colorClass} />
+      tenant: <FaUsers className={colorClass} />,
+      billing: <FaCalendarAlt className={colorClass} />
     };
 
     return (
@@ -171,7 +222,7 @@ const RecentActivity = ({ darkMode }) => {
   };
 
   const getBorderClass = (type) => {
-    return type === 'payment' || type === 'tenant' ? 'border-[#31694E]' : 'border-[#E85C0D]';
+    return type === 'payment' || type === 'tenant' || type === 'receipt' ? 'border-[#31694E]' : 'border-[#E85C0D]';
   };
 
   return (
@@ -186,7 +237,7 @@ const RecentActivity = ({ darkMode }) => {
         </button>
       </div>
 
-      <div className="space-y-3">
+      <div className={`max-h-64 overflow-y-auto space-y-3 scrollbar-thin ${darkMode ? 'scrollbar-thumb-gray-600 scrollbar-track-gray-700' : 'scrollbar-thumb-gray-300 scrollbar-track-gray-50'}`}>
         {displayedActivities.length === 0 ? (
           <div className={`p-4 rounded-lg text-xs font-semibold ${darkMode ? 'bg-gray-700/40 text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
             No activity yet. New events will appear here in real time.
@@ -232,17 +283,15 @@ const RecentActivity = ({ darkMode }) => {
       </div>
 
       {activities.length > 2 && (
-        <button
-          onClick={() => setShowAll(!showAll)}
-          className="w-full mt-3 py-2 text-xs font-bold text-[#31694E] hover:text-[#E85C0D] hover:bg-gray-50 rounded-lg transition-colors uppercase tracking-wide"
-        >
-          {showAll ? '← Show Less' : `View All (${activities.length})`}
-        </button>
+        <div className={`mt-3 text-[11px] font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'} text-center`}>
+          Scroll to see more • Auto-refresh every 30 seconds
+        </div>
       )}
-
-      <div className={`mt-3 text-[11px] font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-        Auto-refresh every 30 seconds
-      </div>
+      {activities.length <= 2 && (
+        <div className={`mt-3 text-[11px] font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+          Auto-refresh every 30 seconds
+        </div>
+      )}
     </div>
   );
 };
