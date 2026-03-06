@@ -54,6 +54,7 @@ const TabManager = ({ darkMode }) => {
       '/company-setup': 'Company Setup',
       '/properties': 'Properties',
       '/properties/new': 'New Property',
+      '/properties/edit': 'Property Details',
       '/tenants': 'Tenants',
       '/tenants/new': 'New Tenant',
       '/invoices': 'Invoices',
@@ -65,8 +66,10 @@ const TabManager = ({ darkMode }) => {
       '/settings': 'Settings',
       '/users': 'Users',
       '/landlords': 'Landlords',
+        '/landlords/new': 'New Landlord',
       '/leases': 'Leases',
       '/units': 'Units',
+        '/units/new': 'New Unit',
       '/agreements': 'Agreements',
       '/maintenance': 'Maintenance',
       '/inspections': 'Inspections',
@@ -76,6 +79,10 @@ const TabManager = ({ darkMode }) => {
     
     // For dynamic routes like /properties/123
     const parts = pathname.split('/');
+    if (parts.length === 4 && parts[1] === 'properties' && parts[2] === 'edit') {
+      return 'Property Details';
+    }
+
     if (parts.length === 3 && !isNaN(parts[2])) {
       const baseRoute = `/${parts[1]}`;
       const id = parts[2];

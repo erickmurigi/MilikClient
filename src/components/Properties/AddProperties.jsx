@@ -700,6 +700,10 @@ const AddProperty = () => {
       setFieldErrors({});
       setGeneralError("");
       const result = await dispatch(createProperty(propertyData)).unwrap();
+      
+      // Refresh landlords list to update their property counts
+      await dispatch(getLandlords({ company: businessId }));
+      
       toast.success(result?.message || "Property created successfully!");
       navigate("/properties");
     } catch (err) {

@@ -472,29 +472,17 @@ const Landlords = () => {
   const openEditModal = () => {
     if (selectedLandlords.length !== 1) return;
     const id = selectedLandlords[0];
-    const l = landlords.find((x) => x.id === id);
+    const l = landlords.find((x) => x._id === id || x.id === id);
     if (!l) return;
 
-    // TODO: Navigate to edit page in the future
-    // For now, keeping modal-based edit (can convert to page later)
-    setIsEditMode(true);
-    setEditingId(id);
-    setFormData({
-      landlordCode: l.code || "",
-      landlordType: l.landlordType || "Individual",
-      landlordName: l.name || "",
-      regId: l.regId || "",
-      taxPin: l.pin || "",
-      postalAddress: l.address || "",
-      email: l.email || "",
-      phoneNumber: l.phone || "",
-      location: l.location || "",
-      portalAccess: l.portalAccess || "Disabled",
-      status: l.status || "Active",
+    navigate('/landlords/new', {
+      state: {
+        mode: 'edit',
+        tabTitle: 'Landlord Details',
+        landlordId: l._id || l.id,
+        landlordData: l,
+      },
     });
-    setAttachments((l.attachments || []).map((a) => ({ ...a, file: null })));
-    // setShowAddLandlordModal(true); // Disabled until edit page is created
-    alert("Edit functionality will be converted to a separate page soon!");
   };
 
   const handleInputChange = (e) => {
@@ -942,7 +930,7 @@ const Landlords = () => {
                                 : "bg-green-100 text-green-800 border-green-300"
                             }`}
                           >
-                            {landlord.propertyCount ?? "0"}
+                            {landlord.activeProperties ?? "0"}
                           </span>
                         </td>
 
@@ -954,7 +942,7 @@ const Landlords = () => {
                                 : "bg-gray-100 text-gray-800 border-gray-300"
                             }`}
                           >
-                            {landlord.unitsCount ?? "0"}
+                            {landlord.archivedProperties ?? "0"}
                           </span>
                         </td>
 

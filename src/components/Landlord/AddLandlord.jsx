@@ -1,7 +1,7 @@
 // components/Landlord/AddLandlord.jsx
 import React, { useRef, useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import DashboardLayout from "../Layout/DashboardLayout";
 import {
   FaSave,
@@ -14,7 +14,7 @@ import {
   FaSpinner,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
-import { createLandlord } from "../../redux/apiCalls";
+import { createLandlord, updateLandlord } from "../../redux/apiCalls";
 
 // Orange theme constants
 const MILIK_ORANGE_BG = "bg-orange-600";
@@ -128,9 +128,13 @@ function MilikSelect({
 const AddLandlord = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentCompany } = useSelector((state) => state.company);
   const { isFetching } = useSelector((state) => state.landlord);
   const fileInputRef = useRef(null);
+  const editLandlordId = location.state?.landlordId || null;
+  const editLandlordData = location.state?.landlordData || null;
+  const isEditMode = Boolean(editLandlordId);
 
   const [formData, setFormData] = useState({
     landlordCode: "",
@@ -147,6 +151,34 @@ const AddLandlord = () => {
   });
 
   const [attachments, setAttachments] = useState([]);
+
+  useEffect(() => {
+    if (!isEditMode || !editLandlordData) return;
+
+    setFormData({
+      landlordCode: editLandlordData.landlordCode || editLandlordData.code || "",
+      landlordType: editLandlordData.landlordType || "Individual",
+      landlordName: editLandlordData.landlordName || editLandlordData.name || "",
+      regId: editLandlordData.regId || "",
+      taxPin: editLandlordData.taxPin || editLandlordData.pin || "",
+      postalAddress: editLandlordData.postalAddress || editLandlordData.address || "",
+      email: editLandlordData.email || "",
+      phoneNumber: editLandlordData.phoneNumber || editLandlordData.phone || "",
+      location: editLandlordData.location || "",
+      portalAccess: editLandlordData.portalAccess || "Disabled",
+      status: editLandlordData.status || "Active",
+    });
+
+    setAttachments(
+      (editLandlordData.attachments || []).map((a, index) => ({
+        id: a.id || `${Date.now()}-${index}`,
+        name: a.name || "Attachment",
+        size: a.size || "Unknown",
+        dateTime: a.dateTime || "",
+        file: null,
+      }))
+    );
+  }, [isEditMode, editLandlordData]);
 
   // Input classes for consistency
   const inputClass =
@@ -233,14 +265,19 @@ const AddLandlord = () => {
         })),
       };
 
-      await dispatch(createLandlord(payload));
-      toast.success("Landlord added successfully!");
+      if (isEditMode) {
+        await dispatch(updateLandlord(editLandlordId, payload));
+        toast.success("Landlord updated successfully!");
+      } else {
+        await dispatch(createLandlord(payload));
+        toast.success("Landlord added successfully!");
+      }
       
       // Navigate back to landlords page
       navigate("/landlords");
     } catch (err) {
       console.error('Error:', err);
-      toast.error(err?.message || "Failed to add landlord");
+      toast.error(err?.message || (isEditMode ? "Failed to update landlord" : "Failed to add landlord"));
     }
   };
 
@@ -547,7 +584,7 @@ const AddLandlord = () => {
                   ) : (
                     <>
                       <FaSave />
-                      Save Landlord
+                      {isEditMode ? "Update Landlord" : "Save Landlord"}
                     </>
                   )}
                 </button>

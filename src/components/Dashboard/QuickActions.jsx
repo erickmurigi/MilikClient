@@ -1,5 +1,6 @@
 // QuickActions.js
 import React from 'react';
+import { useSelector } from 'react-redux';
 import { 
   FaUserPlus, 
   FaFileInvoiceDollar, 
@@ -14,6 +15,23 @@ import {
 } from 'react-icons/fa';
 
 const QuickActions = ({ darkMode }) => {
+  // Get real data from Redux
+  const units = useSelector(state => state.unit?.units || []);
+  const rentPayments = useSelector(state => state.rentPayment?.rentPayments || []);
+  
+  // Calculate active units (occupied units)
+  const activeUnits = units.filter(unit => unit.status === 'occupied' || !unit.isVacant).length;
+  
+  // Calculate total rental collection
+  const totalCollection = rentPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+  
+  // Format currency
+  const formatCurrency = (amount) => {
+    if (amount === 0) return 'KSh 0';
+    if (amount >= 1000000) return `KSh ${(amount / 1000000).toFixed(1)}M`;
+    if (amount >= 1000) return `KSh ${(amount / 1000).toFixed(1)}K`;
+    return `KSh ${amount.toLocaleString()}`;
+  };
   const quickLinks = [
     { id: 'add-tenant', icon: <FaUserPlus />, label: 'ADD TENANT', color: 'green' },
     { id: 'rental-invoices', icon: <FaFileInvoiceDollar />, label: 'RENTAL INVOICES LISTING', color: 'blue' },
@@ -107,11 +125,11 @@ const QuickActions = ({ darkMode }) => {
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className={`p-3 rounded-lg border-l-3 border-[#31694E] ${darkMode ? 'bg-gray-700/50' : 'bg-[#31694E]/5'} hover:shadow-sm transition-all`}>
             <div className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} font-bold uppercase text-[10px] tracking-wide mb-1`}>Active Units</div>
-            <div className={`font-extrabold text-lg ${darkMode ? 'text-white' : 'text-[#1f4a35]'}`}>753</div>
+            <div className={`font-extrabold text-lg ${darkMode ? 'text-white' : 'text-[#1f4a35]'}`}>{activeUnits}</div>
           </div>
           <div className={`p-3 rounded-lg border-l-3 border-blue-500 ${darkMode ? 'bg-gray-700/50' : 'bg-blue-50'} hover:shadow-sm transition-all`}>
             <div className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} font-bold uppercase text-[10px] tracking-wide mb-1`}>Rental Collection</div>
-            <div className={`font-extrabold text-lg ${darkMode ? 'text-white' : 'text-blue-900'}`}>KSh 100K</div>
+            <div className={`font-extrabold text-lg ${darkMode ? 'text-white' : 'text-blue-900'}`}>{formatCurrency(totalCollection)}</div>
           </div>
         </div>
       </div>

@@ -23,7 +23,7 @@ const Dashboard = ({ darkMode }) => {
   const dispatch = useDispatch();
   const socket = useSocket();
   const currentCompany = useSelector(state => state.company?.currentCompany);
-  const currentUser = useSelector(state => state.user?.user);
+  const currentUser = useSelector(state => state.auth?.currentUser);
 
   // Scroll to top when component mounts
   useEffect(() => {
@@ -31,9 +31,12 @@ const Dashboard = ({ darkMode }) => {
   }, []);
 
   useEffect(() => {
-    if (!currentCompany?._id) return;
-
-    const businessId = currentCompany._id;
+    const companyFromUser =
+      typeof currentUser?.company === 'string'
+        ? currentUser.company
+        : currentUser?.company?._id;
+    const businessId = currentCompany?._id || companyFromUser;
+    if (!businessId) return;
 
     const refreshDashboardData = async () => {
       dispatch(getProperties({ business: businessId }));
@@ -53,40 +56,45 @@ const Dashboard = ({ darkMode }) => {
     const intervalId = setInterval(refreshDashboardData, 30000);
 
     return () => clearInterval(intervalId);
-  }, [dispatch, currentCompany?._id]);
+  }, [dispatch, currentCompany?._id, currentUser?.company]);
 
   // Socket.IO event listeners for real-time updates
   useEffect(() => {
-    if (!socket || !currentCompany?._id) return;
+    const companyFromUser =
+      typeof currentUser?.company === 'string'
+        ? currentUser.company
+        : currentUser?.company?._id;
+    const businessId = currentCompany?._id || companyFromUser;
+    if (!socket || !businessId) return;
 
     // Join company room for receiving company-level broadcasts
     socket.emit('joinCompany', { 
-      companyId: currentCompany._id,
+      companyId: businessId,
       userId: currentUser?._id 
     });
 
     // Listen for new notifications
     const handleNewNotification = (notification) => {
       // Trigger a refresh of notifications to ensure consistency
-      getNotifications(dispatch, currentCompany._id);
+      getNotifications(dispatch, businessId);
     };
 
     // Listen for new rent payments
     const handleNewPayment = (payment) => {
       // Trigger a refresh of rent payments and financial data
-      getRentPayments(dispatch, currentCompany._id);
+      getRentPayments(dispatch, businessId);
     };
 
     // Listen for new maintenance requests
     const handleNewMaintenance = (maintenance) => {
       // Trigger a refresh of maintenance data
-      getMaintenances(dispatch, currentCompany._id);
+      getMaintenances(dispatch, businessId);
     };
 
     // Listen for new leases
     const handleNewLease = (lease) => {
       // Trigger a refresh of lease data
-      getLeases(dispatch, currentCompany._id);
+      getLeases(dispatch, businessId);
     };
 
     socket.on('notification:new', handleNewNotification);
@@ -100,7 +108,7 @@ const Dashboard = ({ darkMode }) => {
       socket.off('maintenance:new', handleNewMaintenance);
       socket.off('lease:new', handleNewLease);
     };
-  }, [socket, currentCompany?._id, currentUser?._id, dispatch]);
+  }, [socket, currentCompany?._id, currentUser?._id, currentUser?.company, dispatch]);
 
   return (
     <DashboardLayout>

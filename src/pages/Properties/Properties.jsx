@@ -1,7 +1,7 @@
 // pages/Properties.js
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import DashboardLayout from "../../components/Layout/DashboardLayout";
 import {
   FaPlus,
@@ -14,7 +14,6 @@ import {
   FaChevronRight,
   FaChevronDown,
   FaChevronUp,
-  FaSpinner,
   FaBuilding,
   FaRedoAlt,
   FaArchive,
@@ -24,6 +23,7 @@ import {
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { getProperties, deleteProperty, archiveProperty, restoreProperty } from "../../redux/propertyRedux";
+import { getLandlords } from "../../redux/apiCalls";
 import MilikConfirmDialog from "../../components/Modals/MilikConfirmDialog";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
@@ -33,9 +33,12 @@ const MILIK_ORANGE_HOVER = "hover:bg-[#e67e00]";
 
 const Properties = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   // Redux state
-  const { properties, loading, error, pagination } = useSelector((state) => state.property);
+  const { properties, error, pagination } = useSelector((state) => state.property);
+  const landlords = useSelector((state) => state?.landlord?.landlords || state?.landlords?.items || state?.landlords?.landlords || []);
+  const { currentCompany } = useSelector((state) => state.company);
 
   // Pagination
   const itemsPerPage = 50;
@@ -99,6 +102,13 @@ const Properties = () => {
   });
 
   // Close dropdown on outside click
+  // Load landlords on mount
+  useEffect(() => {
+    if (currentCompany?._id) {
+      dispatch(getLandlords({ company: currentCompany._id }));
+    }
+  }, [dispatch, currentCompany]);
+
   useEffect(() => {
     const onDocClick = (e) => {
       if (!actionMenuRef.current) return;
@@ -294,6 +304,13 @@ const Properties = () => {
   };
 
   const handleExport = () => toast.info("Export feature coming soon");
+
+  const openEditProperty = (propertyId) => {
+    if (!propertyId) return;
+    navigate(`/properties/edit/${propertyId}`, {
+      state: { tabTitle: "Property Details" },
+    });
+  };
 
   // Row styling
   const getRowClass = (index, id) => {
@@ -538,23 +555,19 @@ const Properties = () => {
                 )}
               </button>
 
-              <Link to={selectedProperties.length === 1 ? `/properties/edit/${selectedProperties[0]}` : "#"}>
-                <button
-                  disabled={selectedProperties.length !== 1}
-                  className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${
-                    selectedProperties.length === 1
-                      ? `${MILIK_GREEN} ${MILIK_GREEN_HOVER}`
-                      : "bg-gray-400 cursor-not-allowed"
-                  }`}
-                  title={selectedProperties.length === 1 ? "Edit selected property" : "Select exactly 1 property to edit"}
-                  onClick={(e) => {
-                    if (selectedProperties.length !== 1) e.preventDefault();
-                  }}
-                >
-                  <FaEdit className="text-xs" />
-                  Edit
-                </button>
-              </Link>
+              <button
+                onClick={() => openEditProperty(selectedProperties[0])}
+                disabled={selectedProperties.length !== 1}
+                className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${
+                  selectedProperties.length === 1
+                    ? `${MILIK_GREEN} ${MILIK_GREEN_HOVER}`
+                    : "bg-gray-400 cursor-not-allowed"
+                }`}
+                title={selectedProperties.length === 1 ? "Edit selected property" : "Select exactly 1 property to edit"}
+              >
+                <FaEdit className="text-xs" />
+                Edit
+              </button>
 
               <div className="relative" ref={actionMenuRef}>
                 <button
@@ -645,13 +658,23 @@ const Properties = () => {
                 placeholder="LR Number"
                 className="px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0B3B2E] bg-white"
               />
-              <input
+              <select
                 value={draftFilters.landlord}
                 onChange={(e) => setDraftFilters((p) => ({ ...p, landlord: e.target.value }))}
                 onKeyDown={onFilterEnter}
-                placeholder="Landlord"
                 className="px-3 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-[#0B3B2E] bg-white"
-              />
+              >
+                <option value="">All Landlords</option>
+                {landlords && landlords.length > 0 ? (
+                  landlords.map((l) => (
+                    <option key={l._id || l.id} value={l.fullName || l.name || l.landlordName || ""}>
+                      {l.fullName || l.name || l.landlordName || "Unnamed"}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No landlords available</option>
+                )}
+              </select>
               <input
                 value={draftFilters.location}
                 onChange={(e) => setDraftFilters((p) => ({ ...p, location: e.target.value }))}
@@ -666,13 +689,7 @@ const Properties = () => {
         {/* Table Card */}
         <div className="flex-1 min-h-0 px-2 pb-2 overflow-hidden">
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm h-full flex flex-col">
-            {loading ? (
-              <div className="flex-1 flex flex-col items-center justify-center">
-                <FaSpinner className="animate-spin text-3xl text-emerald-600 mb-4" />
-                <p className="text-gray-600">Loading properties...</p>
-              </div>
-            ) : (
-              <>
+            <>
                 {/* table scroll area */}
                 <div className="overflow-y-auto flex-1 min-h-0">
                   <table
@@ -758,10 +775,10 @@ const Properties = () => {
                               <td className="px-3 py-1 border border-gray-200 align-top">
                                 <span
                                   className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap ${getCategoryColor(
-                                    property.category
+                                    property.propertyType
                                   )}`}
                                 >
-                                  {property.category || "N/A"}
+                                  {property.propertyType || "N/A"}
                                 </span>
                               </td>
 
@@ -803,7 +820,7 @@ const Properties = () => {
                                       <h4 className="font-bold text-gray-900 text-sm mb-3 pb-2 border-b-2 border-[#0B3B2E]">📋 Property Details</h4>
                                       <div>
                                         <span className="text-xs font-semibold text-gray-700">Property Type:</span>
-                                        <p className="text-sm font-bold text-gray-900 mt-1">{property.propertyType || "N/A"}</p>
+                                        <p className="text-sm font-bold text-gray-900 mt-1">{<property className="propertyCategory"></property> || "N/A"}</p>
                                       </div>
                                       <div>
                                         <span className="text-xs font-semibold text-gray-700">Specification:</span>
@@ -879,7 +896,11 @@ const Properties = () => {
                                           </button>
                                         </Link>
 
-                                        <Link to={`/properties/edit/${property._id}`} onClick={(e) => e.stopPropagation()}>
+                                        <Link
+                                          to={`/properties/edit/${property._id}`}
+                                          state={{ tabTitle: "Property Details" }}
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
                                           <button
                                             className={`px-3 py-2 text-xs text-white rounded-lg flex items-center justify-center gap-2 transition-colors w-full font-bold ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
                                           >
@@ -1002,8 +1023,7 @@ const Properties = () => {
                     </div>
                   </div>
                 </div>
-              </>
-            )}
+            </>
           </div>
         </div>
 

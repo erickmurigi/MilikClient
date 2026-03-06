@@ -274,6 +274,14 @@ const transformUserData = (data) => {
   return data;
 };
 
+// Ensure list reducers always receive an array regardless of API response wrapper.
+const extractList = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.items)) return payload.items;
+  return [];
+};
+
 // Get all users for a company
 export const getUsers = (companyId, queryParams = {}) => async (dispatch) => {
   dispatch(getUsersStart());
@@ -877,7 +885,7 @@ export const getRentPayments = async (dispatch, business, tenant = null, unit = 
     if (paymentType) url += `&paymentType=${paymentType}`;
     
     const res = await adminRequests.get(url);
-    dispatch(getRentPaymentsSuccess(res.data));
+    dispatch(getRentPaymentsSuccess(extractList(res.data)));
   } catch (err) {
     dispatch(getRentPaymentsFailure());
   }
@@ -985,7 +993,7 @@ export const getMaintenances = async (dispatch, business, status = null, priorit
     if (tenant) url += `&tenant=${tenant}`;
     
     const res = await adminRequests.get(url);
-    dispatch(getMaintenancesSuccess(res.data));
+    dispatch(getMaintenancesSuccess(extractList(res.data)));
   } catch (err) {
     dispatch(getMaintenancesFailure());
   }
@@ -1075,7 +1083,7 @@ export const getLeases = async (dispatch, business, status = null, tenant = null
     if (unit) url += `&unit=${unit}`;
     
     const res = await adminRequests.get(url);
-    dispatch(getLeasesSuccess(res.data));
+    dispatch(getLeasesSuccess(extractList(res.data)));
   } catch (err) {
     dispatch(getLeasesFailure());
   }
@@ -1180,7 +1188,7 @@ export const getExpenseProperties = async (dispatch, business, category = null, 
     if (endDate) url += `&endDate=${endDate}`;
     
     const res = await adminRequests.get(url);
-    dispatch(getExpensePropertiesSuccess(res.data));
+    dispatch(getExpensePropertiesSuccess(extractList(res.data)));
   } catch (err) {
     dispatch(getExpensePropertiesFailure());
   }
@@ -1278,7 +1286,7 @@ export const getNotifications = async (dispatch, business, recipient = null, isR
     if (type) url += `&type=${type}`;
     
     const res = await adminRequests.get(url);
-    dispatch(getNotificationsSuccess(res.data));
+    dispatch(getNotificationsSuccess(extractList(res.data)));
   } catch (err) {
     dispatch(getNotificationsFailure());
   }
