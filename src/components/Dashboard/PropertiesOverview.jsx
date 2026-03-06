@@ -7,6 +7,12 @@ const PropertiesOverview = ({ darkMode }) => {
   const rentPayments = useSelector(state => state.rentPayment?.rentPayments || []);
   const propertiesLoading = useSelector(state => state.property?.loading);
 
+  // Filter for active properties only to match dashboard metrics
+  const activeProperties = useMemo(() => 
+    properties.filter(p => p.status === 'active'), 
+    [properties]
+  );
+
   const now = new Date();
   const currentMonth = now.getMonth();
   const currentYear = now.getFullYear();
@@ -24,7 +30,7 @@ const PropertiesOverview = ({ darkMode }) => {
   };
 
   const propertiesWithStats = useMemo(() => {
-    const propertyStats = properties.map(property => {
+    const propertyStats = activeProperties.map(property => {
       const propertyId = property._id;
       const propertyUnits = units.filter(unit => getId(unit.property) === propertyId);
 
@@ -67,7 +73,7 @@ const PropertiesOverview = ({ darkMode }) => {
     });
 
     return propertyStats.sort((a, b) => b.occupancyRate - a.occupancyRate);
-  }, [properties, units, rentPayments, currentMonth, currentYear]);
+  }, [activeProperties, units, rentPayments, currentMonth, currentYear]);
 
   const portfolioOccupancy = useMemo(() => {
     const totalUnits = propertiesWithStats.reduce((sum, item) => sum + item.totalUnits, 0);
@@ -107,7 +113,7 @@ const PropertiesOverview = ({ darkMode }) => {
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-[#31694E]/30 scrollbar-track-transparent hover:scrollbar-thumb-[#31694E]/50">
         {propertiesWithStats.length === 0 ? (
           <div className={`p-6 rounded-lg border text-center ${
             darkMode

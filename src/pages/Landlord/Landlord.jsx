@@ -23,9 +23,15 @@ import {
   FaUndo,
   FaChevronDown,
   FaMoneyBillWave,
+  FaFileImport,
+  FaFileDownload,
 } from "react-icons/fa";
 import { getLandlords, deleteLandlord, updateLandlord } from "../../redux/apiCalls";
 import MilikConfirmDialog from "../../components/Modals/MilikConfirmDialog";
+import LandlordImportModal from "../../components/Modals/LandlordImportModal";
+import { downloadLandlordsTemplate, exportLandlordsToExcel } from "../../utils/excelTemplates";
+import { toast } from "react-toastify";
+import { adminRequests } from "../../utils/requestMethods";
 
 const STORAGE_KEY = "milik_landlords_v1";
 const ITEMS_PER_PAGE = 50;
@@ -43,6 +49,7 @@ const Landlords = () => {
   const landlordState = useSelector((state) => state.landlord);
   const landlords = landlordState?.landlords || [];
   const isFetching = landlordState?.isFetching || false;
+  const { currentCompany } = useSelector((state) => state.company);
   
   // Table + UI state
   const [selectedLandlords, setSelectedLandlords] = useState([]);
@@ -53,10 +60,11 @@ const Landlords = () => {
   // Modals (keeping edit mode for future edit functionality)
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // ---- NEW: Draft filters (typed) + Applied filters (used for searching) ----
   const emptyFilters = {
-    status: "any", // any | Active | Archived
+    status: "Active", // Active default
     portal: "any", // any | Enabled | Disabled
     propsCount: "any", // any | 1-5 | 6-10 | 10+
     location: "any",
@@ -606,6 +614,47 @@ const Landlords = () => {
   const selectedCount = selectedLandlords.length;
   const canEdit = selectedCount === 1;
 
+  // Excel Import Handler
+  const handleBulkImport = async (landlords) => {
+    try {
+      console.log('Starting bulk import...', { count: landlords.length, company: currentCompany?._id });
+      
+      if (!currentCompany?._id) {
+        throw new Error('No company selected. Please ensure you are logged in.');
+      }
+
+      // Call backend bulk import endpoint
+      const response = await adminRequests.post('/landlords/bulk-import', {
+        landlords,
+        business: currentCompany._id
+      });
+
+      console.log('Bulk import response:', response.data);
+
+      // Refresh landlords list (getLandlords expects 'company' not 'business')
+      await dispatch(getLandlords({ company: currentCompany._id }));
+
+      console.log('Landlords list refreshed');
+
+      // Return the result data for the modal
+      return response.data;
+    } catch (error) {
+      console.error('Bulk import error:', error);
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to import landlords';
+      throw new Error(errorMessage);
+    }
+  };
+
+  // Handle export to Excel
+  const handleExport = () => {
+    if (filteredLandlords.length === 0) {
+      toast.warning('No landlords to export');
+      return;
+    }
+    exportLandlordsToExcel(filteredLandlords);
+    toast.success(`Exported ${filteredLandlords.length} landlords to Excel`);
+  };
+
   return (
     <DashboardLayout lockContentScroll>
       <div className="flex flex-col h-full min-h-0 bg-white overflow-hidden">
@@ -619,8 +668,8 @@ const Landlords = () => {
                 onChange={(e) => setDraftFilters((p) => ({ ...p, status: e.target.value }))}
                 className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-[#0B3B2E] bg-[#DDEFE1] text-gray-800 hover:bg-white transition-colors"
               >
-                <option value="any">Status</option>
                 <option value="Active">Active</option>
+                <option value="any">All Status</option>
                 <option value="Archived">Archived</option>
               </select>
 
@@ -757,7 +806,32 @@ const Landlords = () => {
                 <span>Payments</span>
               </button>
 
-              <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
+              {/* Download Template */}
+              <button 
+                onClick={() => downloadLandlordsTemplate()}
+                className="px-4 py-1 text-xs border border-gray-300 bg-blue-50 text-blue-700 rounded-lg flex items-center gap-2 hover:bg-blue-100 transition-colors shadow-sm"
+                title="Download Excel template for bulk import"
+              >
+                <FaFileDownload className="text-xs" />
+                <span>Template</span>
+              </button>
+
+              {/* Import */}
+              <button 
+                onClick={() => setShowImportModal(true)}
+                className="px-4 py-1 text-xs border border-gray-300 bg-green-50 text-green-700 rounded-lg flex items-center gap-2 hover:bg-green-100 transition-colors shadow-sm"
+                title="Import landlords from Excel"
+              >
+                <FaFileImport className="text-xs" />
+                <span>Import</span>
+              </button>
+
+              {/* Export */}
+              <button 
+                onClick={handleExport}
+                className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm"
+                title="Export current landlords to Excel"
+              >
                 <FaFileExport className="text-xs" />
                 <span>Export</span>
               </button>
@@ -1082,6 +1156,13 @@ const Landlords = () => {
           isDangerous={confirmDialog.isDangerous}
           onConfirm={() => confirmDialog.onConfirm?.()}
           onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        />
+
+        {/* Import Modal */}
+        <LandlordImportModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onImport={handleBulkImport}
         />
       </div>
     </DashboardLayout>

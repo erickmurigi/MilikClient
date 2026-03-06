@@ -22,7 +22,11 @@ const MetricsGrid = ({ darkMode }) => {
   // Fetch properties on component mount or when company changes
   useEffect(() => {
     if (currentCompany?._id) {
-      dispatch(getProperties({ business: currentCompany._id }));
+      dispatch(getProperties({ 
+        business: currentCompany._id,
+        status: 'active', // Only count active properties to match Properties page default view
+        limit: 1000 // High limit to get all properties for accurate count
+      }));
     }
   }, [dispatch, currentCompany?._id]);
 

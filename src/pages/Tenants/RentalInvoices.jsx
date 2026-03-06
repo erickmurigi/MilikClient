@@ -19,11 +19,27 @@ import DashboardLayout from "../../components/Layout/DashboardLayout";
 import { getTenants } from "../../redux/tenantsRedux";
 import { getProperties } from "../../redux/propertyRedux";
 import { getUnits } from "../../redux/unitRedux";
+import { getRentPayments } from "../../redux/apiCalls";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
 const MILIK_GREEN_HOVER = "hover:bg-[#0A3127]";
 const MILIK_ORANGE = "bg-[#FF8C00]";
 const MILIK_ORANGE_HOVER = "hover:bg-[#e67e00]";
+
+const MONTH_OPTIONS = [
+  { value: 0, label: "January" },
+  { value: 1, label: "February" },
+  { value: 2, label: "March" },
+  { value: 3, label: "April" },
+  { value: 4, label: "May" },
+  { value: 5, label: "June" },
+  { value: 6, label: "July" },
+  { value: 7, label: "August" },
+  { value: 8, label: "September" },
+  { value: 9, label: "October" },
+  { value: 10, label: "November" },
+  { value: 11, label: "December" },
+];
 
 const emptyFilters = {
   status: "ALL",
@@ -71,6 +87,11 @@ const formatDateDisplay = (dateValue) => {
   return date.toLocaleDateString();
 };
 
+const formatPeriodLabel = (month, year) => {
+  const date = new Date(year, month, 1);
+  return `${date.toLocaleString("en-US", { month: "short" })} ${String(year).slice(-2)}`;
+};
+
 const resolveTenantPropertyName = (tenant, unitsFromStore = [], propertiesFromStore = []) => {
   const directPropertyName =
     tenant?.unit?.property?.propertyName ||
@@ -107,6 +128,20 @@ const RentalInvoices = () => {
   const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
   const [selectedInvoices, setSelectedInvoices] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [bookingAction, setBookingAction] = useState("");
+  const [showSingleBooking, setShowSingleBooking] = useState(false);
+  const [showBatchBooking, setShowBatchBooking] = useState(false);
+  const currentDate = new Date();
+  const [singleBookingForm, setSingleBookingForm] = useState({
+    tenantId: tenantId || "",
+    month: currentDate.getMonth(),
+    year: currentDate.getFullYear(),
+  });
+  const [batchBookingForm, setBatchBookingForm] = useState({
+    propertyId: "all",
+    month: currentDate.getMonth(),
+    year: currentDate.getFullYear(),
+  });
 
   const currentCompany = useSelector((state) => state.company?.currentCompany);
   const tenantsFromStore = useSelector((state) => state.tenant?.tenants || []);
@@ -119,7 +154,13 @@ const RentalInvoices = () => {
     dispatch(getTenants({ business: currentCompany._id }));
     dispatch(getProperties({ business: currentCompany._id }));
     dispatch(getUnits({ business: currentCompany._id }));
+    getRentPayments(dispatch, currentCompany._id);
   }, [dispatch, currentCompany?._id]);
+
+  useEffect(() => {
+    if (!tenantId) return;
+    setSingleBookingForm((prev) => ({ ...prev, tenantId }));
+  }, [tenantId]);
 
   useEffect(() => {
     if (tenantsFromStore.length === 0) return;
@@ -339,6 +380,128 @@ const RentalInvoices = () => {
     });
   }, [invoices, appliedFilters]);
 
+  const activeProperties = useMemo(() => {
+    return propertiesFromStore.filter((property) => {
+      const propertyStatus = String(property?.status || "active").toLowerCase();
+      return propertyStatus === "active";
+    });
+  }, [propertiesFromStore]);
+
+  const tenantLookup = useMemo(() => {
+    const lookup = {};
+    tenantsFromStore.forEach((tenant) => {
+      lookup[tenant._id] = tenant;
+    });
+    return lookup;
+  }, [tenantsFromStore]);
+
+  const getTenantPricing = (tenant) => {
+    const baseRent =
+      Number(tenant?.lease?.rentAmount || tenant?.rent || tenant?.unit?.rent || tenant?.unit?.monthlyRent || 0) ||
+      0;
+    const utilitiesFromTenant = Array.isArray(tenant?.utilities)
+      ? tenant.utilities.reduce((sum, utility) => {
+          if (utility?.isIncluded === true) return sum;
+          return sum + (Number(utility?.unitCharge || utility?.amount || 0) || 0);
+        }, 0)
+      : 0;
+
+    const tenantUnitId = tenant?.unit?._id || tenant?.unit;
+    const matchedUnit = unitsFromStore.find((unit) => unit?._id === tenantUnitId);
+    const utilitiesFromUnit = Array.isArray(matchedUnit?.utilities)
+      ? matchedUnit.utilities.reduce((sum, utility) => {
+          if (utility?.isIncluded === true) return sum;
+          return sum + (Number(utility?.unitCharge || utility?.amount || 0) || 0);
+        }, 0)
+      : 0;
+
+    const serviceCharge = Number(tenant?.serviceCharge || 0) || 0;
+    const utilityAmount = utilitiesFromTenant > 0 ? utilitiesFromTenant + serviceCharge : utilitiesFromUnit + serviceCharge;
+
+    return {
+      rentAmount: baseRent,
+      utilityAmount,
+      total: baseRent + utilityAmount,
+    };
+  };
+
+  const getTenantPropertyId = (tenant) => {
+    const directPropertyId = tenant?.property?._id || tenant?.property;
+    if (directPropertyId) return directPropertyId;
+
+    const tenantUnitId = tenant?.unit?._id || tenant?.unit;
+    const matchedUnit = unitsFromStore.find((unit) => unit?._id === tenantUnitId);
+    return matchedUnit?.property?._id || matchedUnit?.property || null;
+  };
+
+  const getNextInvoiceNumber = () => {
+    let maxInvoiceNum = 0;
+
+    tenantsFromStore.forEach((tenant) => {
+      const storageKey = `createdInvoices_${tenant._id}`;
+      const stored = localStorage.getItem(storageKey);
+      if (!stored) return;
+
+      const tenantInvoices = JSON.parse(stored);
+      Object.values(tenantInvoices).forEach((entry) => {
+        const invoiceId = getInvoiceIdFromEntry(entry);
+        const num = parseInt(String(invoiceId).replace("INV", ""), 10) || 0;
+        if (num > maxInvoiceNum) maxInvoiceNum = num;
+      });
+    });
+
+    return maxInvoiceNum + 1;
+  };
+
+  const singleBookingTenantOptions = useMemo(() => {
+    return tenantsFromStore
+      .filter((tenant) => String(tenant?.status || "active").toLowerCase() === "active")
+      .map((tenant) => ({
+        id: tenant._id,
+        name: getTenantDisplayName(tenant),
+        propertyName: resolveTenantPropertyName(tenant, unitsFromStore, propertiesFromStore),
+        unitName: getUnitDisplayName(tenant),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [tenantsFromStore, unitsFromStore, propertiesFromStore]);
+
+  const selectedSingleBookingTenant = useMemo(() => {
+    return tenantLookup[singleBookingForm.tenantId] || null;
+  }, [tenantLookup, singleBookingForm.tenantId]);
+
+  const selectedSingleBookingPreview = useMemo(() => {
+    if (!selectedSingleBookingTenant) return null;
+    const pricing = getTenantPricing(selectedSingleBookingTenant);
+    return {
+      periodLabel: formatPeriodLabel(Number(singleBookingForm.month), Number(singleBookingForm.year)),
+      rentAmount: pricing.rentAmount,
+      utilityAmount: pricing.utilityAmount,
+      totalAmount: pricing.total,
+      propertyName: resolveTenantPropertyName(
+        selectedSingleBookingTenant,
+        unitsFromStore,
+        propertiesFromStore
+      ),
+      unitName: getUnitDisplayName(selectedSingleBookingTenant),
+    };
+  }, [singleBookingForm.month, singleBookingForm.year, selectedSingleBookingTenant, unitsFromStore, propertiesFromStore]);
+
+  const batchBookingScopeCount = useMemo(() => {
+    return tenantsFromStore.filter((tenant) => {
+      const tenantStatus = String(tenant?.status || "active").toLowerCase();
+      if (tenantStatus !== "active") return false;
+
+      const tenantPropertyId = getTenantPropertyId(tenant);
+      if (!tenantPropertyId) return false;
+
+      if (batchBookingForm.propertyId === "all") {
+        return activeProperties.some((property) => property?._id === tenantPropertyId);
+      }
+
+      return tenantPropertyId === batchBookingForm.propertyId;
+    }).length;
+  }, [tenantsFromStore, batchBookingForm.propertyId, activeProperties]);
+
   useEffect(() => {
     if (filteredInvoices.length === 0) {
       setSelectAll(false);
@@ -410,8 +573,148 @@ const RentalInvoices = () => {
     toast.info(`Downloading invoice ${invoiceId}`);
   };
 
-  const handleCreateInvoice = () => {
-    navigate("/tenants");
+  const createInvoiceForTenant = (targetTenant, month, year, nextInvoiceNumRef) => {
+    if (!targetTenant?._id) {
+      return { created: false, reason: "Invalid tenant" };
+    }
+
+    const periodLabel = formatPeriodLabel(month, year);
+    const storageKey = `createdInvoices_${targetTenant._id}`;
+    const stored = localStorage.getItem(storageKey);
+    const tenantInvoices = stored ? JSON.parse(stored) : {};
+
+    if (tenantInvoices[periodLabel]) {
+      return { created: false, reason: "already_exists", periodLabel };
+    }
+
+    const nextInvoiceNum = nextInvoiceNumRef.current;
+    nextInvoiceNumRef.current += 1;
+    const invoiceId = `INV${String(nextInvoiceNum).padStart(5, "0")}`;
+
+    const { rentAmount, utilityAmount, total } = getTenantPricing(targetTenant);
+    const propertyName = resolveTenantPropertyName(targetTenant, unitsFromStore, propertiesFromStore);
+    const unitName = getUnitDisplayName(targetTenant);
+
+    tenantInvoices[periodLabel] = {
+      invoiceId,
+      id: invoiceId,
+      number: invoiceId,
+      createdAt: new Date().toISOString(),
+      status: "Issued",
+      amount: total,
+      rentAmount,
+      utilityAmount,
+      period: periodLabel,
+      tenantName: getTenantDisplayName(targetTenant),
+      propertyName,
+      unitName,
+      month,
+      year,
+    };
+
+    localStorage.setItem(storageKey, JSON.stringify(tenantInvoices));
+    return { created: true, invoiceId, periodLabel };
+  };
+
+  const handleBookingActionChange = (value) => {
+    setBookingAction(value);
+    if (value === "single") {
+      setShowSingleBooking(true);
+      if (tenantId) {
+        setSingleBookingForm((prev) => ({ ...prev, tenantId }));
+      }
+    }
+    if (value === "batch") {
+      setShowBatchBooking(true);
+    }
+  };
+
+  const handleSingleBooking = () => {
+    const selectedTenant = tenantLookup[singleBookingForm.tenantId];
+    if (!selectedTenant) {
+      toast.error("Please select a tenant");
+      return;
+    }
+
+    const pricing = getTenantPricing(selectedTenant);
+    if (pricing.total <= 0) {
+      toast.error("Selected tenant has no billable rent/utility amount");
+      return;
+    }
+
+    const nextInvoiceNumRef = { current: getNextInvoiceNumber() };
+    const result = createInvoiceForTenant(
+      selectedTenant,
+      Number(singleBookingForm.month),
+      Number(singleBookingForm.year),
+      nextInvoiceNumRef
+    );
+
+    if (!result.created && result.reason === "already_exists") {
+      toast.info(`Invoice for ${result.periodLabel} already exists for this tenant`);
+      return;
+    }
+
+    if (!result.created) {
+      toast.error(result.reason || "Failed to create booking");
+      return;
+    }
+
+    toast.success(`Booked ${result.invoiceId} for ${getTenantDisplayName(selectedTenant)}`);
+    setShowSingleBooking(false);
+    setBookingAction("");
+    setRefreshTick((prev) => prev + 1);
+  };
+
+  const handleBatchBooking = () => {
+    const selectedPropertyId = batchBookingForm.propertyId;
+    const month = Number(batchBookingForm.month);
+    const year = Number(batchBookingForm.year);
+
+    const eligibleTenants = tenantsFromStore.filter((tenant) => {
+      const tenantStatus = String(tenant?.status || "active").toLowerCase();
+      if (tenantStatus !== "active") return false;
+
+      if (selectedPropertyId === "all") {
+        const tenantPropertyId = getTenantPropertyId(tenant);
+        if (!tenantPropertyId) return false;
+        const matchedProperty = activeProperties.find((property) => property?._id === tenantPropertyId);
+        return Boolean(matchedProperty);
+      }
+
+      const tenantPropertyId = getTenantPropertyId(tenant);
+      return tenantPropertyId === selectedPropertyId;
+    });
+
+    if (eligibleTenants.length === 0) {
+      toast.warn("No active tenants found for the selected scope");
+      return;
+    }
+
+    const nextInvoiceNumRef = { current: getNextInvoiceNumber() };
+    let createdCount = 0;
+    let skippedCount = 0;
+
+    eligibleTenants.forEach((tenant) => {
+      const result = createInvoiceForTenant(tenant, month, year, nextInvoiceNumRef);
+      if (result.created) {
+        createdCount += 1;
+      } else if (result.reason === "already_exists") {
+        skippedCount += 1;
+      }
+    });
+
+    if (createdCount === 0 && skippedCount > 0) {
+      toast.info(`No new invoices created. ${skippedCount} already existed.`);
+      return;
+    }
+
+    toast.success(
+      `Batch booking complete: ${createdCount} created${skippedCount > 0 ? `, ${skippedCount} skipped` : ""}`
+    );
+    setShowBatchBooking(false);
+    setBookingAction("");
+    setRefreshTick((prev) => prev + 1);
   };
 
   const handleEditSelected = () => {
@@ -473,26 +776,19 @@ const RentalInvoices = () => {
         <div className="mx-auto" style={{ maxWidth: "96%" }}>
           <div className="bg-white rounded-lg shadow-lg border border-slate-200 mb-4 p-3">
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                {tenantId && (
-                  <button
-                    onClick={() => navigate("/tenants")}
-                    className="text-gray-600 hover:text-gray-900 flex items-center gap-2 font-semibold"
-                    title="Back to Tenants"
-                  >
-                    <FaArrowLeft size={12} />
-                  </button>
-                )}
-                <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2 leading-none">
-                  <FaFileInvoice size={18} className="text-blue-600" />
-                  Rental Invoices
-                </h1>
-              </div>
+              {tenantId ? (
+                <button
+                  onClick={() => navigate("/tenants")}
+                  className="text-gray-600 hover:text-gray-900 flex items-center gap-2 font-semibold text-xs"
+                  title="Back to Tenants"
+                >
+                  <FaArrowLeft size={12} />
+                  Back to tenant list
+                </button>
+              ) : (
+                <div />
+              )}
             </div>
-
-            <p className="text-[11px] text-gray-600 mb-2.5 leading-none">
-              {tenantId ? "Invoices for selected tenant" : "All rental invoices across tenants"}
-            </p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
               <div className="bg-blue-50 border border-blue-200 rounded p-2.5">
@@ -648,13 +944,18 @@ const RentalInvoices = () => {
                   Delete
                 </button>
 
-                <button
-                  onClick={handleCreateInvoice}
-                  className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
-                >
-                  <FaPlus className="text-xs" />
-                  Add Invoice
-                </button>
+                <div className="flex items-center gap-1">
+                  <FaPlus className="text-[10px] text-[#0B3B2E]" />
+                  <select
+                    value={bookingAction}
+                    onChange={(e) => handleBookingActionChange(e.target.value)}
+                    className="px-3 py-1 text-xs border border-[#0B3B2E] rounded-lg shadow-sm bg-[#E7F5EC] text-[#0B3B2E] font-semibold"
+                  >
+                    <option value="">Booking</option>
+                    <option value="single">Create Single Booking</option>
+                    <option value="batch">Create Batch Booking</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -784,6 +1085,228 @@ const RentalInvoices = () => {
           )}
         </div>
       </div>
+
+      {showSingleBooking && (
+        <div className="fixed inset-0 bg-black/45 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden">
+            <div className="px-5 py-3 bg-[#0B3B2E] text-white flex items-center justify-between">
+              <h3 className="text-sm font-bold tracking-wide">Single Tenant Booking</h3>
+              <button
+                onClick={() => {
+                  setShowSingleBooking(false);
+                  setBookingAction("");
+                }}
+                className="text-xs font-semibold px-2 py-1 rounded bg-white/20 hover:bg-white/30"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-3">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Tenant</label>
+                  <select
+                    value={singleBookingForm.tenantId}
+                    onChange={(e) =>
+                      setSingleBookingForm((prev) => ({ ...prev, tenantId: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#0B3B2E]"
+                  >
+                    <option value="">Select tenant</option>
+                    {singleBookingTenantOptions.map((tenantOption) => (
+                      <option key={tenantOption.id} value={tenantOption.id}>
+                        {tenantOption.name} - {tenantOption.propertyName} ({tenantOption.unitName})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Period</label>
+                  <select
+                    value={singleBookingForm.month}
+                    onChange={(e) =>
+                      setSingleBookingForm((prev) => ({ ...prev, month: Number(e.target.value) }))
+                    }
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+                  >
+                    {MONTH_OPTIONS.map((monthOption) => (
+                      <option key={monthOption.value} value={monthOption.value}>
+                        {monthOption.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Year</label>
+                  <input
+                    type="number"
+                    min="2000"
+                    max="2100"
+                    value={singleBookingForm.year}
+                    onChange={(e) =>
+                      setSingleBookingForm((prev) => ({ ...prev, year: Number(e.target.value) }))
+                    }
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              {selectedSingleBookingPreview && (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                  <p className="text-xs font-semibold text-emerald-800 mb-2">
+                    Booking Preview - {selectedSingleBookingPreview.periodLabel}
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                    <div>
+                      <p className="text-slate-500">Property</p>
+                      <p className="font-semibold text-slate-900">{selectedSingleBookingPreview.propertyName}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Unit</p>
+                      <p className="font-semibold text-slate-900">{selectedSingleBookingPreview.unitName}</p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Rent</p>
+                      <p className="font-semibold text-slate-900">
+                        KES {selectedSingleBookingPreview.rentAmount.toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-slate-500">Utility</p>
+                      <p className="font-semibold text-slate-900">
+                        KES {selectedSingleBookingPreview.utilityAmount.toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-sm font-bold text-[#0B3B2E]">
+                    Total: KES {selectedSingleBookingPreview.totalAmount.toLocaleString()}
+                  </p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setShowSingleBooking(false);
+                    setBookingAction("");
+                  }}
+                  className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSingleBooking}
+                  className="px-4 py-2 text-xs font-semibold rounded-lg text-white bg-[#0B3B2E] hover:bg-[#0A3127]"
+                >
+                  Create Booking
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBatchBooking && (
+        <div className="fixed inset-0 bg-black/45 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden">
+            <div className="px-5 py-3 bg-[#0B3B2E] text-white flex items-center justify-between">
+              <h3 className="text-sm font-bold tracking-wide">Batch Booking</h3>
+              <button
+                onClick={() => {
+                  setShowBatchBooking(false);
+                  setBookingAction("");
+                }}
+                className="text-xs font-semibold px-2 py-1 rounded bg-white/20 hover:bg-white/30"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="md:col-span-3">
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Property Scope (Optional)
+                  </label>
+                  <select
+                    value={batchBookingForm.propertyId}
+                    onChange={(e) =>
+                      setBatchBookingForm((prev) => ({ ...prev, propertyId: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+                  >
+                    <option value="all">All active properties</option>
+                    {activeProperties.map((property) => (
+                      <option key={property._id} value={property._id}>
+                        {property.propertyName || property.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Period</label>
+                  <select
+                    value={batchBookingForm.month}
+                    onChange={(e) =>
+                      setBatchBookingForm((prev) => ({ ...prev, month: Number(e.target.value) }))
+                    }
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+                  >
+                    {MONTH_OPTIONS.map((monthOption) => (
+                      <option key={monthOption.value} value={monthOption.value}>
+                        {monthOption.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Year</label>
+                  <input
+                    type="number"
+                    min="2000"
+                    max="2100"
+                    value={batchBookingForm.year}
+                    onChange={(e) =>
+                      setBatchBookingForm((prev) => ({ ...prev, year: Number(e.target.value) }))
+                    }
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
+                <p className="text-xs text-orange-800 font-semibold">
+                  Scope preview: {batchBookingScopeCount} active tenant(s) will be booked for{" "}
+                  {formatPeriodLabel(Number(batchBookingForm.month), Number(batchBookingForm.year))}.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setShowBatchBooking(false);
+                    setBookingAction("");
+                  }}
+                  className="px-4 py-2 text-xs font-semibold rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBatchBooking}
+                  className="px-4 py-2 text-xs font-semibold rounded-lg text-white bg-[#0B3B2E] hover:bg-[#0A3127]"
+                >
+                  Run Batch Booking
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 };

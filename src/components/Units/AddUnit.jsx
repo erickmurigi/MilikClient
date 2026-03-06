@@ -327,7 +327,7 @@ const AddUnit = () => {
       
       if (isEditMode) {
         // Update existing unit
-        await dispatch(updateUnit({ id: unitId, data: unitData })).unwrap();
+        await dispatch(updateUnit({ id: unitId, unitData })).unwrap();
         toast.success("Unit updated successfully!");
       } else {
         // Create new unit

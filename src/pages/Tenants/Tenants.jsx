@@ -20,9 +20,18 @@ import {
   FaMoneyBillWave,
   FaTrash,
   FaSpinner,
+  FaDownload,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { getTenants, deleteTenant } from "../../redux/tenantsRedux";
+import { getUnits } from "../../redux/unitRedux";
+import { getProperties } from "../../redux/propertyRedux";
+import TenantsImportModal from "../../components/Modals/TenantsImportModal";
+import { 
+  downloadTenantsTemplate, 
+  exportTenantsToExcel 
+} from "../../utils/excelTemplates";
+import { adminRequests } from "../../utils/requestMethods";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
 const MILIK_ORANGE = "bg-[#FF8C00]";
@@ -51,18 +60,19 @@ const Tenants = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const actionMenuRef = useRef(null);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // ===== FILTERS =====
   const [draftFilters, setDraftFilters] = useState({
     property: "any",
-    status: "any",
+    status: "active",
     search: "",
     tenantName: "",
     tenantCode: "",
   });
   const [appliedFilters, setAppliedFilters] = useState({
     property: "any",
-    status: "any",
+    status: "active",
     search: "",
     tenantName: "",
     tenantCode: "",
@@ -73,6 +83,8 @@ const Tenants = () => {
   useEffect(() => {
     if (currentCompany?._id) {
       dispatch(getTenants({ business: currentCompany._id }));
+      dispatch(getUnits({ business: currentCompany._id }));
+      dispatch(getProperties({ business: currentCompany._id }));
     }
   }, [dispatch, currentCompany]);
 
@@ -180,6 +192,11 @@ const Tenants = () => {
 
   const transformedTenants = useMemo(() => {
     return (Array.isArray(tenantsData) ? tenantsData : []).map((tenant) => {
+      const tenantLease = leases.find(
+        (l) => l.tenant === tenant._id || l.tenant?._id === tenant._id
+      );
+      const resolvedStartDate = tenantLease?.startDate || tenant.moveInDate;
+      const resolvedEndDate = tenantLease?.endDate || tenant.moveOutDate;
       const balance = calculateTenantBalance(tenant._id, tenant);
       return {
         id: tenant._id,
@@ -187,8 +204,11 @@ const Tenants = () => {
         tenantName: tenant.name || "-",
         unitNumber: tenant.unit?.unitNumber || "-",
         propertyName: resolveTenantPropertyName(tenant, units, properties),
-        startDate: tenant.moveInDate
-          ? new Date(tenant.moveInDate).toLocaleDateString()
+        startDate: resolvedStartDate
+          ? new Date(resolvedStartDate).toLocaleDateString()
+          : "-",
+        endDate: resolvedEndDate
+          ? new Date(resolvedEndDate).toLocaleDateString()
           : "-",
         rent: tenant.unit?.rent
           ? `Ksh ${tenant.unit.rent.toLocaleString()}`
@@ -245,12 +265,25 @@ const Tenants = () => {
     });
   }, [transformedTenants, appliedFilters]);
 
+  // Sort tenants by property name (for grouped display)
+  const sortedFilteredTenants = useMemo(() => {
+    const sorted = [...filteredTenants];
+    sorted.sort((a, b) => {
+      const propA = String(a.propertyName || "").toLowerCase();
+      const propB = String(b.propertyName || "").toLowerCase();
+      if (propA !== propB) return propA.localeCompare(propB);
+      // Secondary sort by tenant name within same property
+      return String(a.tenantName || "").localeCompare(String(b.tenantName || ""));
+    });
+    return sorted;
+  }, [filteredTenants]);
+
   // ===== PAGINATION =====
-  const totalPages = Math.max(1, Math.ceil(filteredTenants.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(sortedFilteredTenants.length / ITEMS_PER_PAGE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
-  const currentTenants = filteredTenants.slice(startIndex, endIndex);
+  const currentTenants = sortedFilteredTenants.slice(startIndex, endIndex);
 
   // ===== SELECTION HANDLERS =====
   const handleSelectTenant = (tenantId) => {
@@ -285,7 +318,7 @@ const Tenants = () => {
   };
 
   const expandAllTenants = () => {
-    setExpandedTenants(filteredTenants.map((t) => t.id));
+    setExpandedTenants(sortedFilteredTenants.map((t) => t.id));
   };
 
   const collapseAllTenants = () => {
@@ -352,8 +385,8 @@ const Tenants = () => {
   };
 
   const handleResetFilters = () => {
-    setDraftFilters({ property: "any", status: "any", search: "", tenantName: "", tenantCode: "" });
-    setAppliedFilters({ property: "any", status: "any", search: "", tenantName: "", tenantCode: "" });
+    setDraftFilters({ property: "any", status: "active", search: "", tenantName: "", tenantCode: "" });
+    setAppliedFilters({ property: "any", status: "active", search: "", tenantName: "", tenantCode: "" });
     setCurrentPage(1);
   };
 
@@ -400,16 +433,50 @@ const Tenants = () => {
     }
   };
 
+  // ---------------------------
+  // EXCEL IMPORT/EXPORT HANDLERS
+  // ---------------------------
+  const handleDownloadTemplate = () => {
+    downloadTenantsTemplate(units || []);
+    toast.info('Tenants import template downloaded!');
+  };
+
+  const handleBulkImport = async (validRecords) => {
+    try {
+      const response = await adminRequests.post('/tenants/bulk-import', {
+        tenants: validRecords,
+        business: currentCompany._id
+      });
+
+      // Refresh tenants list
+      await dispatch(getTenants({ business: currentCompany._id }));
+      
+      return response.data;
+    } catch (error) {
+      console.error('Bulk import error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to import tenants');
+    }
+  };
+
+  const handleExportToExcel = () => {
+    if (!tenantsData || tenantsData.length === 0) {
+      toast.warning('No tenants to export');
+      return;
+    }
+    exportTenantsToExcel(tenantsData);
+    toast.info('Tenants exported successfully!');
+  };
 
   // ===== FILTER OPTIONS =====
   const uniqueProperties = useMemo(() => {
-    const propertyNames = transformedTenants
-      .map((t) => t.propertyName)
-      .filter((p) => p !== "-");
+    // Build from full properties list so dropdown isn't limited to current tenants only
+    const propertyNames = properties
+      .map((p) => p.propertyName || p.name)
+      .filter(Boolean);
     return ["any", ...Array.from(new Set(propertyNames)).sort()];
-  }, [transformedTenants]);
+  }, [properties]);
 
-  const statusOptions = ["any", "active", "inactive"];
+  const statusOptions = ["active", "any", "inactive"];
 
   // ===== RENDER =====
   return (
@@ -517,6 +584,33 @@ const Tenants = () => {
             >
               <FaRedoAlt className="text-xs" />
               <span>Reset</span>
+            </button>
+
+            <button
+              onClick={handleDownloadTemplate}
+              className="px-4 py-1 text-xs bg-blue-500 text-white rounded-lg flex items-center gap-2 hover:bg-blue-600 transition-colors shadow-sm"
+              title="Download import template"
+            >
+              <FaDownload className="text-xs" />
+              <span>Template</span>
+            </button>
+
+            <button
+              onClick={() => setShowImportModal(true)}
+              className={`px-4 py-1 text-xs ${MILIK_ORANGE} text-white rounded-lg flex items-center gap-2 hover:bg-[#e67e00] transition-colors shadow-sm`}
+              title="Import tenants from Excel"
+            >
+              <FaFileExport className="text-xs rotate-180" />
+              <span>Import</span>
+            </button>
+
+            <button
+              onClick={handleExportToExcel}
+              className="px-4 py-1 text-xs bg-gray-600 text-white rounded-lg flex items-center gap-2 hover:bg-gray-700 transition-colors shadow-sm"
+              title="Export tenants to Excel"
+            >
+              <FaFileExport className="text-xs" />
+              <span>Export</span>
             </button>
           </div>
         </div>
@@ -656,8 +750,11 @@ const Tenants = () => {
                 <th className="px-2 py-1.5 text-left font-bold border-r border-gray-400 min-w-[80px]">
                   Unit
                 </th>
-                <th className="px-2 py-1.5 text-left font-bold border-r border-gray-400 min-w-[100px]">
-                  Start Date
+                <th className="px-2 py-1.5 text-left font-bold border-r border-gray-400 min-w-[120px]">
+                  Lease Start Date
+                </th>
+                <th className="px-2 py-1.5 text-left font-bold border-r border-gray-400 min-w-[120px]">
+                  Lease End Date
                 </th>
                 <th className="px-2 py-1.5 text-right font-bold border-r border-gray-400 min-w-[100px]">
                   Rent
@@ -677,17 +774,34 @@ const Tenants = () => {
             {/* Table Body */}
             <tbody>
               {currentTenants.length > 0 ? (
-                currentTenants.map((tenant, idx) => (
-                  <React.Fragment key={tenant.id}>
-                    {/* Tenant Row */}
-                    <tr
-                      className={`border-b border-gray-200 cursor-pointer transition-colors text-xs ${
-                        selectedTenants.includes(tenant.id)
-                          ? "bg-orange-50 hover:bg-orange-100"
-                          : "bg-white hover:bg-gray-50"
-                      }`}
-                      onClick={() => handleSelectTenant(tenant.id)}
-                    >
+                currentTenants.map((tenant, idx) => {
+                  // Determine if this is the first tenant of a property group
+                  const isFirstOfProperty =
+                    idx === 0 || currentTenants[idx - 1].propertyName !== tenant.propertyName;
+
+                  return (
+                    <React.Fragment key={tenant.id}>
+                      {/* Property Section Header */}
+                      {isFirstOfProperty && (
+                        <tr className="bg-transparent">
+                          <td colSpan={12} className="px-2 pt-1.5 pb-1">
+                            <h3 className="text-sm font-extrabold text-black tracking-normal uppercase">
+                              {tenant.propertyName}
+                            </h3>
+                            <div className="mt-1 h-[2px] w-full bg-[#FF8C00]" />
+                          </td>
+                        </tr>
+                      )}
+
+                      {/* Tenant Row */}
+                      <tr
+                        className={`border-b border-gray-200 cursor-pointer transition-colors text-xs ${
+                          selectedTenants.includes(tenant.id)
+                            ? "bg-orange-50 hover:bg-orange-100"
+                            : "bg-white hover:bg-gray-50"
+                        }`}
+                        onClick={() => handleSelectTenant(tenant.id)}
+                      >
                       <td
                         className="px-2 py-1 text-center border-r border-gray-200"
                         onClick={handleCheckboxClick}
@@ -723,6 +837,9 @@ const Tenants = () => {
                       <td className="px-2 py-1 font-bold text-gray-900 border-r border-gray-200">
                         {tenant.startDate}
                       </td>
+                      <td className="px-2 py-1 font-bold text-gray-900 border-r border-gray-200">
+                        {tenant.endDate}
+                      </td>
                       <td className="px-2 py-1 font-bold text-gray-900 text-right border-r border-gray-200">
                         {tenant.rent}
                       </td>
@@ -754,7 +871,7 @@ const Tenants = () => {
                     {/* Expanded Details Row */}
                     {expandedTenants.includes(tenant.id) && (
                       <tr className="bg-gray-100 border-b border-gray-200">
-                        <td colSpan="11" className="px-3 py-2">
+                        <td colSpan="12" className="px-3 py-2">
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
                             {/* Tenant & Contact Details */}
                             <div>
@@ -821,9 +938,12 @@ const Tenants = () => {
                                   <p className="text-gray-600 text-xs">{tenant.unitNumber}</p>
                                 </div>
                                 <div>
-                                  <span className="font-bold text-gray-700 block text-xs">Start Date (Anchor):</span>
+                                  <span className="font-bold text-gray-700 block text-xs">Lease Start Date:</span>
                                   <p className="text-gray-600 font-bold text-xs">{tenant.startDate}</p>
-                                  <p className="text-gray-500 text-xs mt-0.5">⚠️ Billing anchor</p>
+                                </div>
+                                <div>
+                                  <span className="font-bold text-gray-700 block text-xs">Lease End Date:</span>
+                                  <p className="text-gray-600 font-bold text-xs">{tenant.endDate}</p>
                                 </div>
                               </div>
                             </div>
@@ -864,10 +984,11 @@ const Tenants = () => {
                       </tr>
                     )}
                   </React.Fragment>
-                ))
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan="11" className="px-3 py-4 text-center text-gray-600 font-semibold text-xs">
+                  <td colSpan="12" className="px-3 py-4 text-center text-gray-600 font-semibold text-xs">
                     No tenants found. Try adjusting filters or create a new tenant.
                   </td>
                 </tr>
@@ -880,7 +1001,7 @@ const Tenants = () => {
         <div className="flex-shrink-0 sticky bottom-0 z-20 bg-white border-t border-gray-200 px-2 py-2 flex items-center justify-between">
           <div className="text-xs font-bold text-gray-600">
             Showing {currentTenants.length > 0 ? startIndex + 1 : 0} to{" "}
-            {Math.min(endIndex, filteredTenants.length)} of {filteredTenants.length}{" "}
+            {Math.min(endIndex, sortedFilteredTenants.length)} of {sortedFilteredTenants.length}{" "}
             tenants
           </div>
 
@@ -1013,6 +1134,13 @@ const Tenants = () => {
           </div>
         </div>
       )}
+
+      {/* ===== TENANTS IMPORT MODAL ===== */}
+      <TenantsImportModal 
+        isOpen={showImportModal} 
+        onClose={() => setShowImportModal(false)} 
+        onImport={handleBulkImport} 
+      />
     </DashboardLayout>
   );
 };

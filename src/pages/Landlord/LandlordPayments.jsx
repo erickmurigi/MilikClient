@@ -19,7 +19,9 @@ import {
   FaTrash,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
-import { getLandlords } from "../../redux/apiCalls";
+import { getLandlords, getRentPayments } from "../../redux/apiCalls";
+import { getProperties } from "../../redux/propertyRedux";
+import { getTenants } from "../../redux/tenantsRedux";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
 const MILIK_ORANGE = "bg-[#FF8C00]";
@@ -66,6 +68,9 @@ const LandlordPayments = () => {
   useEffect(() => {
     if (currentCompany?._id) {
       getLandlords(dispatch, currentCompany._id);
+      dispatch(getProperties({ business: currentCompany._id }));
+      dispatch(getTenants({ business: currentCompany._id }));
+      getRentPayments(dispatch, currentCompany._id);
     }
   }, [dispatch, currentCompany]);
 

@@ -20,11 +20,16 @@ import {
   FaUndo,
   FaExpandAlt,
   FaCompressAlt,
+  FaFileImport,
+  FaFileDownload,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { getProperties, deleteProperty, archiveProperty, restoreProperty } from "../../redux/propertyRedux";
 import { getLandlords } from "../../redux/apiCalls";
 import MilikConfirmDialog from "../../components/Modals/MilikConfirmDialog";
+import PropertyImportModal from "../../components/Modals/PropertyImportModal";
+import { downloadPropertiesTemplate, exportPropertiesToExcel } from "../../utils/excelTemplates";
+import { adminRequests } from "../../utils/requestMethods";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
 const MILIK_GREEN_HOVER = "hover:bg-[#0A3127]";
@@ -55,6 +60,9 @@ const Properties = () => {
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const actionMenuRef = useRef(null);
 
+  // Import modal
+  const [showImportModal, setShowImportModal] = useState(false);
+
   // Column resizing refs (kept for compatibility)
   const resizingRef = useRef(null);
   const tableRef = useRef(null);
@@ -78,7 +86,7 @@ const Properties = () => {
 
   // Filters
   const emptyFilters = {
-    status: "",
+    status: "active",
     zone: "",
     category: "",
     code: "",
@@ -303,7 +311,51 @@ const Properties = () => {
     });
   };
 
-  const handleExport = () => toast.info("Export feature coming soon");
+  const handleBulkImport = async (properties) => {
+    if (!currentCompany?._id) {
+      toast.error('No company selected');
+      return { data: { successful: [], failed: [{ error: 'No company selected' }] } };
+    }
+
+    try {
+      console.log('Calling bulk import with properties:', properties.length);
+      const response = await adminRequests.post('/properties/bulk-import', {
+        properties,
+        business: currentCompany._id
+      });
+      console.log('Import completed:', response.data);
+
+      // Refresh properties list
+      const params = {
+        page: currentPage,
+        limit: itemsPerPage,
+        search: "",
+        status: appliedFilters.status,
+        zone: appliedFilters.zone,
+        category: appliedFilters.category,
+        code: appliedFilters.code,
+        name: appliedFilters.name,
+        lrNumber: appliedFilters.lr,
+        landlord: appliedFilters.landlord,
+        location: appliedFilters.location,
+      };
+      dispatch(getProperties(params));
+
+      return response;
+    } catch (error) {
+      console.error('Bulk import error:', error);
+      throw error;
+    }
+  };
+
+  const handleExport = () => {
+    if (!properties || properties.length === 0) {
+      toast.warning('No properties to export');
+      return;
+    }
+    exportPropertiesToExcel(properties);
+    toast.success('Properties exported successfully');
+  };
 
   const openEditProperty = (propertyId) => {
     if (!propertyId) return;
@@ -479,8 +531,8 @@ const Properties = () => {
                 value={draftFilters.status}
                 onChange={(e) => setDraftFilters((p) => ({ ...p, status: e.target.value }))}
               >
-                <option value="">All Status</option>
                 <option value="active">Active</option>
+                <option value="">All Status</option>
                 <option value="maintenance">Maintenance</option>
                 <option value="closed">Closed</option>
               </select>
@@ -617,6 +669,24 @@ const Properties = () => {
                 Delete {selectedProperties.length > 0 ? `(${selectedProperties.length})` : ""}
               </button>
 
+              <button
+                onClick={() => downloadPropertiesTemplate()}
+                className="px-4 py-1 text-xs bg-blue-50 text-blue-700 border border-blue-300 rounded-lg flex items-center gap-2 hover:bg-blue-100 transition-colors shadow-sm"
+                title="Download Excel import template"
+              >
+                <FaFileDownload className="text-xs" />
+                Template
+              </button>
+
+              <button
+                onClick={() => setShowImportModal(true)}
+                className="px-4 py-1 text-xs bg-green-50 text-green-700 border border-green-300 rounded-lg flex items-center gap-2 hover:bg-green-100 transition-colors shadow-sm"
+                title="Import properties from Excel"
+              >
+                <FaFileImport className="text-xs" />
+                Import
+              </button>
+
               <Link to="/properties/new">
                 <button
                   className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
@@ -667,7 +737,7 @@ const Properties = () => {
                 <option value="">All Landlords</option>
                 {landlords && landlords.length > 0 ? (
                   landlords.map((l) => (
-                    <option key={l._id || l.id} value={l.fullName || l.name || l.landlordName || ""}>
+                    <option key={l._id || l.id} value={l._id || l.id || ""}>
                       {l.fullName || l.name || l.landlordName || "Unnamed"}
                     </option>
                   ))
@@ -1064,6 +1134,13 @@ const Properties = () => {
           isDangerous={confirmDialog.isDangerous}
           onConfirm={() => confirmDialog.onConfirm?.()}
           onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        />
+
+        {/* Property Import Modal */}
+        <PropertyImportModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onImport={handleBulkImport}
         />
       </div>
     </DashboardLayout>

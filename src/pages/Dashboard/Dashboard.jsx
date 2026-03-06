@@ -39,7 +39,11 @@ const Dashboard = ({ darkMode }) => {
     if (!businessId) return;
 
     const refreshDashboardData = async () => {
-      dispatch(getProperties({ business: businessId }));
+      dispatch(getProperties({ 
+        business: businessId,
+        status: 'active',
+        limit: 1000 
+      }));
       dispatch(getUnits({ business: businessId }));
       dispatch(getTenants({ business: businessId }));
 

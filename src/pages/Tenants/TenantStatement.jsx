@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { getTenants } from "../../redux/tenantsRedux";
+import { getUnits } from "../../redux/unitRedux";
+import { getProperties } from "../../redux/propertyRedux";
 import { getLeases, getUtilities } from "../../redux/apiCalls";
 import DashboardLayout from "../../components/Layout/DashboardLayout";
 import InvoiceCreationModal from "./InvoiceCreationModal";
@@ -57,16 +59,8 @@ const TenantStatement = () => {
   const [selectedSchedules, setSelectedSchedules] = useState([]);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [invoiceRefresh, setInvoiceRefresh] = useState(0);
-  const [createdInvoices, setCreatedInvoices] = useState(() => {
-    // Load from localStorage on initial mount
-    try {
-      const storageKey = `createdInvoices_${tenantId}`;
-      const stored = localStorage.getItem(storageKey);
-      return stored ? JSON.parse(stored) : {};
-    } catch (error) {
-      return {};
-    }
-  });
+  const [createdInvoices, setCreatedInvoices] = useState({});
+  const [createdInvoicesHydrated, setCreatedInvoicesHydrated] = useState(false);
   const currentCompany = useSelector((state) => state.company?.currentCompany);
 
   const tenantsFromStore = useSelector((state) => state.tenant?.tenants || []);
@@ -118,11 +112,27 @@ const TenantStatement = () => {
     return leasesFromStore.find((lease) => lease.tenant === tenantId || lease.tenant?._id === tenantId);
   }, [leasesFromStore, tenantId]);
 
+  // Re-hydrate invoice cache whenever tenant changes.
+  useEffect(() => {
+    setCreatedInvoicesHydrated(false);
+    try {
+      const storageKey = `createdInvoices_${tenantId}`;
+      const stored = localStorage.getItem(storageKey);
+      const parsed = stored ? JSON.parse(stored) : {};
+      setCreatedInvoices(parsed && typeof parsed === "object" ? parsed : {});
+    } catch (error) {
+      setCreatedInvoices({});
+    } finally {
+      setCreatedInvoicesHydrated(true);
+    }
+  }, [tenantId]);
+
   // Save created invoices to localStorage whenever they change
   useEffect(() => {
+    if (!createdInvoicesHydrated) return;
     const storageKey = `createdInvoices_${tenantId}`;
     localStorage.setItem(storageKey, JSON.stringify(createdInvoices));
-  }, [createdInvoices, tenantId]);
+  }, [createdInvoices, tenantId, createdInvoicesHydrated]);
 
   useEffect(() => {
     try {
@@ -148,6 +158,8 @@ const TenantStatement = () => {
     if (!currentCompany?._id) return;
 
     dispatch(getTenants({ business: currentCompany._id }));
+    dispatch(getUnits({ business: currentCompany._id }));
+    dispatch(getProperties({ business: currentCompany._id }));
     getLeases(dispatch, currentCompany._id, null, tenantId);
     getUtilities(dispatch, currentCompany._id);
   }, [dispatch, currentCompany?._id, tenantId]);

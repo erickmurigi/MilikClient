@@ -12,12 +12,19 @@ export const getProperties = createAsyncThunk(
       const token = localStorage.getItem('milik_token') || localStorage.getItem('token');
       const state = getState();
 
+      // For non-paginated property lookups across pages, request a high limit
+      // so callers don't silently get backend default pagination (limit=10).
+      const normalizedParams = { ...(params || {}) };
+      if (normalizedParams.limit === undefined && normalizedParams.page === undefined) {
+        normalizedParams.limit = 1000;
+      }
+
       // Resolve business from params or current company slice
-      const resolvedBusinessId = params.business || state.company?.currentCompany?._id;
+      const resolvedBusinessId = normalizedParams.business || state.company?.currentCompany?._id;
 
       // Build query params safely (never send "undefined")
       const queryParams = new URLSearchParams();
-      Object.entries(params || {}).forEach(([key, value]) => {
+      Object.entries(normalizedParams).forEach(([key, value]) => {
         if (value !== undefined && value !== null && value !== '') {
           queryParams.append(key, value);
         }

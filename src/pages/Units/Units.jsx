@@ -7,6 +7,7 @@ import {
   FaPlus,
   FaSearch,
   FaFileExport,
+  FaDownload,
   FaChevronLeft,
   FaChevronRight,
   FaGripVertical,
@@ -24,6 +25,15 @@ import {
 } from "react-icons/fa";
 import { getUnits, deleteUnit, updateUnit } from "../../redux/unitRedux";
 import { getProperties } from "../../redux/propertyRedux";
+import { toast } from "react-toastify";
+import MilikConfirmDialog from "../../components/Modals/MilikConfirmDialog";
+import UnitsImportModal from "../../components/Modals/UnitsImportModal";
+import { 
+  downloadUnitsTemplate, 
+  exportUnitsToExcel, 
+  parseUnitsExcel 
+} from "../../utils/excelTemplates";
+import { adminRequests } from "../../utils/requestMethods";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
 const MILIK_GREEN_HOVER = "hover:bg-[#0A3127]";
@@ -58,6 +68,17 @@ const Units = () => {
 
   // Modal
   const [showAddUnitModal, setShowAddUnitModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  // Milik Confirm Dialog
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    confirmText: "Confirm",
+    isDangerous: false,
+    onConfirm: null,
+  });
 
   // ---------------------------
   // FILTERS (Draft -> Apply with Search button)
@@ -146,6 +167,12 @@ const Units = () => {
   }, [dispatch, currentCompany]);
 
   // Transform units data to match the table structure
+  const formatRentAmount = (amount) => {
+    const numericAmount = Number(amount);
+    if (!Number.isFinite(numericAmount)) return "Ksh 0";
+    return `Ksh ${numericAmount.toLocaleString("en-KE")}`;
+  };
+
   const transformedUnits = useMemo(() => {
     return (unitsData || []).map((unit, index) => {
       // unit.property is already populated from backend with {_id, propertyName, address}
@@ -187,12 +214,12 @@ const Units = () => {
         unitCode: unitCode,
         propertyName: propertyDisplayName, // Store full property name
         propertyCode: propertyCode, // Store property code
-        property: propertyCode, // Keep this for filtering
+        property: propertyId, // Use property ID for reliable filtering
         tenant: tenantName,
         area: "0.00", // TODO: Add area field to unit model
-        rentUnit: `Ksh ${unit.rent?.toLocaleString() || 0}`,
-        marketRent: `Ksh ${unit.rent?.toLocaleString() || 0}`,
-        currentRent: unit.isVacant ? "Ksh 0" : `Ksh ${unit.rent?.toLocaleString() || 0}`,
+        rentUnit: formatRentAmount(unit.rent),
+        marketRent: formatRentAmount(unit.rent),
+        currentRent: formatRentAmount(unit.rent),
         unitType: unit.unitType || "N/A",
         status: (unit.status || "vacant").toLowerCase(),
         vacantFrom: unit.vacantSince ? new Date(unit.vacantSince).toLocaleDateString() : "-",
@@ -203,8 +230,15 @@ const Units = () => {
 
   // For filter dropdown property list
   const uniqueProperties = useMemo(() => {
-    const propertyNames = properties.map((p) => p.propertyCode || p.propertyName);
-    return ["any", ...Array.from(new Set(propertyNames)).sort((a, b) => a.localeCompare(b))];
+    const options = (properties || [])
+      .filter((p) => p?._id)
+      .map((p) => ({
+        value: p._id,
+        label: p.propertyCode ? `${p.propertyCode} - ${p.propertyName}` : p.propertyName,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+    return [{ value: "any", label: "Property" }, ...options];
   }, [properties]);
 
   // ---------------------------
@@ -215,7 +249,14 @@ const Units = () => {
   const filteredUnits = useMemo(() => {
     return transformedUnits.filter((u) => {
       if (appliedFilters.property !== "any" && u.property !== appliedFilters.property) return false;
-      if (appliedFilters.status !== "any" && u.status !== appliedFilters.status) return false;
+      if (appliedFilters.status === "active" && u.status === "archived") return false;
+      if (
+        appliedFilters.status !== "any" &&
+        appliedFilters.status !== "active" &&
+        u.status !== appliedFilters.status
+      ) {
+        return false;
+      }
       if (appliedFilters.unitType !== "any" && u.unitType !== appliedFilters.unitType) return false;
 
       const unitNoOk = appliedFilters.unitNo ? normalize(u.unitNo).includes(normalize(appliedFilters.unitNo)) : true;
@@ -333,49 +374,144 @@ const Units = () => {
   const archiveSelected = async () => {
     setActionMenuOpen(false);
     if (selectedCount === 0) return;
-    
-    if (!window.confirm(`Archive ${selectedCount} selected unit(s)?`)) return;
-    
-    try {
-      // Archive by changing status (archiving not fully supported yet in backend)
-      // For now, this will require backend updates to support archived status
-      window.alert("Archive feature requires backend updates to support archived status field.");
-      // TODO: Implement once backend is updated
-    } catch (error) {
-      window.alert(`Error archiving units: ${error?.message || 'Unknown error'}`);
-    }
+
+    setConfirmDialog({
+      isOpen: true,
+      title: "Archive Units",
+      message: `Are you sure you want to archive ${selectedCount} selected unit(s)? You can restore them later.`,
+      confirmText: "Archive",
+      isDangerous: false,
+      onConfirm: async () => {
+        try {
+          for (const unitId of selectedUnits) {
+            // eslint-disable-next-line no-await-in-loop
+            await dispatch(
+              updateUnit({
+                id: unitId,
+                unitData: {
+                  status: "archived",
+                  isVacant: true,
+                  vacantSince: new Date(),
+                },
+              })
+            ).unwrap();
+          }
+
+          await dispatch(getUnits({ business: currentCompany._id }));
+          setSelectedUnits([]);
+          setSelectAll(false);
+          toast.success(`${selectedCount} unit(s) archived successfully`);
+        } catch (error) {
+          const msg = error?.message || error?.data?.message || "Error archiving units";
+          toast.error(msg);
+        } finally {
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+        }
+      },
+    });
   };
 
   const restoreSelected = async () => {
     setActionMenuOpen(false);
     if (selectedCount === 0) return;
-    
-    if (!window.confirm(`Restore ${selectedCount} selected unit(s)?`)) return;
-    
-    try {
-      // Restore by changing status (archiving not fully supported yet in backend)
-      window.alert("Restore feature requires backend updates to support archived status field.");
-      // TODO: Implement once backend is updated
-    } catch (error) {
-      window.alert(`Error restoring units: ${error?.message || 'Unknown error'}`);
-    }
+
+    setConfirmDialog({
+      isOpen: true,
+      title: "Restore Units",
+      message: `Are you sure you want to restore ${selectedCount} selected unit(s)?`,
+      confirmText: "Restore",
+      isDangerous: false,
+      onConfirm: async () => {
+        try {
+          for (const unitId of selectedUnits) {
+            // eslint-disable-next-line no-await-in-loop
+            await dispatch(
+              updateUnit({
+                id: unitId,
+                unitData: {
+                  status: "vacant",
+                  isVacant: true,
+                  vacantSince: new Date(),
+                },
+              })
+            ).unwrap();
+          }
+
+          await dispatch(getUnits({ business: currentCompany._id }));
+          setSelectedUnits([]);
+          setSelectAll(false);
+          toast.success(`${selectedCount} unit(s) restored successfully`);
+        } catch (error) {
+          const msg = error?.message || error?.data?.message || "Error restoring units";
+          toast.error(msg);
+        } finally {
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+        }
+      },
+    });
   };
 
   const deleteSelected = async () => {
     if (selectedCount === 0) return;
-    if (!window.confirm(`Are you sure you want to delete ${selectedCount} selected unit(s)? This action cannot be undone.`)) return;
-    
+
+    setConfirmDialog({
+      isOpen: true,
+      title: "Delete Units",
+      message: `Are you sure you want to delete ${selectedCount} selected unit(s)? This action cannot be undone.`,
+      confirmText: "Delete",
+      isDangerous: true,
+      onConfirm: async () => {
+        try {
+          for (const unitId of selectedUnits) {
+            // eslint-disable-next-line no-await-in-loop
+            await dispatch(deleteUnit(unitId)).unwrap();
+          }
+          await dispatch(getUnits({ business: currentCompany._id }));
+          setSelectedUnits([]);
+          setSelectAll(false);
+          toast.success(`${selectedCount} unit(s) deleted successfully`);
+        } catch (error) {
+          const msg = error?.message || error?.data?.message || "Error deleting units";
+          toast.error(msg);
+        } finally {
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+        }
+      },
+    });
+  };
+
+  // ---------------------------
+  // EXCEL IMPORT/EXPORT HANDLERS
+  // ---------------------------
+  const handleDownloadTemplate = () => {
+    downloadUnitsTemplate(properties || []);
+    toast.info('Units import template downloaded!');
+  };
+
+  const handleBulkImport = async (validRecords) => {
     try {
-      for (const unitId of selectedUnits) {
-        await dispatch(deleteUnit(unitId)).unwrap();
-      }
+      const response = await adminRequests.post('/units/bulk-import', {
+        units: validRecords,
+        business: currentCompany._id
+      });
+
       // Refresh units list
-      dispatch(getUnits({ business: currentCompany._id }));
-      setSelectedUnits([]);
-      setSelectAll(false);
+      await dispatch(getUnits({ business: currentCompany._id }));
+      
+      return response.data;
     } catch (error) {
-      window.alert(`Error deleting units: ${error?.message || 'Unknown error'}`);
+      console.error('Bulk import error:', error);
+      throw new Error(error.response?.data?.message || 'Failed to import units');
     }
+  };
+
+  const handleExportToExcel = () => {
+    if (!unitsData || unitsData.length === 0) {
+      toast.warning('No units to export');
+      return;
+    }
+    exportUnitsToExcel(unitsData);
+    toast.success('Units exported successfully!');
   };
 
   // ---------------------------
@@ -528,8 +664,8 @@ const Units = () => {
                 className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-[#0B3B2E] bg-[#DDEFE1] text-gray-800 hover:bg-white transition-colors"
               >
                 {uniqueProperties.map((p) => (
-                  <option key={p} value={p}>
-                    {p === "any" ? "Property" : p}
+                  <option key={p.value} value={p.value}>
+                    {p.label}
                   </option>
                 ))}
               </select>
@@ -539,10 +675,12 @@ const Units = () => {
                 onChange={(e) => setDraftFilters((p) => ({ ...p, status: e.target.value }))}
                 className="px-3 py-1 text-xs border border-gray-300 rounded shadow-sm focus:outline-none focus:ring-1 focus:ring-[#0B3B2E] bg-[#DDEFE1] text-gray-800 hover:bg-white transition-colors"
               >
-                <option value="any">Status</option>
-                <option value="Occupied">Occupied</option>
-                <option value="Vacant">Vacant</option>
-                <option value="Maintenance">Maintenance</option>
+                <option value="active">Active</option>
+                <option value="any">All Statuses</option>
+                <option value="occupied">Occupied</option>
+                <option value="vacant">Vacant</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="archived">Archived</option>
               </select>
 
               <select
@@ -670,7 +808,29 @@ const Units = () => {
                 Add Unit
               </button>
 
-              <button className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm">
+              <button 
+                onClick={handleDownloadTemplate}
+                className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
+                title="Download Excel import template"
+              >
+                <FaDownload className="text-xs" />
+                Template
+              </button>
+
+              <button 
+                onClick={() => setShowImportModal(true)}
+                className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm bg-orange-600 hover:bg-orange-700`}
+                title="Import units from Excel"
+              >
+                <FaFileExport className="text-xs" />
+                Import
+              </button>
+
+              <button 
+                onClick={handleExportToExcel}
+                className="px-4 py-1 text-xs border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors shadow-sm"
+                title="Export units to Excel"
+              >
                 <FaFileExport className="text-xs" />
                 Export
               </button>
@@ -739,16 +899,12 @@ const Units = () => {
                         <React.Fragment key={`unit-${u.id}`}>
                           {/* Property Section Header */}
                           {isFirstOfProperty && (
-                            <tr className="bg-gradient-to-r from-[#0B3B2E] to-[#0A3127] hover:from-[#0C4233] hover:to-[#0A3127] border-b-2 border-orange-600">
-                              <td colSpan={12} className="px-4 py-4">
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-3 h-3 rounded-full bg-orange-500 shadow-md"></div>
-                                    <h3 className="text-base font-black text-white tracking-widest uppercase">
-                                      {u.propertyName}
-                                    </h3>
-                                  </div>
-                                </div>
+                            <tr className="bg-transparent">
+                              <td colSpan={12} className="px-2 pt-1.5 pb-1">
+                                <h3 className="text-sm font-extrabold text-black tracking-normal uppercase">
+                                  {u.propertyName}
+                                </h3>
+                                <div className="mt-1 h-[2px] w-full bg-[#FF8C00]" />
                               </td>
                             </tr>
                           )}
@@ -765,7 +921,7 @@ const Units = () => {
                             onClick={(e) => handleRowClick(u.id, e)}
                           >
                             {/* Checkbox */}
-                            <td className="px-2 py-2 border-r border-gray-200" onClick={handleCheckboxClick}>
+                            <td className="px-2 py-1 border-r border-gray-200" onClick={handleCheckboxClick}>
                               <input
                                 type="checkbox"
                                 checked={selectedUnits.includes(u.id)}
@@ -776,7 +932,7 @@ const Units = () => {
                             </td>
 
                             {/* Expand Button */}
-                            <td className="px-1 py-2 border-r border-gray-200 align-top text-center">
+                            <td className="px-1 py-1 border-r border-gray-200 align-top text-center">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -794,34 +950,34 @@ const Units = () => {
                             </td>
 
                             {/* Property Name */}
-                            <td className="px-2 py-2 border-r border-gray-200 font-black text-slate-900 text-xs">
+                            <td className="px-2 py-1 border-r border-gray-200 font-bold text-slate-900 text-xs">
                               {u.propertyName}
                             </td>
 
                             {/* Unit/Space No */}
-                            <td className="px-2 py-2 border-r border-gray-200 font-black text-slate-900 text-xs">
+                            <td className="px-2 py-1 border-r border-gray-200 font-bold text-slate-900 text-xs">
                               {u.unitNo}
                             </td>
 
                             {/* Unit Code - 2 letters + 4 digits */}
-                            <td className="px-2 py-2 border-r border-gray-200 font-black font-mono text-slate-900 text-xs bg-gray-50">
+                            <td className="px-2 py-1 border-r border-gray-200 font-bold font-mono text-slate-900 text-xs bg-gray-50">
                               {u.unitCode}
                             </td>
 
                             {/* Unit Type */}
-                            <td className="px-2 py-2 border-r border-gray-200 font-bold text-slate-900 text-xs">
+                            <td className="px-2 py-1 border-r border-gray-200 font-bold text-slate-900 text-xs">
                               {u.unitType}
                             </td>
 
                             {/* Rent Estimate */}
-                            <td className="px-2 py-2 border-r border-gray-200 text-right font-black text-slate-900 text-xs">
+                            <td className="px-2 py-1 border-r border-gray-200 text-right font-bold text-slate-900 text-xs">
                               {u.currentRent}
                             </td>
 
                             {/* Status - Color coded background */}
-                            <td className="px-2 py-2 border-r border-gray-200 text-center">
+                            <td className="px-2 py-1 border-r border-gray-200 text-center">
                               <span
-                                className={`inline-flex items-center justify-center px-2 py-1 rounded text-xs font-black whitespace-nowrap w-full ${
+                                className={`inline-flex items-center justify-center px-2 py-0.5 rounded text-xs font-bold whitespace-nowrap w-full ${
                                   u.status === "occupied"
                                     ? "bg-green-200 text-green-900"
                                     : u.status === "vacant"
@@ -836,19 +992,19 @@ const Units = () => {
                             </td>
 
                             {/* Current Resident/Tenant */}
-                            <td className="px-2 py-2 border-r border-gray-200 text-xs font-bold text-slate-900 truncate">
+                            <td className="px-2 py-1 border-r border-gray-200 text-xs font-bold text-slate-900 truncate">
                               {u.tenant}
                             </td>
 
                             {/* Vacant From */}
-                            <td className="px-2 py-2 border-r border-gray-200 text-center text-xs font-bold text-slate-900">
+                            <td className="px-2 py-1 border-r border-gray-200 text-center text-xs font-bold text-slate-900">
                               {u.status === "vacant" ? u.vacantFrom : "-"}
                             </td>
 
                             {/* Action */}
-                            <td className="px-2 py-2 text-center">
+                            <td className="px-2 py-1 text-center">
                               <button
-                                className={`px-2 py-1 text-xs text-white rounded font-bold transition-all ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
+                                className={`px-2 py-0.5 text-xs text-white rounded font-semibold transition-all ${MILIK_GREEN} ${MILIK_GREEN_HOVER}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   navigate(`/units/${u.id}`);
@@ -1453,6 +1609,23 @@ const Units = () => {
             </div>
           </div>
         )}
+
+        <UnitsImportModal 
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onImport={handleBulkImport}
+        />
+
+        <MilikConfirmDialog
+          isOpen={confirmDialog.isOpen}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmText={confirmDialog.confirmText || "Confirm"}
+          cancelText="Cancel"
+          isDangerous={confirmDialog.isDangerous}
+          onConfirm={() => confirmDialog.onConfirm?.()}
+          onCancel={() => setConfirmDialog((prev) => ({ ...prev, isOpen: false }))}
+        />
       </div>
     </DashboardLayout>
   );
