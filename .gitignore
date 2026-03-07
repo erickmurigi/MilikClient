@@ -3,6 +3,9 @@
 .env.local
 .env.production
 .env.staging
+.env.*
+!.env.example
+!.env.sample
 
 # Logs
 logs
@@ -28,3 +31,24 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Build and coverage artifacts
+build
+coverage
+.cache
+.parcel-cache
+
+# Package manager artifacts
+.pnpm-store
+.npm
+
+# Security-sensitive files
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Local OS/app files
+Thumbs.db
+Desktop.ini

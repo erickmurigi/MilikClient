@@ -8,10 +8,10 @@ import {
   FaCalendarAlt, FaWallet, FaUniversity, FaCog,
   FaExclamationTriangle, FaCalculator, FaPhone,
   FaFile, FaSave, FaFileExport, FaPrint, FaSignOutAlt,
-  FaHome, FaPlus, FaInfo, FaSquare, FaCheck,
+  FaHome, FaPlus, FaInfo, FaSquare, FaCheck, FaCheckCircle,
   FaUser, FaUsers, FaAddressCard, FaTag, FaClipboard,
   FaHandshake, FaChartLine, FaChartPie, FaFileAlt,
-  FaToolbox, FaDatabase, FaWrench, FaHeadset, FaInfoCircle
+  FaToolbox, FaDatabase, FaWrench, FaHeadset, FaInfoCircle, FaList
 } from "react-icons/fa";
 import "./dashboard.css";
 import TabManager from "../../components/Layout/TabManager";
@@ -100,6 +100,8 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
     "properties-list": "/properties",
     "add-property": "/properties/new",
     "property-details": "/properties/details",
+    "property-commission-settings": "/properties/commission-settings",
+    "commissions-list": "/properties/commissions-list",
     "units-spaces": "/units",
     availability: "/availability",
     "property-status": "/properties/status",
@@ -146,6 +148,7 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
     "landlord-jvs": "/landlords/journals",
     "batch-landlord-jvs": "/landlords/batch-journals",
     "commission-landlord-statement": "/financial/landlord-statement",
+    "processed-statements": "/landlord/processed-statements",
     "rental-collection": "/reports/rental-collection",
     "paid-balance": "/reports/paid-balance",
     "aged-analysis": "/reports/aged-analysis",
@@ -189,6 +192,9 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
         { id: "properties-list", label: "Properties Listing", icon: FaHome },
         { id: "add-property", label: "Add New Property", icon: FaPlus },
         { id: "property-details", label: "Property Details", icon: FaInfo },
+        { type: "separator" },
+        { id: "property-commission-settings", label: "Commission Settings", icon: FaCog },
+        { id: "commissions-list", label: "Commission List", icon: FaList },
         { type: "separator" },
         { id: "units-spaces", label: "Units/Spaces Management", icon: FaSquare },
         { id: "availability", label: "Availability Status", icon: FaCheck },
@@ -329,6 +335,7 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
       { id: "landlord-jvs", label: "Landlord J.Vs", icon: FaBook },
       { id: "batch-landlord-jvs", label: "Batch Landlord J.Vs", icon: FaBook },
       { id: "commission-landlord-statement", label: "Commissions & LL Statement", icon: FaFileAlt },
+      { id: "processed-statements", label: "Processed Statements", icon: FaCheckCircle },
     ],
   };
 

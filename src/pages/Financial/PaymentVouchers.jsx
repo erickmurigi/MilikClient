@@ -115,6 +115,19 @@ const PaymentVouchers = () => {
       return;
     }
 
+    // Check deposit refund logic based on property settings
+    if (form.category === "deposit_refund") {
+      const property = properties.find(p => p._id === form.propertyId);
+      if (property?.depositHeldBy === "propertyManager") {
+        toast.error("Cannot create landlord expense for deposit refund. Property Manager holds the deposits, not the landlord.");
+        return;
+      }
+      // If depositHeldBy is "landlord", allow the voucher to be created
+      if (property && property.depositHeldBy !== "landlord") {
+        toast.warning("Deposit holder not configured for this property. Please set in Property Commission Settings.");
+      }
+    }
+
     const payload = {
       category: form.category,
       property: form.propertyId,

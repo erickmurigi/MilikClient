@@ -14,7 +14,10 @@ import Landlords from "./pages/Landlord/Landlord";
 import AddLandlord from "./components/Landlord/AddLandlord";
 import LandlordPayments from "./pages/Landlord/LandlordPayments";
 import LandlordCommissionsStatement from "./pages/Landlord/LandlordCommissionsStatement";
+import ProcessedStatements from "./pages/Landlord/ProcessedStatements";
 import Properties from "./pages/Properties/Properties";
+import PropertyCommissionSettings from "./pages/Properties/PropertyCommissionSettings";
+import CommissionsList from "./pages/Properties/CommissionsList";
 import Units from "./pages/Units/Units";
 import AddUnit from "./components/Units/AddUnit";
 import Tenants from "./pages/Tenants/Tenants";
@@ -37,6 +40,12 @@ import AddCompanyWizard from "./pages/SystemSetup/AddCompanyWizard";
 import AddUserPage from "./pages/SystemSetup/AddUsers";
 import CompanySettings from "./pages/SystemSetup/CompanySettings";
 import PaymentVouchers from "./pages/Financial/PaymentVouchers";
+import RentalCollectionReport from "./pages/Reports/RentalCollectionReport";
+import PaidBalanceReport from "./pages/Reports/PaidBalanceReport";
+import AgedAnalysisReport from "./pages/Reports/AgedAnalysisReport";
+import CommissionReports from "./pages/Reports/CommissionReports";
+import TaxReports from "./pages/Reports/TaxReports";
+import TenantSummaryReport from "./pages/Reports/TenantSummaryReport";
 
 function ProtectedRoute({ children }) {
   const { currentUser } = useSelector((state) => state.auth);
@@ -85,6 +94,7 @@ function App() {
         <Route path="/landlords/new" element={<ProtectedRoute><AddLandlord /></ProtectedRoute>} />
         <Route path="/landlord-payments" element={<ProtectedRoute><LandlordPayments /></ProtectedRoute>} />
         <Route path="/financial/landlord-statement" element={<ProtectedRoute><LandlordCommissionsStatement /></ProtectedRoute>} />
+        <Route path="/landlord/processed-statements" element={<ProtectedRoute><ProcessedStatements /></ProtectedRoute>} />
         <Route path="/properties" element={<ProtectedRoute><Properties /></ProtectedRoute>} />
         <Route path="/units" element={<ProtectedRoute><Units /></ProtectedRoute>} />
         <Route path="/units/new" element={<ProtectedRoute><AddUnit /></ProtectedRoute>} />
@@ -108,9 +118,17 @@ function App() {
         <Route path="/properties/new" element={<ProtectedRoute><AddProperty /></ProtectedRoute>} />
         <Route path="/properties/:id" element={<ProtectedRoute><PropertyDetail /></ProtectedRoute>} />
         <Route path="/properties/edit/:id" element={<ProtectedRoute><EditProperty /></ProtectedRoute>} />
+        <Route path="/properties/commission-settings" element={<ProtectedRoute><PropertyCommissionSettings /></ProtectedRoute>} />
+        <Route path="/properties/commissions-list" element={<ProtectedRoute><CommissionsList /></ProtectedRoute>} />
         <Route path="/add-user" element={<ProtectedRoute><AddUserPage /></ProtectedRoute>} />
         <Route path="/company-setup" element={<ProtectedRoute><CompanySetupPage /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><CompanySettings /></ProtectedRoute>} />
+        <Route path="/reports/rental-collection" element={<ProtectedRoute><RentalCollectionReport /></ProtectedRoute>} />
+        <Route path="/reports/paid-balance" element={<ProtectedRoute><PaidBalanceReport /></ProtectedRoute>} />
+        <Route path="/reports/aged-analysis" element={<ProtectedRoute><AgedAnalysisReport /></ProtectedRoute>} />
+        <Route path="/reports/commissions" element={<ProtectedRoute><CommissionReports /></ProtectedRoute>} />
+        <Route path="/reports/tax" element={<ProtectedRoute><TaxReports /></ProtectedRoute>} />
+        <Route path="/reports/tenant-summary" element={<ProtectedRoute><TenantSummaryReport /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );
