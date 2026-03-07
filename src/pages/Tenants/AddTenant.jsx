@@ -383,6 +383,7 @@ const AddTenant = () => {
         unit: formData.unit,
         rent: parseFloat(formData.rent),
         paymentMethod: formData.paymentMethod,
+        leaseType: formData.leaseType || "at_will",
         moveInDate: formData.moveInDate,
         moveOutDate: formData.leaseType === "fixed" ? formData.moveOutDate : null,
         status: "active",

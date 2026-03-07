@@ -57,7 +57,16 @@ const CompanySettings = () => {
         setFormData({ name: "", durationInMonths: "", durationInDays: "" });
         break;
       case "commissions":
-        setFormData({ name: "", percentage: "", applicableTo: "rent", description: "" });
+        setFormData({
+          name: "",
+          percentage: "",
+          applicableTo: "rent",
+          recognitionBasis: "received",
+          settlementBasis: "received",
+          includeDirectLandlordPayments: true,
+          provisionalRecognition: false,
+          description: "",
+        });
         break;
       case "expenses":
         setFormData({ name: "", description: "", code: "", category: "other", defaultAmount: 0 });
@@ -482,6 +491,18 @@ const CommissionsTab = ({ data, onAdd, onEdit, onDelete, loading }) => (
               <p className="text-sm text-slate-600">
                 <span className="font-medium">Applies to:</span> {commission.applicableTo}
               </p>
+              <p className="text-sm text-slate-600">
+                <span className="font-medium">Recognition:</span> {commission.recognitionBasis || "received"}
+              </p>
+              <p className="text-sm text-slate-600">
+                <span className="font-medium">Settlement:</span> {commission.settlementBasis || "received"}
+              </p>
+              <p className="text-sm text-slate-600">
+                <span className="font-medium">Include Direct Payments:</span> {commission.includeDirectLandlordPayments === false ? "No" : "Yes"}
+              </p>
+              <p className="text-sm text-slate-600">
+                <span className="font-medium">Provisional:</span> {commission.provisionalRecognition ? "Enabled" : "Disabled"}
+              </p>
               {commission.description && (
                 <p className="text-sm text-slate-600">{commission.description}</p>
               )}
@@ -708,6 +729,52 @@ const AddItemModal = ({ visible, onClose, onSave, formData, setFormData, tab, ed
                 <option value="utilities">Utilities Only</option>
                 <option value="all">All Income</option>
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1">Recognition Basis</label>
+              <select
+                value={formData.recognitionBasis || "received"}
+                onChange={(e) => setFormData({ ...formData, recognitionBasis: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="received">Received Amount</option>
+                <option value="invoiced">Invoiced Amount</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-1">Settlement Basis</label>
+              <select
+                value={formData.settlementBasis || "received"}
+                onChange={(e) => setFormData({ ...formData, settlementBasis: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              >
+                <option value="received">Received Amount</option>
+                <option value="invoiced">Invoiced Amount</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                id="includeDirectLandlordPayments"
+                type="checkbox"
+                checked={formData.includeDirectLandlordPayments !== false}
+                onChange={(e) =>
+                  setFormData({ ...formData, includeDirectLandlordPayments: e.target.checked })
+                }
+              />
+              <label htmlFor="includeDirectLandlordPayments" className="text-sm text-slate-700">
+                Include Direct-to-Landlord Payments in Commission Base
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                id="provisionalRecognition"
+                type="checkbox"
+                checked={Boolean(formData.provisionalRecognition)}
+                onChange={(e) => setFormData({ ...formData, provisionalRecognition: e.target.checked })}
+              />
+              <label htmlFor="provisionalRecognition" className="text-sm text-slate-700">
+                Enable Provisional Commission (for invoiced basis)
+              </label>
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-1">Description</label>

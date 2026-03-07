@@ -13,6 +13,7 @@ import Dashboard from "./pages/Dashboard/Dashboard";
 import Landlords from "./pages/Landlord/Landlord";
 import AddLandlord from "./components/Landlord/AddLandlord";
 import LandlordPayments from "./pages/Landlord/LandlordPayments";
+import LandlordCommissionsStatement from "./pages/Landlord/LandlordCommissionsStatement";
 import Properties from "./pages/Properties/Properties";
 import Units from "./pages/Units/Units";
 import AddUnit from "./components/Units/AddUnit";
@@ -21,6 +22,7 @@ import AddTenant from "./pages/Tenants/AddTenant";
 import TenantStatement from "./pages/Tenants/TenantStatement";
 import RentalInvoices from "./pages/Tenants/RentalInvoices";
 import Receipts from "./pages/Tenants/Receipts";
+import AddReceipt from "./pages/Tenants/AddReceipt";
 import Leases from "./pages/Lease/Lease";
 import Vacants from "./pages/Vacants/Vacants";
 import Maintenances from "./pages/Maintenances/Maintenances";
@@ -34,6 +36,7 @@ import SystemSetupPage from "./pages/SystemSetup/SystemSetup";
 import AddCompanyWizard from "./pages/SystemSetup/AddCompanyWizard";
 import AddUserPage from "./pages/SystemSetup/AddUsers";
 import CompanySettings from "./pages/SystemSetup/CompanySettings";
+import PaymentVouchers from "./pages/Financial/PaymentVouchers";
 
 function ProtectedRoute({ children }) {
   const { currentUser } = useSelector((state) => state.auth);
@@ -81,6 +84,7 @@ function App() {
         <Route path="/landlords" element={<ProtectedRoute><Landlords /></ProtectedRoute>} />
         <Route path="/landlords/new" element={<ProtectedRoute><AddLandlord /></ProtectedRoute>} />
         <Route path="/landlord-payments" element={<ProtectedRoute><LandlordPayments /></ProtectedRoute>} />
+        <Route path="/financial/landlord-statement" element={<ProtectedRoute><LandlordCommissionsStatement /></ProtectedRoute>} />
         <Route path="/properties" element={<ProtectedRoute><Properties /></ProtectedRoute>} />
         <Route path="/units" element={<ProtectedRoute><Units /></ProtectedRoute>} />
         <Route path="/units/new" element={<ProtectedRoute><AddUnit /></ProtectedRoute>} />
@@ -92,7 +96,10 @@ function App() {
         <Route path="/invoices/rental" element={<ProtectedRoute><RentalInvoices /></ProtectedRoute>} />
         <Route path="/invoices/rental/:id" element={<ProtectedRoute><RentalInvoices /></ProtectedRoute>} />
         <Route path="/receipts" element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
+        <Route path="/receipts/new" element={<ProtectedRoute><AddReceipt /></ProtectedRoute>} />
         <Route path="/receipts/:id" element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
+        <Route path="/financial/payment-vouchers" element={<ProtectedRoute><PaymentVouchers /></ProtectedRoute>} />
+        <Route path="/expenses/payment-vouchers" element={<ProtectedRoute><PaymentVouchers /></ProtectedRoute>} />
         <Route path="/leases" element={<ProtectedRoute><Leases /></ProtectedRoute>} />
         <Route path="/vacants" element={<ProtectedRoute><Vacants /></ProtectedRoute>} />
         <Route path="/maintenances" element={<ProtectedRoute><Maintenances /></ProtectedRoute>} />

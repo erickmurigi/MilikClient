@@ -84,13 +84,17 @@ const TenantStatement = () => {
 
     // Level 2: Unit ID → Unit record → Property
     const tenantUnitId = tenant?.unit?._id || tenant?.unit;
-    const matchedUnit = unitsFromStore.find((unit) => unit?._id === tenantUnitId);
+    const tenantUnitIdStr = tenantUnitId ? String(tenantUnitId) : "";
+    const matchedUnit = unitsFromStore.find((unit) => String(unit?._id || "") === tenantUnitIdStr);
     const propertyIdFromUnit = matchedUnit?.property?._id || matchedUnit?.property;
     
     // Level 3: Property ID → Property record
     const propertyIdFromTenant = tenant?.property?._id || tenant?.property;
     const resolvedPropertyId = propertyIdFromUnit || propertyIdFromTenant;
-    const matchedProperty = propertiesFromStore.find((property) => property?._id === resolvedPropertyId);
+    const resolvedPropertyIdStr = resolvedPropertyId ? String(resolvedPropertyId) : "";
+    const matchedProperty = propertiesFromStore.find(
+      (property) => String(property?._id || "") === resolvedPropertyIdStr
+    );
 
     return matchedUnit?.property?.propertyName || matchedProperty?.propertyName || matchedProperty?.name || "-";
   };
@@ -132,7 +136,33 @@ const TenantStatement = () => {
     if (!createdInvoicesHydrated) return;
     const storageKey = `createdInvoices_${tenantId}`;
     localStorage.setItem(storageKey, JSON.stringify(createdInvoices));
+    
+    // Notify other components about invoice changes
+    window.dispatchEvent(new Event('invoicesUpdated'));
   }, [createdInvoices, tenantId, createdInvoicesHydrated]);
+
+  const getInvoicesForPeriod = (periodLabel) => {
+    return Object.entries(createdInvoices)
+      .filter(([key, entry]) => {
+        const entryPeriod =
+          typeof entry === "object" && entry?.period
+            ? String(entry.period)
+            : String(key).replace(/__(rent|utility)$/i, "");
+        return entryPeriod === periodLabel;
+      })
+      .map(([key, entry]) => {
+        const invoiceId =
+          typeof entry === "string"
+            ? entry
+            : (entry?.invoiceId || entry?.id || entry?.number || "");
+        return {
+          key,
+          entry,
+          invoiceId,
+        };
+      })
+      .filter((item) => Boolean(item.invoiceId));
+  };
 
   useEffect(() => {
     try {
@@ -164,7 +194,7 @@ const TenantStatement = () => {
     getUtilities(dispatch, currentCompany._id);
   }, [dispatch, currentCompany?._id, tenantId]);
 
-  const handleConfirmInvoiceCreation = async () => {
+  const handleConfirmInvoiceCreation = async (billingMode = "combined") => {
     const selectedRows = selectedSchedules.map(idx => billingScheduleData[idx]);
     const periodsWithoutInvoices = selectedRows.filter(row => row.invoice === "-");
 
@@ -191,14 +221,13 @@ const TenantStatement = () => {
 
       // Assign invoice numbers to new periods
       periodsWithoutInvoices.forEach((period) => {
-        const invoiceId = `INV${String(invoiceNum).padStart(5, '0')}`;
-        const utilityAmount = typeof period.utility === "number" ? period.utility : 0;
-        newInvoices[period.description] = {
-          invoiceId,
+        const rentAmount = Number(period.rent || 0);
+        const utilityAmount = Number(period.utility || 0);
+        const periodLabel = period.description;
+        const commonMeta = {
           createdAt: new Date().toISOString(),
           status: "Issued",
-          amount: (period.rent || 0) + utilityAmount,
-          period: period.description,
+          period: periodLabel,
           tenantName: period.tenantName || "N/A",
           propertyName: period.propertyName || "N/A",
           unitName:
@@ -207,13 +236,54 @@ const TenantStatement = () => {
             tenant?.unit?.unitNumber ||
             "N/A",
         };
+
+        if (billingMode === "separate") {
+          const rentInvoiceId = `INV${String(invoiceNum).padStart(5, '0')}`;
+          newInvoices[`${periodLabel}__rent`] = {
+            ...commonMeta,
+            invoiceId: rentInvoiceId,
+            amount: rentAmount,
+            rentAmount,
+            utilityAmount: 0,
+            chargeType: "rent",
+          };
+          invoiceNum++;
+
+          if (utilityAmount > 0) {
+            const utilityInvoiceId = `INV${String(invoiceNum).padStart(5, '0')}`;
+            newInvoices[`${periodLabel}__utility`] = {
+              ...commonMeta,
+              invoiceId: utilityInvoiceId,
+              amount: utilityAmount,
+              rentAmount: 0,
+              utilityAmount,
+              chargeType: "utility",
+            };
+            invoiceNum++;
+          }
+          return;
+        }
+
+        const invoiceId = `INV${String(invoiceNum).padStart(5, '0')}`;
+        newInvoices[periodLabel] = {
+          ...commonMeta,
+          invoiceId,
+          amount: rentAmount + utilityAmount,
+          rentAmount,
+          utilityAmount,
+          chargeType: "combined",
+        };
         invoiceNum++;
       });
 
       // TODO: Replace with actual API call to create invoices
       // Example: await createInvoices(tenantId, periodsWithoutInvoices);
       
-      toast.success(`Creating ${periodsWithoutInvoices.length} invoice(s) for: ${periodsWithoutInvoices.map(p => p.description).join(', ')}`);
+      toast.success(
+        `Created ${Object.keys(newInvoices).length} invoice(s) in ${billingMode} mode for: ${periodsWithoutInvoices
+          .map((p) => p.description)
+          .join(', ')}`
+      );
       
       // Update created invoices state
       setCreatedInvoices(prev => ({
@@ -259,6 +329,10 @@ const TenantStatement = () => {
       const invoiceId = typeof entry === "string"
         ? entry
         : (entry?.invoiceId || entry?.id || entry?.number || "");
+      const chargeType =
+        typeof entry === "object" && entry?.chargeType
+          ? String(entry.chargeType).toUpperCase()
+          : "INVOICE";
       const invoiceAmount =
         typeof entry === "object" && Number.isFinite(Number(entry?.amount))
           ? Number(entry.amount)
@@ -270,7 +344,7 @@ const TenantStatement = () => {
       transactions.push({
         id: transactionId++,
         date: invoiceDate,
-        description: `Invoice ${invoiceId} - ${period}`,
+        description: `Invoice ${invoiceId} (${chargeType}) - ${period}`,
         type: "CHARGE",
         amount: invoiceAmount,
         transactionCode: invoiceId,
@@ -366,7 +440,7 @@ const TenantStatement = () => {
     
     // Get tenant and property names
     const tenantName = tenant?.firstName && tenant?.lastName ? `${tenant.firstName} ${tenant.lastName}` : tenant?.name || "N/A";
-    const propertyName = tenant?.unit?.property?.propertyName || "N/A";
+    const propertyName = resolveTenantPropertyName(tenant);
 
     // Determine start and end dates
     let startDate;
@@ -419,11 +493,9 @@ const TenantStatement = () => {
       });
 
       // Check if invoice was created for this period
-      const createdInvoiceEntry = createdInvoices[monthName];
-      const createdInvoiceNumber = typeof createdInvoiceEntry === "string"
-        ? createdInvoiceEntry
-        : (createdInvoiceEntry?.invoiceId || createdInvoiceEntry?.id || createdInvoiceEntry?.number || "");
-      const hasCreatedInvoice = Boolean(createdInvoiceNumber);
+      const periodInvoices = getInvoicesForPeriod(monthName);
+      const createdInvoiceNumber = periodInvoices.map((item) => item.invoiceId).join(", ");
+      const hasCreatedInvoice = periodInvoices.length > 0;
       const shouldShowInvoice = hasPaymentForPeriod || hasCreatedInvoice;
       const isBooked = hasPaymentForPeriod || hasCreatedInvoice;
       

@@ -967,6 +967,42 @@ export const unconfirmRentPayment = async (dispatch, id) => {
   }
 };
 
+// Reverse rent payment (audit-safe; creates reversal entry instead of deleting)
+export const reverseRentPayment = async (dispatch, id, reverseData = {}) => {
+  dispatch(updateRentPaymentStart());
+  try {
+    const res = await adminRequests.put(`/rent-payments/reverse/${id}`, reverseData);
+    const updatedOriginal = res?.data?.data?.original;
+    if (updatedOriginal) {
+      dispatch(updateRentPaymentSuccess(updatedOriginal));
+    } else {
+      dispatch(updateRentPaymentFailure());
+    }
+    return res.data;
+  } catch (err) {
+    dispatch(updateRentPaymentFailure());
+    throw err;
+  }
+};
+
+// Cancel reversal and restore receipt allocation effect
+export const cancelReversalRentPayment = async (dispatch, id, cancelData = {}) => {
+  dispatch(updateRentPaymentStart());
+  try {
+    const res = await adminRequests.put(`/rent-payments/reverse/cancel/${id}`, cancelData);
+    const updatedOriginal = res?.data?.data?.original;
+    if (updatedOriginal) {
+      dispatch(updateRentPaymentSuccess(updatedOriginal));
+    } else {
+      dispatch(updateRentPaymentFailure());
+    }
+    return res.data;
+  } catch (err) {
+    dispatch(updateRentPaymentFailure());
+    throw err;
+  }
+};
+
 // Get payment summary
 export const getPaymentSummary = async (business, month = null, year = null) => {
   try {
@@ -979,6 +1015,39 @@ export const getPaymentSummary = async (business, month = null, year = null) => 
   } catch (err) {
     throw err;
   }
+};
+
+// ========== PAYMENT VOUCHERS SECTION ==========
+
+export const getPaymentVouchers = async (query = {}) => {
+  const params = new URLSearchParams();
+  Object.entries(query || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "" && value !== "all") {
+      params.append(key, value);
+    }
+  });
+  const res = await adminRequests.get(`/payment-vouchers${params.toString() ? `?${params.toString()}` : ""}`);
+  return extractList(res.data);
+};
+
+export const createPaymentVoucher = async (voucherData) => {
+  const res = await adminRequests.post("/payment-vouchers", voucherData);
+  return res.data;
+};
+
+export const updatePaymentVoucher = async (id, voucherData) => {
+  const res = await adminRequests.put(`/payment-vouchers/${id}`, voucherData);
+  return res.data;
+};
+
+export const updatePaymentVoucherStatus = async (id, statusData) => {
+  const res = await adminRequests.put(`/payment-vouchers/${id}/status`, statusData);
+  return res.data;
+};
+
+export const deletePaymentVoucher = async (id) => {
+  const res = await adminRequests.delete(`/payment-vouchers/${id}`);
+  return res.data;
 };
 
 

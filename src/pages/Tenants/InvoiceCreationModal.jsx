@@ -1,8 +1,15 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FaX, FaFileInvoice, FaCheck } from "react-icons/fa6";
 
 const InvoiceCreationModal = ({ isOpen, periods = [], onConfirm, onCancel }) => {
   const [isCreating, setIsCreating] = useState(false);
+  const [billingMode, setBillingMode] = useState("combined");
+
+  useEffect(() => {
+    if (isOpen) {
+      setBillingMode("combined");
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -14,7 +21,7 @@ const InvoiceCreationModal = ({ isOpen, periods = [], onConfirm, onCancel }) => 
   const handleConfirm = async () => {
     setIsCreating(true);
     try {
-      await onConfirm();
+      await onConfirm(billingMode);
     } finally {
       setIsCreating(false);
     }
@@ -78,6 +85,36 @@ const InvoiceCreationModal = ({ isOpen, periods = [], onConfirm, onCancel }) => 
             <div className="flex justify-between items-center">
               <span className="font-semibold text-blue-900">Total Amount:</span>
               <span className="font-bold text-lg text-blue-900">KES {totalAmount.toLocaleString()}</span>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-sm font-semibold text-amber-900 mb-2">Invoice Billing Mode</p>
+            <div className="space-y-2 text-xs">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="billingMode"
+                  checked={billingMode === "combined"}
+                  onChange={() => setBillingMode("combined")}
+                  disabled={isCreating}
+                />
+                <span>
+                  <strong>Combined</strong>: one invoice per period with Rent + Utility (if any).
+                </span>
+              </label>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="billingMode"
+                  checked={billingMode === "separate"}
+                  onChange={() => setBillingMode("separate")}
+                  disabled={isCreating}
+                />
+                <span>
+                  <strong>Separate</strong>: one Rent invoice and one Utility invoice (if utility exists).
+                </span>
+              </label>
             </div>
           </div>
         </div>

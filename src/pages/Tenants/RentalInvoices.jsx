@@ -87,9 +87,28 @@ const formatDateDisplay = (dateValue) => {
   return date.toLocaleDateString();
 };
 
+const hasMeaningfulLabel = (value) => {
+  if (value === null || value === undefined) return false;
+  const normalized = String(value).trim().toLowerCase();
+  return normalized !== "" && normalized !== "n/a" && normalized !== "-" && normalized !== "na";
+};
+
+const escapeHtml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 const formatPeriodLabel = (month, year) => {
   const date = new Date(year, month, 1);
   return `${date.toLocaleString("en-US", { month: "short" })} ${String(year).slice(-2)}`;
+};
+
+const getNormalizedPeriodFromEntry = (periodKey, entry) => {
+  if (typeof entry === "object" && entry?.period) return String(entry.period);
+  return String(periodKey).replace(/__(rent|utility)$/i, "");
 };
 
 const resolveTenantPropertyName = (tenant, unitsFromStore = [], propertiesFromStore = []) => {
@@ -100,14 +119,16 @@ const resolveTenantPropertyName = (tenant, unitsFromStore = [], propertiesFromSt
   if (directPropertyName) return directPropertyName;
 
   const tenantUnitId = tenant?.unit?._id || tenant?.unit;
-  const matchedUnit = unitsFromStore.find((unit) => unit?._id === tenantUnitId);
+  const tenantUnitIdStr = tenantUnitId ? String(tenantUnitId) : "";
+  const matchedUnit = unitsFromStore.find((unit) => String(unit?._id || "") === tenantUnitIdStr);
 
   const propertyIdFromUnit = matchedUnit?.property?._id || matchedUnit?.property;
   const propertyIdFromTenant = tenant?.property?._id || tenant?.property;
   const resolvedPropertyId = propertyIdFromUnit || propertyIdFromTenant;
+  const resolvedPropertyIdStr = resolvedPropertyId ? String(resolvedPropertyId) : "";
 
   const matchedProperty = propertiesFromStore.find(
-    (property) => property?._id === resolvedPropertyId
+    (property) => String(property?._id || "") === resolvedPropertyIdStr
   );
 
   return (
@@ -136,11 +157,13 @@ const RentalInvoices = () => {
     tenantId: tenantId || "",
     month: currentDate.getMonth(),
     year: currentDate.getFullYear(),
+    billingMode: "combined",
   });
   const [batchBookingForm, setBatchBookingForm] = useState({
     propertyId: "all",
     month: currentDate.getMonth(),
     year: currentDate.getFullYear(),
+    billingMode: "combined",
   });
 
   const currentCompany = useSelector((state) => state.company?.currentCompany);
@@ -251,8 +274,9 @@ const RentalInvoices = () => {
       const unitName = getUnitDisplayName(tenant);
       const baseRent = Number(tenant?.lease?.rentAmount || tenant?.rent || 23000) || 23000;
 
-      Object.entries(createdInvoices).forEach(([period, entry]) => {
+      Object.entries(createdInvoices).forEach(([periodKey, entry]) => {
         const invoiceId = getInvoiceIdFromEntry(entry);
+        const period = getNormalizedPeriodFromEntry(periodKey, entry);
         const utilityAmount = Number(tenant?.serviceCharge || 0) || 0;
         const fallbackAmount = baseRent + utilityAmount;
         const amount =
@@ -274,17 +298,22 @@ const RentalInvoices = () => {
         const status = totalPaid >= amount ? "Paid" : "Issued";
 
         allInvoices.push({
-          key: `${tenant._id}_${period}`,
+          key: `${tenant._id}_${periodKey}_${invoiceId}`,
           id: invoiceId,
           period,
+          storagePeriodKey: periodKey,
+          chargeType:
+            typeof entry === "object" && entry?.chargeType
+              ? String(entry.chargeType)
+              : "combined",
           tenantId: tenant._id,
           tenantName,
           propertyName:
-            typeof entry === "object" && entry?.propertyName
+            typeof entry === "object" && hasMeaningfulLabel(entry?.propertyName)
               ? entry.propertyName
               : propertyName,
           unitName:
-            typeof entry === "object" && entry?.unitName
+            typeof entry === "object" && hasMeaningfulLabel(entry?.unitName)
               ? entry.unitName
               : unitName,
           amount,
@@ -520,6 +549,11 @@ const RentalInvoices = () => {
 
   const selectedCount = selectedInvoices.length;
   const canEdit = selectedCount === 1;
+  const companyDisplayName =
+    currentCompany?.companyName ||
+    currentCompany?.name ||
+    currentCompany?.company ||
+    "MILIK Property Management";
 
   const applySearch = () => {
     setAppliedFilters({ ...draftFilters });
@@ -561,19 +595,201 @@ const RentalInvoices = () => {
     setSelectAll(selectedInvoices.length === filteredInvoices.length);
   }, [selectedInvoices, filteredInvoices]);
 
-  const handleViewInvoice = (invoiceId) => {
-    toast.info(`Opening invoice ${invoiceId}`);
+  const openHtmlDocument = (title, html) => {
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const printWindow = window.open(url, "_blank", "width=1100,height=850");
+    if (!printWindow) {
+      toast.error("Please allow popups to view or print invoices");
+      window.URL.revokeObjectURL(url);
+      return null;
+    }
+
+    // Clean object URL shortly after open to avoid memory leaks.
+    setTimeout(() => window.URL.revokeObjectURL(url), 15000);
+
+    try {
+      printWindow.document.title = title;
+    } catch (error) {
+      // Ignore title assignment errors on some browsers when window is still loading.
+    }
+
+    return printWindow;
   };
 
-  const handlePrintInvoice = (invoiceId) => {
-    toast.info(`Printing invoice ${invoiceId}`);
+  const buildInvoiceHtml = (invoice) => {
+    const amount = Number(invoice?.amount || 0).toLocaleString();
+    const createdLabel = invoice?.createdAt
+      ? new Date(invoice.createdAt).toLocaleString()
+      : invoice?.createdDate || "-";
+
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(invoice?.id || "Invoice")}</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; color: #111827; }
+    .header { border-bottom: 2px solid #0B3B2E; padding-bottom: 12px; margin-bottom: 18px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+    .brand-wrap { display:flex; align-items:center; gap:10px; }
+    .logo { width:40px; height:40px; border-radius:8px; background:#0B3B2E; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px; }
+    .brand { font-size: 20px; font-weight: 800; color: #0B3B2E; }
+    .company { color:#111827; font-size:13px; font-weight:700; }
+    .subtitle { color: #4b5563; font-size: 12px; text-align:right; }
+    .grid { display: grid; grid-template-columns: 180px 1fr; gap: 8px 12px; font-size: 13px; }
+    .label { color: #6b7280; font-weight: 600; }
+    .value { color: #111827; font-weight: 700; }
+    .amount { margin-top: 18px; font-size: 22px; font-weight: 800; color: #0B3B2E; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand-wrap">
+      <div class="logo">M</div>
+      <div>
+        <div class="brand">MILIK Rental Invoice</div>
+        <div class="company">${escapeHtml(companyDisplayName)}</div>
+      </div>
+    </div>
+    <div class="subtitle">Generated on ${escapeHtml(new Date().toLocaleString())}</div>
+  </div>
+  <div class="grid">
+    <div class="label">Invoice #</div><div class="value">${escapeHtml(invoice?.id)}</div>
+    <div class="label">Tenant</div><div class="value">${escapeHtml(invoice?.tenantName)}</div>
+    <div class="label">Property</div><div class="value">${escapeHtml(invoice?.propertyName)}</div>
+    <div class="label">Unit</div><div class="value">${escapeHtml(invoice?.unitName)}</div>
+    <div class="label">Period</div><div class="value">${escapeHtml(invoice?.period)}</div>
+    <div class="label">Status</div><div class="value">${escapeHtml(invoice?.status)}</div>
+    <div class="label">Created</div><div class="value">${escapeHtml(createdLabel)}</div>
+  </div>
+  <div class="amount">Amount Due: KES ${amount}</div>
+</body>
+</html>`;
   };
 
-  const handleDownloadInvoice = (invoiceId) => {
-    toast.info(`Downloading invoice ${invoiceId}`);
+  const buildInvoiceListHtml = (rows) => {
+    const total = rows.reduce((sum, inv) => sum + (Number(inv?.amount) || 0), 0);
+    const tableRows = rows
+      .map(
+        (inv) => `<tr>
+  <td>${escapeHtml(inv.id)}</td>
+  <td>${escapeHtml(inv.tenantName)}</td>
+  <td>${escapeHtml(inv.propertyName)}</td>
+  <td>${escapeHtml(inv.unitName)}</td>
+  <td>${escapeHtml(inv.period)}</td>
+  <td style="text-align:right;">KES ${Number(inv.amount || 0).toLocaleString()}</td>
+  <td>${escapeHtml(inv.status)}</td>
+  <td>${escapeHtml(inv.createdDate || "-")}</td>
+</tr>`
+      )
+      .join("\n");
+
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>MILIK Rental Invoices List</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; color: #111827; }
+    .header { display:flex; align-items:center; justify-content:space-between; gap:16px; border-bottom:2px solid #0B3B2E; padding-bottom:10px; margin-bottom:10px; }
+    .brand-wrap { display:flex; align-items:center; gap:10px; }
+    .logo { width:38px; height:38px; border-radius:8px; background:#0B3B2E; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:15px; }
+    h1 { margin: 0; color: #0B3B2E; font-size: 20px; }
+    .company { margin-top:2px; color:#111827; font-size:12px; font-weight:700; }
+    .meta { margin: 6px 0 14px; color: #4b5563; font-size: 12px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { border: 1px solid #d1d5db; padding: 6px 8px; }
+    th { background: #0B3B2E; color: white; text-align: left; }
+    tfoot td { font-weight: 700; background: #f3f4f6; }
+    @media print { body { margin: 10mm; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="brand-wrap">
+      <div class="logo">M</div>
+      <div>
+        <h1>MILIK Rental Invoices List</h1>
+        <div class="company">${escapeHtml(companyDisplayName)}</div>
+      </div>
+    </div>
+    <div class="meta">Generated: ${escapeHtml(new Date().toLocaleString())}<br/>Count: ${rows.length}</div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Invoice #</th>
+        <th>Tenant</th>
+        <th>Property</th>
+        <th>Unit</th>
+        <th>Period</th>
+        <th style="text-align:right;">Amount</th>
+        <th>Status</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="5">Total</td>
+        <td style="text-align:right;">KES ${total.toLocaleString()}</td>
+        <td colspan="2"></td>
+      </tr>
+    </tfoot>
+  </table>
+</body>
+</html>`;
   };
 
-  const createInvoiceForTenant = (targetTenant, month, year, nextInvoiceNumRef) => {
+  const handleViewInvoice = (invoice) => {
+    if (!invoice) return;
+    openHtmlDocument(`Invoice ${invoice.id}`, buildInvoiceHtml(invoice));
+  };
+
+  const handlePrintInvoice = (invoice) => {
+    if (!invoice) return;
+    const printWindow = openHtmlDocument(`Invoice ${invoice.id}`, buildInvoiceHtml(invoice));
+    if (!printWindow) return;
+
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 500);
+  };
+
+  const handleDownloadInvoice = (invoice) => {
+    if (!invoice) return;
+    const html = buildInvoiceHtml(invoice);
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${invoice.id || "invoice"}_${(invoice.period || "period").replace(/\s+/g, "_")}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    toast.success(`Downloaded ${invoice.id}`);
+  };
+
+  const handlePrintList = () => {
+    if (filteredInvoices.length === 0) {
+      toast.warn("No invoices to print");
+      return;
+    }
+
+    const printWindow = openHtmlDocument("MILIK Rental Invoices List", buildInvoiceListHtml(filteredInvoices));
+    if (!printWindow) return;
+
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 500);
+  };
+
+  const createInvoiceForTenant = (targetTenant, month, year, nextInvoiceNumRef, billingMode = "combined") => {
     if (!targetTenant?._id) {
       return { created: false, reason: "Invalid tenant" };
     }
@@ -583,27 +799,22 @@ const RentalInvoices = () => {
     const stored = localStorage.getItem(storageKey);
     const tenantInvoices = stored ? JSON.parse(stored) : {};
 
-    if (tenantInvoices[periodLabel]) {
+    const hasInvoiceForPeriod = Object.entries(tenantInvoices).some(([periodKey, entry]) => {
+      const normalizedPeriod = getNormalizedPeriodFromEntry(periodKey, entry);
+      return normalizedPeriod === periodLabel;
+    });
+
+    if (hasInvoiceForPeriod) {
       return { created: false, reason: "already_exists", periodLabel };
     }
-
-    const nextInvoiceNum = nextInvoiceNumRef.current;
-    nextInvoiceNumRef.current += 1;
-    const invoiceId = `INV${String(nextInvoiceNum).padStart(5, "0")}`;
 
     const { rentAmount, utilityAmount, total } = getTenantPricing(targetTenant);
     const propertyName = resolveTenantPropertyName(targetTenant, unitsFromStore, propertiesFromStore);
     const unitName = getUnitDisplayName(targetTenant);
 
-    tenantInvoices[periodLabel] = {
-      invoiceId,
-      id: invoiceId,
-      number: invoiceId,
+    const common = {
       createdAt: new Date().toISOString(),
       status: "Issued",
-      amount: total,
-      rentAmount,
-      utilityAmount,
       period: periodLabel,
       tenantName: getTenantDisplayName(targetTenant),
       propertyName,
@@ -611,9 +822,60 @@ const RentalInvoices = () => {
       month,
       year,
     };
+    const createdInvoiceIds = [];
+
+    if (billingMode === "separate") {
+      const nextRentNum = nextInvoiceNumRef.current;
+      nextInvoiceNumRef.current += 1;
+      const rentInvoiceId = `INV${String(nextRentNum).padStart(5, "0")}`;
+      tenantInvoices[`${periodLabel}__rent`] = {
+        ...common,
+        invoiceId: rentInvoiceId,
+        id: rentInvoiceId,
+        number: rentInvoiceId,
+        amount: rentAmount,
+        rentAmount,
+        utilityAmount: 0,
+        chargeType: "rent",
+      };
+      createdInvoiceIds.push(rentInvoiceId);
+
+      if (utilityAmount > 0) {
+        const nextUtilityNum = nextInvoiceNumRef.current;
+        nextInvoiceNumRef.current += 1;
+        const utilityInvoiceId = `INV${String(nextUtilityNum).padStart(5, "0")}`;
+        tenantInvoices[`${periodLabel}__utility`] = {
+          ...common,
+          invoiceId: utilityInvoiceId,
+          id: utilityInvoiceId,
+          number: utilityInvoiceId,
+          amount: utilityAmount,
+          rentAmount: 0,
+          utilityAmount,
+          chargeType: "utility",
+        };
+        createdInvoiceIds.push(utilityInvoiceId);
+      }
+    } else {
+      const nextInvoiceNum = nextInvoiceNumRef.current;
+      nextInvoiceNumRef.current += 1;
+      const invoiceId = `INV${String(nextInvoiceNum).padStart(5, "0")}`;
+
+      tenantInvoices[periodLabel] = {
+        ...common,
+        invoiceId,
+        id: invoiceId,
+        number: invoiceId,
+        amount: total,
+        rentAmount,
+        utilityAmount,
+        chargeType: "combined",
+      };
+      createdInvoiceIds.push(invoiceId);
+    }
 
     localStorage.setItem(storageKey, JSON.stringify(tenantInvoices));
-    return { created: true, invoiceId, periodLabel };
+    return { created: true, invoiceIds: createdInvoiceIds, periodLabel };
   };
 
   const handleBookingActionChange = (value) => {
@@ -647,7 +909,8 @@ const RentalInvoices = () => {
       selectedTenant,
       Number(singleBookingForm.month),
       Number(singleBookingForm.year),
-      nextInvoiceNumRef
+      nextInvoiceNumRef,
+      singleBookingForm.billingMode
     );
 
     if (!result.created && result.reason === "already_exists") {
@@ -660,9 +923,14 @@ const RentalInvoices = () => {
       return;
     }
 
-    toast.success(`Booked ${result.invoiceId} for ${getTenantDisplayName(selectedTenant)}`);
+    toast.success(
+      `Booked ${result.invoiceIds.join(", ")} for ${getTenantDisplayName(selectedTenant)}`
+    );
     setShowSingleBooking(false);
     setBookingAction("");
+    
+    // Notify other components about invoice changes
+    window.dispatchEvent(new Event('invoicesUpdated'));
     setRefreshTick((prev) => prev + 1);
   };
 
@@ -696,7 +964,13 @@ const RentalInvoices = () => {
     let skippedCount = 0;
 
     eligibleTenants.forEach((tenant) => {
-      const result = createInvoiceForTenant(tenant, month, year, nextInvoiceNumRef);
+      const result = createInvoiceForTenant(
+        tenant,
+        month,
+        year,
+        nextInvoiceNumRef,
+        batchBookingForm.billingMode
+      );
       if (result.created) {
         createdCount += 1;
       } else if (result.reason === "already_exists") {
@@ -714,6 +988,9 @@ const RentalInvoices = () => {
     );
     setShowBatchBooking(false);
     setBookingAction("");
+    
+    // Notify other components about invoice changes
+    window.dispatchEvent(new Event('invoicesUpdated'));
     setRefreshTick((prev) => prev + 1);
   };
 
@@ -744,11 +1021,12 @@ const RentalInvoices = () => {
       if (!stored) return;
 
       const tenantInvoices = JSON.parse(stored);
-      delete tenantInvoices[invoice.period];
+      delete tenantInvoices[invoice.storagePeriodKey || invoice.period];
       localStorage.setItem(storageKey, JSON.stringify(tenantInvoices));
     });
 
     toast.success(`${selectedRows.length} invoice(s) deleted`);
+    window.dispatchEvent(new Event('invoicesUpdated'));
     setSelectedInvoices([]);
     setSelectAll(false);
     setRefreshTick((prev) => prev + 1);
@@ -760,8 +1038,12 @@ const RentalInvoices = () => {
     if (!stored) return;
 
     const tenantInvoices = JSON.parse(stored);
-    delete tenantInvoices[invoice.period];
+    delete tenantInvoices[invoice.storagePeriodKey || invoice.period];
     localStorage.setItem(storageKey, JSON.stringify(tenantInvoices));
+    
+    // Notify other components about invoice changes
+    window.dispatchEvent(new Event('invoicesUpdated'));
+    
     toast.success(`Invoice ${invoice.id} deleted`);
     setRefreshTick((prev) => prev + 1);
   };
@@ -944,6 +1226,19 @@ const RentalInvoices = () => {
                   Delete
                 </button>
 
+                <button
+                  onClick={handlePrintList}
+                  disabled={filteredInvoices.length === 0}
+                  className={`px-4 py-1 text-xs text-white rounded-lg flex items-center gap-2 shadow-sm ${
+                    filteredInvoices.length > 0
+                      ? `${MILIK_GREEN} ${MILIK_GREEN_HOVER}`
+                      : "bg-gray-400 cursor-not-allowed"
+                  }`}
+                >
+                  <FaPrint className="text-xs" />
+                  Print List
+                </button>
+
                 <div className="flex items-center gap-1">
                   <FaPlus className="text-[10px] text-[#0B3B2E]" />
                   <select
@@ -971,6 +1266,7 @@ const RentalInvoices = () => {
                     {!tenantId && <th className="px-3 py-2 text-left font-semibold">Property</th>}
                     <th className="px-3 py-2 text-left font-semibold">Unit</th>
                     <th className="px-3 py-2 text-left font-semibold">Period</th>
+                    <th className="px-3 py-2 text-left font-semibold">Type</th>
                     <th className="px-3 py-2 text-right font-semibold">Amount</th>
                     <th className="px-3 py-2 text-center font-semibold">Status</th>
                     <th className="px-3 py-2 text-center font-semibold">Created</th>
@@ -980,7 +1276,7 @@ const RentalInvoices = () => {
                 <tbody>
                   {filteredInvoices.length === 0 ? (
                     <tr>
-                      <td colSpan={tenantId ? "9" : "11"} className="px-4 py-8 text-center text-gray-500">
+                      <td colSpan={tenantId ? "10" : "12"} className="px-4 py-8 text-center text-gray-500">
                         <FaFileInvoice className="inline-block text-4xl text-gray-300 mb-2" />
                         <p className="text-sm font-semibold mt-1">No invoices found</p>
                         <p className="text-xs text-gray-400 mt-1">
@@ -1010,6 +1306,11 @@ const RentalInvoices = () => {
                         {!tenantId && <td className="px-3 py-2 text-slate-900 font-semibold">{invoice.propertyName}</td>}
                         <td className="px-3 py-2 text-slate-900 font-semibold">{invoice.unitName}</td>
                         <td className="px-3 py-2 text-orange-700 font-semibold">{invoice.period}</td>
+                        <td className="px-3 py-2">
+                          <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 uppercase">
+                            {invoice.chargeType || "combined"}
+                          </span>
+                        </td>
                         <td className="px-3 py-2 text-right text-slate-900 font-bold">
                           KES {Number(invoice.amount || 0).toLocaleString()}
                         </td>
@@ -1028,21 +1329,21 @@ const RentalInvoices = () => {
                         <td className="px-3 py-2 text-right">
                           <div className="flex gap-1 justify-end">
                             <button
-                              onClick={() => handleViewInvoice(invoice.id)}
+                              onClick={() => handleViewInvoice(invoice)}
                               className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
                               title="View Invoice"
                             >
                               <FaEye size={12} />
                             </button>
                             <button
-                              onClick={() => handlePrintInvoice(invoice.id)}
+                              onClick={() => handlePrintInvoice(invoice)}
                               className="text-purple-600 hover:text-purple-800 p-1 hover:bg-purple-50 rounded"
                               title="Print Invoice"
                             >
                               <FaPrint size={12} />
                             </button>
                             <button
-                              onClick={() => handleDownloadInvoice(invoice.id)}
+                              onClick={() => handleDownloadInvoice(invoice)}
                               className="text-green-600 hover:text-green-800 p-1 hover:bg-green-50 rounded"
                               title="Download Invoice"
                             >
@@ -1152,6 +1453,20 @@ const RentalInvoices = () => {
                     className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Billing Mode</label>
+                  <select
+                    value={singleBookingForm.billingMode}
+                    onChange={(e) =>
+                      setSingleBookingForm((prev) => ({ ...prev, billingMode: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+                  >
+                    <option value="combined">Combined (Rent + Utility)</option>
+                    <option value="separate">Separate (Rent and Utility)</option>
+                  </select>
+                </div>
               </div>
 
               {selectedSingleBookingPreview && (
@@ -1183,6 +1498,9 @@ const RentalInvoices = () => {
                   </div>
                   <p className="mt-2 text-sm font-bold text-[#0B3B2E]">
                     Total: KES {selectedSingleBookingPreview.totalAmount.toLocaleString()}
+                  </p>
+                  <p className="mt-1 text-[11px] text-emerald-800 font-semibold">
+                    Mode: {singleBookingForm.billingMode === "separate" ? "Separate invoices" : "Combined invoice"}
                   </p>
                 </div>
               )}
@@ -1277,12 +1595,29 @@ const RentalInvoices = () => {
                     className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Billing Mode</label>
+                  <select
+                    value={batchBookingForm.billingMode}
+                    onChange={(e) =>
+                      setBatchBookingForm((prev) => ({ ...prev, billingMode: e.target.value }))
+                    }
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg"
+                  >
+                    <option value="combined">Combined (Rent + Utility)</option>
+                    <option value="separate">Separate (Rent and Utility)</option>
+                  </select>
+                </div>
               </div>
 
               <div className="rounded-lg border border-orange-200 bg-orange-50 p-3">
                 <p className="text-xs text-orange-800 font-semibold">
                   Scope preview: {batchBookingScopeCount} active tenant(s) will be booked for{" "}
                   {formatPeriodLabel(Number(batchBookingForm.month), Number(batchBookingForm.year))}.
+                </p>
+                <p className="text-xs text-orange-800 font-semibold mt-1">
+                  Mode: {batchBookingForm.billingMode === "separate" ? "Separate invoices" : "Combined invoice"}
                 </p>
               </div>
 

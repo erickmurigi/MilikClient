@@ -170,7 +170,7 @@ export const downloadLandlordsTemplate = () => {
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `Landlords_Import_Template_${new Date().toISOString().split('T')[0]}.xlsx`;
+  link.download = `MILIK_Landlords_Import_Template_${new Date().toISOString().split('T')[0]}.xlsx`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -612,7 +612,7 @@ export const downloadPropertiesTemplate = () => {
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `Properties_Import_Template_${new Date().toISOString().split('T')[0]}.xlsx`;
+  link.download = `MILIK_Properties_Import_Template_${new Date().toISOString().split('T')[0]}.xlsx`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -1025,7 +1025,7 @@ export const downloadUnitsTemplate = (properties = []) => {
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `Units_Import_Template_${new Date().toISOString().split('T')[0]}.xlsx`;
+  link.download = `MILIK_Units_Import_Template_${new Date().toISOString().split('T')[0]}.xlsx`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -1246,6 +1246,7 @@ export const generateTenantsTemplate = (units = []) => {
       'Unit Number *',
       'Rent *',
       'Move-in Date *',
+      'Lease Type',
       'Payment Method *',
       'Emergency Contact Name',
       'Emergency Contact Phone',
@@ -1264,6 +1265,7 @@ export const generateTenantsTemplate = (units = []) => {
     { wch: 20 }, // Unit Number
     { wch: 15 }, // Rent
     { wch: 18 }, // Move-in Date
+    { wch: 14 }, // Lease Type
     { wch: 18 }, // Payment Method
     { wch: 25 }, // Emergency Contact Name
     { wch: 18 }, // Emergency Contact Phone
@@ -1284,6 +1286,7 @@ export const generateTenantsTemplate = (units = []) => {
     ['• Unit Number: Must match an existing unit in the selected property'],
     ['• Rent: Monthly rent amount in Kenyan Shillings (KES)'],
     ['• Move-in Date: Date tenant moved in (format: MM/DD/YYYY)'],
+    ['• Lease Type: at_will or fixed (default: at_will). If fixed, Move-out Date is required'],
     ['• Payment Method: How tenant pays rent (bank_transfer, mobile_money, cash, check, or credit_card)'],
     [''],
     ['OPTIONAL FIELDS'],
@@ -1304,6 +1307,7 @@ export const generateTenantsTemplate = (units = []) => {
       'Unit Number',
       'Rent',
       'Move-in Date',
+      'Lease Type',
       'Payment Method',
       'Emergency Contact Name',
       'Emergency Contact Phone',
@@ -1320,6 +1324,7 @@ export const generateTenantsTemplate = (units = []) => {
       'A1',
       '35000',
       '01/15/2023',
+      'at_will',
       'mobile_money',
       'Jane Mwangi',
       '+254701234568',
@@ -1336,12 +1341,13 @@ export const generateTenantsTemplate = (units = []) => {
       '201',
       '25000',
       '03/20/2023',
+      'fixed',
       'bank_transfer',
       'David Kipchoge',
       '+254722345679',
       'active',
-      '',
-      'Working professional'
+      '03/19/2024',
+      'One-year fixed lease'
     ],
     // Example 3
     [
@@ -1352,6 +1358,7 @@ export const generateTenantsTemplate = (units = []) => {
       'B3',
       '15000',
       '06/10/2023',
+      'at_will',
       'cash',
       'Mary Okonkwo',
       '+254733456790',
@@ -1368,6 +1375,8 @@ export const generateTenantsTemplate = (units = []) => {
     ['• Property Code must match existing properties in your system'],
     ['• Unit Number must belong to the selected Property Code'],
     ['• Move-in Date must be a valid date (MM/DD/YYYY format)'],
+    ['• Lease Type must be one of: at_will, fixed'],
+    ['• If Lease Type is fixed, Move-out Date is required and must be after Move-in Date'],
     ['• Payment Method must be one of: bank_transfer, mobile_money, cash, check, credit_card'],
     ['• Status must be one of: active, inactive, overdue, evicted, moved_out (lowercase)'],
     ['• Rent must be a numeric value greater than 0'],
@@ -1376,7 +1385,7 @@ export const generateTenantsTemplate = (units = []) => {
   ]);
 
   instructionsSheet['!cols'] = [
-    { wch: 80 }, { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 20 }, { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 25 }, { wch: 18 }, { wch: 15 }, { wch: 18 }, { wch: 30 }
+    { wch: 80 }, { wch: 15 }, { wch: 18 }, { wch: 18 }, { wch: 20 }, { wch: 15 }, { wch: 18 }, { wch: 14 }, { wch: 18 }, { wch: 25 }, { wch: 18 }, { wch: 15 }, { wch: 18 }, { wch: 30 }
   ];
 
   // Sheet 3: Dropdown Values Reference
@@ -1389,6 +1398,10 @@ export const generateTenantsTemplate = (units = []) => {
     ['cash'],
     ['check'],
     ['credit_card'],
+    [''],
+    ['Lease Type Options:'],
+    ['at_will'],
+    ['fixed'],
     [''],
     ['Status Options:'],
     ['active'],
@@ -1458,7 +1471,7 @@ export const downloadTenantsTemplate = (units = []) => {
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `Tenants_Import_Template_${new Date().toISOString().split('T')[0]}.xlsx`;
+  link.download = `MILIK_Tenants_Import_Template_${new Date().toISOString().split('T')[0]}.xlsx`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -1537,6 +1550,9 @@ export const parseTenantsExcel = (file) => {
           const unitNumber = getRowValue(row, ['Unit Number *', 'Unit Number', 'unitNumber']);
           const rentRaw = getRowValue(row, ['Rent *', 'Rent', 'rent']);
           const moveInDateRaw = getRowValue(row, ['Move-in Date *', 'Move-in Date', 'Move In Date', 'moveInDate']);
+          const leaseType =
+            getRowValue(row, ['Lease Type', 'Lease Type *', 'leaseType']).toLowerCase() ||
+            'at_will';
           const paymentMethod =
             getRowValue(row, ['Payment Method *', 'Payment Method', 'paymentMethod']).toLowerCase() ||
             'bank_transfer';
@@ -1561,6 +1577,7 @@ export const parseTenantsExcel = (file) => {
             unitNumber,
             rent: rentRaw ? parseFloat(rentRaw) : 0,
             moveInDate: safeIsoDate(moveInDateRaw),
+            leaseType,
             paymentMethod,
             emergencyContactName,
             emergencyContactPhone,
@@ -1576,6 +1593,7 @@ export const parseTenantsExcel = (file) => {
         const errors = [];
         
         const validPaymentMethods = ['bank_transfer', 'mobile_money', 'cash', 'check', 'credit_card'];
+        const validLeaseTypes = ['at_will', 'fixed'];
         const validStatuses = ['active', 'inactive', 'overdue', 'evicted', 'moved_out'];
         
         // Track duplicates within the file
@@ -1610,13 +1628,33 @@ export const parseTenantsExcel = (file) => {
           if (!record.paymentMethod) {
             rowErrors.push('Payment Method is required');
           }
+
+          if (!record.leaseType) {
+            rowErrors.push('Lease Type is required');
+          }
           
           // Enum validations
+          if (record.leaseType && !validLeaseTypes.includes(record.leaseType)) {
+            rowErrors.push(`Invalid Lease Type. Must be one of: ${validLeaseTypes.join(', ')}`);
+          }
           if (record.paymentMethod && !validPaymentMethods.includes(record.paymentMethod)) {
             rowErrors.push(`Invalid Payment Method. Must be one of: ${validPaymentMethods.join(', ')}`);
           }
           if (record.status && !validStatuses.includes(record.status)) {
             rowErrors.push(`Invalid Status. Must be one of: ${validStatuses.join(', ')}`);
+          }
+
+          // Fixed leases require a valid move-out date after move-in date
+          if (record.leaseType === 'fixed') {
+            if (!record.moveOutDate) {
+              rowErrors.push('Move-out Date is required when Lease Type is fixed');
+            } else if (record.moveInDate) {
+              const moveInDate = new Date(record.moveInDate);
+              const moveOutDate = new Date(record.moveOutDate);
+              if (!Number.isNaN(moveInDate.getTime()) && !Number.isNaN(moveOutDate.getTime()) && moveOutDate <= moveInDate) {
+                rowErrors.push('Move-out Date must be after Move-in Date for fixed leases');
+              }
+            }
           }
           
           // Check for duplicates within the file
@@ -1678,6 +1716,7 @@ export const exportTenantsToExcel = (tenants) => {
     'Balance (KES)': tenant.balance || 0,
     'Move-in Date': tenant.moveInDate ? new Date(tenant.moveInDate).toLocaleDateString() : '',
     'Move-out Date': tenant.moveOutDate ? new Date(tenant.moveOutDate).toLocaleDateString() : '',
+    'Lease Type': tenant.leaseType || 'at_will',
     'Payment Method': tenant.paymentMethod || '',
     'Status': tenant.status || 'active',
     'Emergency Contact': tenant.emergencyContact?.name || '',
@@ -1699,6 +1738,7 @@ export const exportTenantsToExcel = (tenants) => {
     { wch: 12 }, // Balance
     { wch: 15 }, // Move-in
     { wch: 15 }, // Move-out
+    { wch: 12 }, // Lease Type
     { wch: 18 }, // Payment
     { wch: 12 }, // Status
     { wch: 20 }, // Emergency Contact

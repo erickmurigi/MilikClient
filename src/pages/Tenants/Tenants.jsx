@@ -61,6 +61,7 @@ const Tenants = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const actionMenuRef = useRef(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [invoiceRefreshTick, setInvoiceRefreshTick] = useState(0); // Track invoice changes
 
   // ===== FILTERS =====
   const [draftFilters, setDraftFilters] = useState({
@@ -93,6 +94,21 @@ const Tenants = () => {
     setSelectAll(false);
   }, [currentPage]);
 
+  // Listen for invoice changes (when invoices are created/deleted in other pages)
+  useEffect(() => {
+    const handleInvoiceChange = () => {
+      setInvoiceRefreshTick(prev => prev + 1);
+    };
+
+    window.addEventListener('invoicesUpdated', handleInvoiceChange);
+    window.addEventListener('storage', handleInvoiceChange); // Also listen for localStorage changes
+    
+    return () => {
+      window.removeEventListener('invoicesUpdated', handleInvoiceChange);
+      window.removeEventListener('storage', handleInvoiceChange);
+    };
+  }, []);
+
   // Close action menu on outside click
   useEffect(() => {
     const onDocClick = (e) => {
@@ -123,7 +139,7 @@ const Tenants = () => {
     return matchedUnit?.property?.propertyName || matchedProperty?.propertyName || matchedProperty?.name || "-";
   };
 
-  // Helper function to calculate actual balance (rent + utilities owed - confirmed payments)
+  // Helper function to calculate actual balance from invoices in localStorage
   const calculateTenantBalance = (tenantId, tenantData) => {
     // Get all confirmed receipt payments for this tenant
     const tenantPayments = rentPayments.filter((p) => p.tenant === tenantId || p.tenant?._id === tenantId);
@@ -131,61 +147,27 @@ const Tenants = () => {
       .filter((p) => p.isConfirmed === true)
       .reduce((sum, p) => sum + (p.amount || 0), 0);
 
-    // Calculate total rent owed
-    // Method 1: Try to get from lease data
-    const tenantLease = leases.find((l) => l.tenant === tenantId || l.tenant?._id === tenantId);
-    let totalRentOwed = 0;
+    // Get actual invoices from localStorage (this is the source of truth)
+    const storageKey = `createdInvoices_${tenantId}`;
+    const stored = localStorage.getItem(storageKey);
+    let totalInvoiceAmount = 0;
 
-    if (tenantLease) {
-      // Lease exists - use lease amount as monthly rent
-      const monthlyRent = tenantLease.rent || 0;
-      const startDate = new Date(tenantLease.startDate || tenantData?.moveInDate);
-      const endDate = tenantLease.endDate ? new Date(tenantLease.endDate) : new Date();
-      
-      // Calculate months elapsed
-      const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 + 
-                        (endDate.getMonth() - startDate.getMonth());
-      const monthsElapsed = Math.max(1, monthsDiff + 1); // At least 1 month
-      
-      totalRentOwed = monthlyRent * monthsElapsed;
-    } else if (tenantData?.unit?.rent) {
-      // No lease - estimate from unit rent and move-in date
-      const monthlyRent = tenantData.unit.rent;
-      const startDate = new Date(tenantData.moveInDate || Date.now());
-      const today = new Date();
-      
-      // Calculate months elapsed
-      const monthsDiff = (today.getFullYear() - startDate.getFullYear()) * 12 + 
-                        (today.getMonth() - startDate.getMonth());
-      const monthsElapsed = Math.max(1, monthsDiff + 1); // At least 1 month
-      
-      totalRentOwed = monthlyRent * monthsElapsed;
-    }
-
-    // Calculate total utility charges owed (exclude utilities marked as included in rent)
-    let totalUtilitiesOwed = 0;
-    
-    // Check tenant's utilities first
-    const tenantUtilities = tenantData?.utilities || [];
-    if (Array.isArray(tenantUtilities)) {
-      totalUtilitiesOwed += tenantUtilities
-        .filter((util) => util.isIncluded !== true) // Only count utilities not included in rent
-        .reduce((sum, util) => sum + (util.unitCharge || util.amount || 0), 0);
-    }
-    
-    // If no tenant utilities, check unit utilities
-    if (tenantUtilities.length === 0 && tenantData?.unit?.utilities) {
-      const unitUtilities = tenantData.unit.utilities || [];
-      if (Array.isArray(unitUtilities)) {
-        totalUtilitiesOwed += unitUtilities
-          .filter((util) => util.isIncluded !== true) // Only count utilities not included in rent
-          .reduce((sum, util) => sum + (util.unitCharge || util.amount || 0), 0);
+    if (stored) {
+      try {
+        const invoices = JSON.parse(stored);
+        // Sum all invoice amounts (invoices use "amount" field, not "total")
+        totalInvoiceAmount = Object.values(invoices).reduce((sum, invoice) => {
+          return sum + (invoice?.amount || 0);
+        }, 0);
+      } catch (error) {
+        console.error('Error parsing invoices for tenant', tenantId, error);
       }
     }
 
-    // Balance = (Rent Owed + Utilities Owed) - Confirmed Receipts
-    // If negative, tenant owes money. If positive, tenant has overpaid (credit)
-    const balance = (totalRentOwed + totalUtilitiesOwed) - totalConfirmedReceipts;
+    // Balance = Total Invoice Amounts - Confirmed Receipts
+    // Positive balance means tenant owes money
+    // Negative balance means tenant has overpaid (credit)
+    const balance = totalInvoiceAmount - totalConfirmedReceipts;
     
     return balance;
   };
@@ -220,7 +202,7 @@ const Tenants = () => {
         accountBalance: tenant.accountBalance ?? 0,
       };
     });
-  }, [tenantsData, units, properties, rentPayments, leases]);
+  }, [tenantsData, units, properties, rentPayments, leases, invoiceRefreshTick]);
 
   // ===== FILTER TENANTS =====
   const filteredTenants = useMemo(() => {
@@ -561,63 +543,12 @@ const Tenants = () => {
               />
             </div>
 
-            {/* Action buttons */}
-            <button
-              onClick={() => navigate("/tenant/new")}
-              className={`px-4 py-1 text-xs ${MILIK_ORANGE} text-white rounded-lg flex items-center gap-2 hover:bg-[#e67e00] transition-colors shadow-sm`}
-            >
-              <FaPlus className="text-xs" />
-              <span>Add</span>
-            </button>
-
-            <button
-              onClick={() => setAppliedFilters(draftFilters)}
-              className={`px-4 py-1 text-xs ${MILIK_GREEN} text-white rounded-lg flex items-center gap-2 hover:bg-[#0A3127] transition-colors shadow-sm`}
-            >
-              <FaSearch className="text-xs" />
-              <span>Search</span>
-            </button>
-
-            <button
-              onClick={handleResetFilters}
-              className="px-4 py-1 text-xs bg-gray-500 text-white rounded-lg flex items-center gap-2 hover:bg-gray-600 transition-colors shadow-sm"
-            >
-              <FaRedoAlt className="text-xs" />
-              <span>Reset</span>
-            </button>
-
-            <button
-              onClick={handleDownloadTemplate}
-              className="px-4 py-1 text-xs bg-blue-500 text-white rounded-lg flex items-center gap-2 hover:bg-blue-600 transition-colors shadow-sm"
-              title="Download import template"
-            >
-              <FaDownload className="text-xs" />
-              <span>Template</span>
-            </button>
-
-            <button
-              onClick={() => setShowImportModal(true)}
-              className={`px-4 py-1 text-xs ${MILIK_ORANGE} text-white rounded-lg flex items-center gap-2 hover:bg-[#e67e00] transition-colors shadow-sm`}
-              title="Import tenants from Excel"
-            >
-              <FaFileExport className="text-xs rotate-180" />
-              <span>Import</span>
-            </button>
-
-            <button
-              onClick={handleExportToExcel}
-              className="px-4 py-1 text-xs bg-gray-600 text-white rounded-lg flex items-center gap-2 hover:bg-gray-700 transition-colors shadow-sm"
-              title="Export tenants to Excel"
-            >
-              <FaFileExport className="text-xs" />
-              <span>Export</span>
-            </button>
           </div>
         </div>
 
         {/* ===== COMPACT ACTION BAR ===== */}
-        <div className="flex-shrink-0 bg-gray-50 border-b border-gray-200 px-2 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex-shrink-0 bg-gray-50 border-b border-gray-200 px-2 py-2 flex items-center justify-start">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={expandAllTenants}
               className="p-1.5 hover:bg-gray-200 rounded transition-colors text-gray-700 text-sm"
@@ -635,10 +566,8 @@ const Tenants = () => {
             <span className="text-xs font-bold text-gray-700">
               {selectedTenants.length} selected
             </span>
-          </div>
-          
-          {/* Right side buttons */}
-          <div className="flex items-center gap-2">
+
+            {/* Inline action buttons - start immediately after selected count */}
             <button
               onClick={handleEditTenant}
               className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-medium flex items-center gap-1 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
@@ -711,10 +640,53 @@ const Tenants = () => {
             </div>
 
             <button
-              className="text-xs text-gray-600 hover:text-gray-800 flex items-center gap-1"
-              title="Export"
+              onClick={() => navigate("/tenant/new")}
+              className={`px-3 py-1 text-xs ${MILIK_ORANGE} text-white rounded font-medium flex items-center gap-1 hover:bg-[#e67e00] transition-colors shadow-sm`}
             >
-              <FaFileExport size={12} />
+              <FaPlus className="text-xs" />
+              <span>Add</span>
+            </button>
+
+            <button
+              onClick={() => setAppliedFilters(draftFilters)}
+              className={`px-3 py-1 text-xs ${MILIK_GREEN} text-white rounded font-medium flex items-center gap-1 hover:bg-[#0A3127] transition-colors shadow-sm`}
+            >
+              <FaSearch className="text-xs" />
+              <span>Search</span>
+            </button>
+
+            <button
+              onClick={handleResetFilters}
+              className="px-3 py-1 text-xs bg-gray-500 text-white rounded font-medium flex items-center gap-1 hover:bg-gray-600 transition-colors shadow-sm"
+            >
+              <FaRedoAlt className="text-xs" />
+              <span>Reset</span>
+            </button>
+
+            <button
+              onClick={handleDownloadTemplate}
+              className="px-3 py-1 text-xs bg-blue-500 text-white rounded font-medium flex items-center gap-1 hover:bg-blue-600 transition-colors shadow-sm"
+              title="Download import template"
+            >
+              <FaDownload className="text-xs" />
+              <span>Template</span>
+            </button>
+
+            <button
+              onClick={() => setShowImportModal(true)}
+              className={`px-3 py-1 text-xs ${MILIK_ORANGE} text-white rounded font-medium flex items-center gap-1 hover:bg-[#e67e00] transition-colors shadow-sm`}
+              title="Import tenants from Excel"
+            >
+              <FaFileExport className="text-xs rotate-180" />
+              <span>Import</span>
+            </button>
+
+            <button
+              onClick={handleExportToExcel}
+              className="px-3 py-1 text-xs bg-gray-600 text-white rounded font-medium flex items-center gap-1 hover:bg-gray-700 transition-colors shadow-sm"
+              title="Export tenants to Excel"
+            >
+              <FaFileExport className="text-xs" />
               <span>Export</span>
             </button>
           </div>
@@ -845,9 +817,11 @@ const Tenants = () => {
                       </td>
                       <td className="px-2 py-1 font-bold text-right border-r border-gray-200">
                         <span className={`${
-                          tenant.balance >= 0 
-                            ? 'text-green-600' 
-                            : 'text-red-600'
+                          tenant.balance > 0 
+                            ? 'text-red-600' 
+                            : tenant.balance < 0
+                            ? 'text-green-600'
+                            : 'text-gray-600'
                         }`}>
                           Ksh {tenant.balance.toLocaleString()}
                         </span>

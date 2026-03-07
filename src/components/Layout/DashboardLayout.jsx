@@ -145,6 +145,7 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
     "landlord-advancement": "/landlords/advancement",
     "landlord-jvs": "/landlords/journals",
     "batch-landlord-jvs": "/landlords/batch-journals",
+    "commission-landlord-statement": "/financial/landlord-statement",
     "rental-collection": "/reports/rental-collection",
     "paid-balance": "/reports/paid-balance",
     "aged-analysis": "/reports/aged-analysis",
@@ -327,6 +328,7 @@ const TopToolbar = ({ darkMode, setDarkMode }) => {
       { id: "landlord-advancement", label: "Landlord Advancement", icon: FaMoneyBillWave },
       { id: "landlord-jvs", label: "Landlord J.Vs", icon: FaBook },
       { id: "batch-landlord-jvs", label: "Batch Landlord J.Vs", icon: FaBook },
+      { id: "commission-landlord-statement", label: "Commissions & LL Statement", icon: FaFileAlt },
     ],
   };
 
