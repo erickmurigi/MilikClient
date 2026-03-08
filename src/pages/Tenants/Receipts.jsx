@@ -17,6 +17,7 @@ import {
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import DashboardLayout from "../../components/Layout/DashboardLayout";
+import JournalEntriesDrawer from "../../components/Accounting/JournalEntriesDrawer";
 import { getTenants } from "../../redux/tenantsRedux";
 import {
   confirmRentPayment,
@@ -33,6 +34,22 @@ const MILIK_GREEN = "bg-[#0B3B2E]";
 const MILIK_GREEN_HOVER = "hover:bg-[#0A3127]";
 const MILIK_ORANGE = "bg-[#FF8C00]";
 const MILIK_ORANGE_HOVER = "hover:bg-[#e67e00]";
+
+const CASHBOOK_OPTIONS = [
+  "Main Cashbook",
+  "Bank Cashbook",
+  "Petty Cash",
+  "M-Pesa Collections",
+  "Agency Collections",
+];
+
+const CASHBOOK_ACCOUNT_MAP = {
+  "Main Cashbook": { code: "1100", name: "Cash on Hand - Main" },
+  "Bank Cashbook": { code: "1110", name: "Bank Accounts - Operations" },
+  "Petty Cash": { code: "1120", name: "Petty Cash" },
+  "M-Pesa Collections": { code: "1130", name: "M-Pesa Collections" },
+  "Agency Collections": { code: "1140", name: "Agency Collections Control" },
+};
 
 const escapeHtml = (value = "") =>
   String(value)
@@ -98,6 +115,57 @@ const getLedgerType = (payment) => {
   return payment?.ledgerType || "receipts";
 };
 
+const getCashbookAccount = (cashbook) => {
+  return CASHBOOK_ACCOUNT_MAP[cashbook] || CASHBOOK_ACCOUNT_MAP["Main Cashbook"];
+};
+
+const buildJournalEntriesForReceipt = (receipt) => {
+  const amount = Number(receipt?.amount || 0);
+  const narration = receipt?.description || `Receipt ${receipt?.receiptNumber || receipt?.referenceNumber || ""}`;
+  const ledgerType = getLedgerType(receipt);
+  const cashbook = receipt?.cashbook || "Main Cashbook";
+  const cashbookAccount = getCashbookAccount(cashbook);
+
+  if (ledgerType === "invoices") {
+    const incomeAccount = receipt?.paymentType === "utility"
+      ? { code: "4102", name: "Utility Recharge Income" }
+      : { code: "4100", name: "Rent Income" };
+    return [
+      {
+        accountCode: "1200",
+        accountName: "Tenant Receivables",
+        debit: amount,
+        credit: 0,
+        narration,
+      },
+      {
+        accountCode: incomeAccount.code,
+        accountName: incomeAccount.name,
+        debit: 0,
+        credit: amount,
+        narration,
+      },
+    ];
+  }
+
+  return [
+    {
+      accountCode: cashbookAccount.code,
+      accountName: cashbookAccount.name,
+      debit: amount,
+      credit: 0,
+      narration,
+    },
+    {
+      accountCode: "1200",
+      accountName: "Tenant Receivables",
+      debit: 0,
+      credit: amount,
+      narration,
+    },
+  ];
+};
+
 const Receipts = () => {
   const { id: tenantId } = useParams();
   const navigate = useNavigate();
@@ -128,11 +196,15 @@ const Receipts = () => {
   const [showForm, setShowForm] = useState(false);
   const [showView, setShowView] = useState(false);
   const [activeReceipt, setActiveReceipt] = useState(null);
+  const [journalDrawerOpen, setJournalDrawerOpen] = useState(false);
+  const [journalContext, setJournalContext] = useState({});
+  const [journalLines, setJournalLines] = useState([]);
   const [formData, setFormData] = useState({
     tenantId: tenantId || "",
     amount: "",
     paymentType: "rent",
     paymentMethod: "mobile_money",
+    cashbook: "Main Cashbook",
     paymentDate: new Date().toISOString().split("T")[0],
     dueDate: new Date().toISOString().split("T")[0],
     description: "",
@@ -333,6 +405,7 @@ const Receipts = () => {
       amount: "",
       paymentType: "rent",
       paymentMethod: "mobile_money",
+      cashbook: "Main Cashbook",
       paymentDate: new Date().toISOString().split("T")[0],
       dueDate: new Date().toISOString().split("T")[0],
       description: "",
@@ -358,6 +431,7 @@ const Receipts = () => {
       amount: receipt.amount || "",
       paymentType: receipt.paymentType || "rent",
       paymentMethod: receipt.paymentMethod || "mobile_money",
+      cashbook: receipt.cashbook || "Main Cashbook",
       paymentDate: (receipt.paymentDate || "").split("T")[0] || new Date().toISOString().split("T")[0],
       dueDate: (receipt.dueDate || "").split("T")[0] || new Date().toISOString().split("T")[0],
       description: receipt.description || "",
@@ -376,6 +450,11 @@ const Receipts = () => {
       return;
     }
 
+    if (!formData.cashbook) {
+      toast.error("Cashbook is required");
+      return;
+    }
+
     const unitId = selectedTenant?.unit?._id || selectedTenant?.unit;
     if (!unitId) {
       toast.error("Selected tenant has no linked unit");
@@ -389,6 +468,7 @@ const Receipts = () => {
       amount: Number(formData.amount),
       paymentType: formData.paymentType,
       paymentMethod: formData.paymentMethod,
+      cashbook: formData.cashbook,
       paymentDate: formData.paymentDate,
       dueDate: formData.dueDate,
       description: formData.description,
@@ -625,6 +705,20 @@ const Receipts = () => {
   const openView = (receipt) => {
     setActiveReceipt(receipt);
     setShowView(true);
+  };
+
+  const openJournalDrawer = (receipt) => {
+    const context = {
+      transactionNumber: receipt?.receiptNumber || receipt?.referenceNumber || "-",
+      date: formatDate(receipt?.paymentDate),
+      tenant: getTenantName(receipt, tenants),
+      property: getPropertyName(receipt, tenants),
+      unit: getUnitName(receipt, tenants),
+      cashbook: receipt?.cashbook || "Main Cashbook",
+    };
+    setJournalContext(context);
+    setJournalLines(buildJournalEntriesForReceipt(receipt));
+    setJournalDrawerOpen(true);
   };
 
   const handlePrintReceipt = (receipt) => {
@@ -980,6 +1074,7 @@ const Receipts = () => {
                     <th className="px-3 py-2 text-left">Property</th>
                     <th className="px-3 py-2 text-left">Unit</th>
                     <th className="px-3 py-2 text-left">Ledger</th>
+                    <th className="px-3 py-2 text-left">Cashbook</th>
                     <th className="px-3 py-2 text-left">Type</th>
                     <th className="px-3 py-2 text-left">Method</th>
                     <th className="px-3 py-2 text-right">Amount</th>
@@ -991,7 +1086,7 @@ const Receipts = () => {
                 <tbody>
                   {filteredReceipts.length === 0 ? (
                     <tr>
-                      <td colSpan="13" className="px-3 py-10 text-center text-slate-500">
+                      <td colSpan="14" className="px-3 py-10 text-center text-slate-500">
                         No receipts found.
                       </td>
                     </tr>
@@ -1002,12 +1097,14 @@ const Receipts = () => {
                         <tr
                           key={receipt._id}
                           className={`${index % 2 === 0 ? "bg-white" : "bg-slate-50"} border-b border-slate-200`}
+                          onClick={() => openJournalDrawer(receipt)}
                         >
                           <td className="px-3 py-2 text-center">
                             <input
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => toggleSelection(receipt._id)}
+                              onClick={(e) => e.stopPropagation()}
                             />
                           </td>
                           <td className="px-3 py-2 font-bold text-slate-900">{receipt.receiptNumber || "-"}</td>
@@ -1020,6 +1117,7 @@ const Receipts = () => {
                               {getLedgerType(receipt)}
                             </span>
                           </td>
+                          <td className="px-3 py-2 font-semibold text-slate-900">{receipt.cashbook || "Main Cashbook"}</td>
                           <td className="px-3 py-2 font-semibold text-slate-900 capitalize">{receipt.paymentType || "-"}</td>
                           <td className="px-3 py-2 font-semibold text-slate-900 capitalize">{(receipt.paymentMethod || "-").replace("_", " ")}</td>
                           <td className="px-3 py-2 text-right font-bold text-slate-900">
@@ -1038,7 +1136,7 @@ const Receipts = () => {
                           </td>
                           <td className="px-3 py-2 font-semibold text-slate-900">{receipt.referenceNumber || "-"}</td>
                           <td className="px-3 py-2">
-                            <div className="flex items-center justify-center gap-1">
+                            <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
                               <button
                                 onClick={() => openView(receipt)}
                                 className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
@@ -1287,6 +1385,21 @@ const Receipts = () => {
               </div>
 
               <div>
+                <label className="text-xs font-semibold text-slate-700">Cashbook *</label>
+                <select
+                  value={formData.cashbook}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, cashbook: e.target.value }))}
+                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                >
+                  {CASHBOOK_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="text-xs font-semibold text-slate-700">Payment Date *</label>
                 <input
                   type="date"
@@ -1369,6 +1482,7 @@ const Receipts = () => {
               <div className="flex justify-between"><span className="text-slate-600">Due Date</span><span className="font-semibold">{formatDate(activeReceipt.dueDate)}</span></div>
               <div className="flex justify-between"><span className="text-slate-600">Type</span><span className="font-semibold capitalize">{activeReceipt.paymentType}</span></div>
               <div className="flex justify-between"><span className="text-slate-600">Method</span><span className="font-semibold capitalize">{activeReceipt.paymentMethod?.replace("_", " ")}</span></div>
+              <div className="flex justify-between"><span className="text-slate-600">Cashbook</span><span className="font-semibold">{activeReceipt.cashbook || "Main Cashbook"}</span></div>
               <div className="flex justify-between"><span className="text-slate-600">Status</span><span className="font-semibold">{activeReceipt.isConfirmed ? "Confirmed" : "Pending"}</span></div>
               <div className="flex justify-between"><span className="text-slate-600">Amount</span><span className="font-bold text-lg">Ksh {Number(activeReceipt.amount || 0).toLocaleString()}</span></div>
               <div className="pt-2 border-t border-slate-200">
@@ -1444,6 +1558,15 @@ const Receipts = () => {
           </div>
         </div>
       )}
+
+      <JournalEntriesDrawer
+        open={journalDrawerOpen}
+        onClose={() => setJournalDrawerOpen(false)}
+        title="Receipt Journal Entry"
+        sourceType="receipt"
+        context={journalContext}
+        lines={journalLines}
+      />
     </DashboardLayout>
   );
 };

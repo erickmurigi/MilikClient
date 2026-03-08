@@ -40,6 +40,7 @@ import AddCompanyWizard from "./pages/SystemSetup/AddCompanyWizard";
 import AddUserPage from "./pages/SystemSetup/AddUsers";
 import CompanySettings from "./pages/SystemSetup/CompanySettings";
 import PaymentVouchers from "./pages/Financial/PaymentVouchers";
+import ChartOfAccounts from "./pages/Financial/ChartOfAccounts";
 import RentalCollectionReport from "./pages/Reports/RentalCollectionReport";
 import PaidBalanceReport from "./pages/Reports/PaidBalanceReport";
 import AgedAnalysisReport from "./pages/Reports/AgedAnalysisReport";
@@ -95,6 +96,7 @@ function App() {
         <Route path="/landlord-payments" element={<ProtectedRoute><LandlordPayments /></ProtectedRoute>} />
         <Route path="/financial/landlord-statement" element={<ProtectedRoute><LandlordCommissionsStatement /></ProtectedRoute>} />
         <Route path="/landlord/processed-statements" element={<ProtectedRoute><ProcessedStatements /></ProtectedRoute>} />
+        <Route path="/landlord/statements" element={<ProtectedRoute><LandlordCommissionsStatement /></ProtectedRoute>} />
         <Route path="/properties" element={<ProtectedRoute><Properties /></ProtectedRoute>} />
         <Route path="/units" element={<ProtectedRoute><Units /></ProtectedRoute>} />
         <Route path="/units/new" element={<ProtectedRoute><AddUnit /></ProtectedRoute>} />
@@ -109,6 +111,7 @@ function App() {
         <Route path="/receipts/new" element={<ProtectedRoute><AddReceipt /></ProtectedRoute>} />
         <Route path="/receipts/:id" element={<ProtectedRoute><Receipts /></ProtectedRoute>} />
         <Route path="/financial/payment-vouchers" element={<ProtectedRoute><PaymentVouchers /></ProtectedRoute>} />
+        <Route path="/financial/chart-of-accounts" element={<ProtectedRoute><ChartOfAccounts /></ProtectedRoute>} />
         <Route path="/expenses/payment-vouchers" element={<ProtectedRoute><PaymentVouchers /></ProtectedRoute>} />
         <Route path="/leases" element={<ProtectedRoute><Leases /></ProtectedRoute>} />
         <Route path="/vacants" element={<ProtectedRoute><Vacants /></ProtectedRoute>} />
@@ -124,8 +127,10 @@ function App() {
         <Route path="/company-setup" element={<ProtectedRoute><CompanySetupPage /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><CompanySettings /></ProtectedRoute>} />
         <Route path="/reports/rental-collection" element={<ProtectedRoute><RentalCollectionReport /></ProtectedRoute>} />
+        <Route path="/reports/export" element={<ProtectedRoute><RentalCollectionReport /></ProtectedRoute>} />
         <Route path="/reports/paid-balance" element={<ProtectedRoute><PaidBalanceReport /></ProtectedRoute>} />
         <Route path="/reports/aged-analysis" element={<ProtectedRoute><AgedAnalysisReport /></ProtectedRoute>} />
+        <Route path="/reports/rental-aged-analysis" element={<ProtectedRoute><AgedAnalysisReport /></ProtectedRoute>} />
         <Route path="/reports/commissions" element={<ProtectedRoute><CommissionReports /></ProtectedRoute>} />
         <Route path="/reports/tax" element={<ProtectedRoute><TaxReports /></ProtectedRoute>} />
         <Route path="/reports/tenant-summary" element={<ProtectedRoute><TenantSummaryReport /></ProtectedRoute>} />

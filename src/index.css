@@ -48,6 +48,31 @@ body {
   background: #f1f1f1;
 }
 
+/* Print styles for landlord statements */
+.print-only-wrapper {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-only-wrapper,
+  .print-only-wrapper * {
+    visibility: visible;
+  }
+  .print-only-wrapper {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
 ::-webkit-scrollbar-thumb {
   background: #027333;
   border-radius: 4px;

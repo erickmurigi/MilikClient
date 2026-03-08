@@ -53,6 +53,7 @@ const statementsSlice = createSlice({
     },
     createDraftSuccess: (state, action) => {
       state.loading = false;
+      if (!action.payload?._id) return;
       const existingIndex = state.statements.findIndex(
         (s) => s._id === action.payload._id
       );
@@ -74,6 +75,7 @@ const statementsSlice = createSlice({
     },
     approveSuccess: (state, action) => {
       state.loading = false;
+      if (!action.payload?._id) return;
       const index = state.statements.findIndex(
         (s) => s._id === action.payload._id
       );
@@ -96,6 +98,7 @@ const statementsSlice = createSlice({
     },
     sendSuccess: (state, action) => {
       state.loading = false;
+      if (!action.payload?._id) return;
       const index = state.statements.findIndex(
         (s) => s._id === action.payload._id
       );
@@ -118,6 +121,7 @@ const statementsSlice = createSlice({
     },
     createRevisionSuccess: (state, action) => {
       state.loading = false;
+      if (!action.payload?.newStatement?._id || !action.payload?.originalStatement?._id) return;
       // Mark original as revised
       const originalIndex = state.statements.findIndex(
         (s) => s._id === action.payload.originalStatement._id

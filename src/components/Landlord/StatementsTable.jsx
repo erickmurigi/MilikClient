@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React from "react";
 import {
   FaEye,
   FaCheckCircle,
@@ -6,16 +6,10 @@ import {
   FaDownload,
   FaEdit,
   FaTrash,
-  FaClock,
   FaFileAlt,
-  FaExclamationTriangle,
 } from "react-icons/fa";
-import { toast } from "react-toastify";
 
 const MILIK_GREEN = "#0B3B2E";
-const MILIK_ORANGE = "#FF8C00";
-const MILIK_GRAY = "#6B7280";
-const MILIK_LIGHT = "#F3F4F6";
 
 // Status badge styles
 const getStatusBadge = (status) => {
@@ -81,8 +75,6 @@ const StatementsTable = ({
   onDeleteStatement,
   onDownloadPdf,
 }) => {
-  const [expandedRow, setExpandedRow] = useState(null);
-
   const formatCurrency = (value) => {
     if (!value) return "KES 0.00";
     return new Intl.NumberFormat("en-KE", {
@@ -162,7 +154,7 @@ const StatementsTable = ({
                   {statement.statementNumber || "N/A"}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
-                  {statement.property?.name || "N/A"}
+                  {statement.property?.propertyName || statement.property?.name || "N/A"}
                 </td>
                 <td className="px-6 py-4 text-sm text-gray-600">
                   {statement.landlord?.firstName}{" "}

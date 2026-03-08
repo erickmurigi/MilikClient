@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { FaX, FaCalendarAlt } from "react-icons/fa";
+import { FaTimes, FaCalendarAlt } from "react-icons/fa";
 
 const GenerateStatementModal = ({
   isOpen,
@@ -60,7 +60,7 @@ const GenerateStatementModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-gray-900 bg-opacity-5 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
         {/* Header */}
         <div className="flex justify-between items-center p-6 border-b border-gray-200">
@@ -69,7 +69,7 @@ const GenerateStatementModal = ({
             onClick={onClose}
             className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <FaX className="text-gray-600" />
+            <FaTimes className="text-gray-600" />
           </button>
         </div>
 
@@ -92,7 +92,7 @@ const GenerateStatementModal = ({
               <option value="">Select a property...</option>
               {properties.map((prop) => (
                 <option key={prop._id} value={prop._id}>
-                  {prop.name}
+                  {prop.propertyName || prop.name || 'Unnamed Property'}
                 </option>
               ))}
             </select>

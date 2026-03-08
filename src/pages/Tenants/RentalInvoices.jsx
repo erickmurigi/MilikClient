@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -16,15 +16,22 @@ import {
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import DashboardLayout from "../../components/Layout/DashboardLayout";
+import JournalEntriesDrawer from "../../components/Accounting/JournalEntriesDrawer";
 import { getTenants } from "../../redux/tenantsRedux";
 import { getProperties } from "../../redux/propertyRedux";
 import { getUnits } from "../../redux/unitRedux";
-import { getRentPayments } from "../../redux/apiCalls";
+import { createRentPayment, getRentPayments } from "../../redux/apiCalls";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
 const MILIK_GREEN_HOVER = "hover:bg-[#0A3127]";
 const MILIK_ORANGE = "bg-[#FF8C00]";
 const MILIK_ORANGE_HOVER = "hover:bg-[#e67e00]";
+
+const INVOICE_REVENUE_ACCOUNT_MAP = {
+  utility: { code: "4102", name: "Utility Recharge Income" },
+  rent: { code: "4100", name: "Rent Income" },
+  combined: { code: "4100", name: "Rent Income" },
+};
 
 const MONTH_OPTIONS = [
   { value: 0, label: "January" },
@@ -106,6 +113,51 @@ const formatPeriodLabel = (month, year) => {
   return `${date.toLocaleString("en-US", { month: "short" })} ${String(year).slice(-2)}`;
 };
 
+const parsePeriodLabel = (periodLabel, fallbackDate = new Date()) => {
+  if (!periodLabel || typeof periodLabel !== "string") {
+    return {
+      month: fallbackDate.getMonth(),
+      year: fallbackDate.getFullYear(),
+    };
+  }
+
+  const parts = String(periodLabel).trim().split(/\s+/);
+  if (parts.length < 2) {
+    return {
+      month: fallbackDate.getMonth(),
+      year: fallbackDate.getFullYear(),
+    };
+  }
+
+  const monthText = parts[0].toLowerCase();
+  const monthMap = {
+    jan: 0,
+    feb: 1,
+    mar: 2,
+    apr: 3,
+    may: 4,
+    jun: 5,
+    jul: 6,
+    aug: 7,
+    sep: 8,
+    oct: 9,
+    nov: 10,
+    dec: 11,
+  };
+
+  const month = monthMap[monthText.slice(0, 3)];
+  const yearNum = Number(parts[1]);
+  const year = yearNum < 100 ? 2000 + yearNum : yearNum;
+
+  return {
+    month: Number.isInteger(month) ? month : fallbackDate.getMonth(),
+    year: Number.isFinite(year) ? year : fallbackDate.getFullYear(),
+  };
+};
+
+const getStartOfPeriod = (month, year) => new Date(year, month, 1);
+const getEndOfPeriod = (month, year) => new Date(year, month + 1, 0);
+
 const getNormalizedPeriodFromEntry = (periodKey, entry) => {
   if (typeof entry === "object" && entry?.period) return String(entry.period);
   return String(periodKey).replace(/__(rent|utility)$/i, "");
@@ -139,6 +191,30 @@ const resolveTenantPropertyName = (tenant, unitsFromStore = [], propertiesFromSt
   );
 };
 
+const buildJournalEntriesForInvoice = (invoice) => {
+  const amount = Number(invoice?.amount || 0);
+  const chargeType = String(invoice?.chargeType || "combined").toLowerCase();
+  const revenueAccount = INVOICE_REVENUE_ACCOUNT_MAP[chargeType] || INVOICE_REVENUE_ACCOUNT_MAP.combined;
+  const narration = `Invoice ${invoice?.id || ""} ${chargeType} charge for ${invoice?.period || "period"}`;
+
+  return [
+    {
+      accountCode: "1200",
+      accountName: "Tenant Receivables",
+      debit: amount,
+      credit: 0,
+      narration,
+    },
+    {
+      accountCode: revenueAccount.code,
+      accountName: revenueAccount.name,
+      debit: 0,
+      credit: amount,
+      narration,
+    },
+  ];
+};
+
 const RentalInvoices = () => {
   const { id: tenantId } = useParams();
   const navigate = useNavigate();
@@ -152,6 +228,9 @@ const RentalInvoices = () => {
   const [bookingAction, setBookingAction] = useState("");
   const [showSingleBooking, setShowSingleBooking] = useState(false);
   const [showBatchBooking, setShowBatchBooking] = useState(false);
+  const [journalDrawerOpen, setJournalDrawerOpen] = useState(false);
+  const [journalContext, setJournalContext] = useState({});
+  const [journalLines, setJournalLines] = useState([]);
   const currentDate = new Date();
   const [singleBookingForm, setSingleBookingForm] = useState({
     tenantId: tenantId || "",
@@ -171,6 +250,18 @@ const RentalInvoices = () => {
   const propertiesFromStore = useSelector((state) => state.property?.properties || []);
   const unitsFromStore = useSelector((state) => state.unit?.units || []);
   const rentPayments = useSelector((state) => state.rentPayment?.rentPayments || []);
+  const hasSyncedLegacyInvoicesRef = useRef(false);
+
+  const postedInvoiceMap = useMemo(() => {
+    const map = new Map();
+    rentPayments.forEach((payment) => {
+      const ref = String(payment?.referenceNumber || "").trim();
+      if (!ref) return;
+      if (payment?.ledgerType !== "invoices") return;
+      map.set(ref, payment);
+    });
+    return map;
+  }, [rentPayments]);
 
   useEffect(() => {
     if (!currentCompany?._id) return;
@@ -745,7 +836,17 @@ const RentalInvoices = () => {
 
   const handleViewInvoice = (invoice) => {
     if (!invoice) return;
-    openHtmlDocument(`Invoice ${invoice.id}`, buildInvoiceHtml(invoice));
+    const postedTx = postedInvoiceMap.get(invoice.id) || postedInvoiceMap.get(`${invoice.id}-U`);
+    setJournalContext({
+      transactionNumber: invoice.id,
+      date: invoice.createdDate || "-",
+      tenant: invoice.tenantName,
+      property: invoice.propertyName,
+      unit: invoice.unitName,
+      cashbook: postedTx?.cashbook || "Tenant Receivables Control",
+    });
+    setJournalLines(buildJournalEntriesForInvoice(invoice));
+    setJournalDrawerOpen(true);
   };
 
   const handlePrintInvoice = (invoice) => {
@@ -789,7 +890,191 @@ const RentalInvoices = () => {
     }, 500);
   };
 
-  const createInvoiceForTenant = (targetTenant, month, year, nextInvoiceNumRef, billingMode = "combined") => {
+  const createBackendInvoiceEntry = async ({
+    targetTenant,
+    invoiceId,
+    amount,
+    paymentType,
+    month,
+    year,
+    description,
+  }) => {
+    const numericAmount = Number(amount || 0);
+    if (!targetTenant?._id || !targetTenant?.unit || numericAmount <= 0) return;
+
+    const periodStart = getStartOfPeriod(month, year);
+    const periodEnd = getEndOfPeriod(month, year);
+
+    await createRentPayment(dispatch, {
+      tenant: targetTenant._id,
+      unit: targetTenant.unit?._id || targetTenant.unit,
+      amount: numericAmount,
+      paymentType,
+      paymentDate: periodStart,
+      dueDate: periodEnd,
+      referenceNumber: invoiceId,
+      description,
+      isConfirmed: false,
+      paymentMethod: "bank_transfer",
+      cashbook: "Tenant Receivables Control",
+      paidDirectToLandlord: false,
+      ledgerType: "invoices",
+      month: month + 1,
+      year,
+      utilities: [],
+      breakdown: {
+        rent: paymentType === "rent" ? numericAmount : 0,
+        utilities: [],
+        total: numericAmount,
+      },
+    });
+  };
+
+  const syncStoredInvoiceToBackend = async ({
+    tenant,
+    invoiceId,
+    chargeType,
+    amount,
+    rentAmount,
+    utilityAmount,
+    month,
+    year,
+    existingRefs,
+  }) => {
+    if (!invoiceId || !tenant?._id) return;
+
+    const hasRef = (ref) => existingRefs.has(String(ref || "").trim());
+
+    if (chargeType === "rent") {
+      if (!hasRef(invoiceId) && Number(amount) > 0) {
+        await createBackendInvoiceEntry({
+          targetTenant: tenant,
+          invoiceId,
+          amount,
+          paymentType: "rent",
+          month,
+          year,
+          description: `Invoice ${invoiceId} rent charge (${formatPeriodLabel(month, year)})`,
+        });
+        existingRefs.add(invoiceId);
+      }
+      return;
+    }
+
+    if (chargeType === "utility") {
+      if (!hasRef(invoiceId) && Number(amount) > 0) {
+        await createBackendInvoiceEntry({
+          targetTenant: tenant,
+          invoiceId,
+          amount,
+          paymentType: "utility",
+          month,
+          year,
+          description: `Invoice ${invoiceId} utility charge (${formatPeriodLabel(month, year)})`,
+        });
+        existingRefs.add(invoiceId);
+      }
+      return;
+    }
+
+    const numericRent = Number(rentAmount || 0);
+    const numericUtility = Number(utilityAmount || 0);
+    const numericTotal = Number(amount || 0);
+    const rentPortion = numericRent > 0 ? numericRent : Math.max(numericTotal - numericUtility, 0);
+    const utilityRef = `${invoiceId}-U`;
+
+    if (!hasRef(invoiceId) && rentPortion > 0) {
+      await createBackendInvoiceEntry({
+        targetTenant: tenant,
+        invoiceId,
+        amount: rentPortion,
+        paymentType: "rent",
+        month,
+        year,
+        description: `Invoice ${invoiceId} rent charge (${formatPeriodLabel(month, year)})`,
+      });
+      existingRefs.add(invoiceId);
+    }
+
+    if (!hasRef(utilityRef) && numericUtility > 0) {
+      await createBackendInvoiceEntry({
+        targetTenant: tenant,
+        invoiceId: utilityRef,
+        amount: numericUtility,
+        paymentType: "utility",
+        month,
+        year,
+        description: `Invoice ${invoiceId} utility charge (${formatPeriodLabel(month, year)})`,
+      });
+      existingRefs.add(utilityRef);
+    }
+  };
+
+  useEffect(() => {
+    if (hasSyncedLegacyInvoicesRef.current) return;
+    if (!currentCompany?._id || tenantsFromStore.length === 0) return;
+
+    const runSync = async () => {
+      const existingRefs = new Set(
+        (rentPayments || [])
+          .map((payment) => String(payment?.referenceNumber || "").trim())
+          .filter(Boolean)
+      );
+
+      let syncedCount = 0;
+
+      for (const tenant of tenantsFromStore) {
+        const storageKey = `createdInvoices_${tenant._id}`;
+        const stored = localStorage.getItem(storageKey);
+        if (!stored) continue;
+
+        const tenantInvoices = JSON.parse(stored || "{}");
+
+        for (const [periodKey, entry] of Object.entries(tenantInvoices || {})) {
+          const invoiceId = getInvoiceIdFromEntry(entry);
+          if (!invoiceId) continue;
+
+          const period = getNormalizedPeriodFromEntry(periodKey, entry);
+          const parsed = parsePeriodLabel(period);
+
+          const amount = typeof entry === "object" ? Number(entry?.amount || 0) : 0;
+          const rentAmount = typeof entry === "object" ? Number(entry?.rentAmount || 0) : 0;
+          const utilityAmount = typeof entry === "object" ? Number(entry?.utilityAmount || 0) : 0;
+          const chargeType = typeof entry === "object" && entry?.chargeType ? String(entry.chargeType) : "combined";
+
+          const before = existingRefs.size;
+          await syncStoredInvoiceToBackend({
+            tenant,
+            invoiceId,
+            chargeType,
+            amount,
+            rentAmount,
+            utilityAmount,
+            month: parsed.month,
+            year: parsed.year,
+            existingRefs,
+          });
+          if (existingRefs.size > before) {
+            syncedCount += existingRefs.size - before;
+          }
+        }
+      }
+
+      hasSyncedLegacyInvoicesRef.current = true;
+      if (syncedCount > 0) {
+        await getRentPayments(dispatch, currentCompany._id);
+        toast.info(`Synced ${syncedCount} invoice ledger entr${syncedCount === 1 ? "y" : "ies"} to accounting ledger.`);
+      }
+    };
+
+    runSync().catch((error) => {
+      hasSyncedLegacyInvoicesRef.current = true;
+      console.error("Invoice ledger sync failed:", error);
+      toast.warn(error?.response?.data?.message || "Some legacy invoices could not be synced to ledger.");
+    });
+  }, [currentCompany?._id, tenantsFromStore, rentPayments, dispatch]);
+
+  const createInvoiceForTenant = async (targetTenant, month, year, nextInvoiceNumRef, billingMode = "combined") => {
     if (!targetTenant?._id) {
       return { created: false, reason: "Invalid tenant" };
     }
@@ -875,7 +1160,69 @@ const RentalInvoices = () => {
     }
 
     localStorage.setItem(storageKey, JSON.stringify(tenantInvoices));
-    return { created: true, invoiceIds: createdInvoiceIds, periodLabel };
+
+    try {
+      if (billingMode === "separate") {
+        if (createdInvoiceIds[0] && rentAmount > 0) {
+          await createBackendInvoiceEntry({
+            targetTenant,
+            invoiceId: createdInvoiceIds[0],
+            amount: rentAmount,
+            paymentType: "rent",
+            month,
+            year,
+            description: `Invoice ${createdInvoiceIds[0]} rent charge (${periodLabel})`,
+          });
+        }
+
+        if (createdInvoiceIds[1] && utilityAmount > 0) {
+          await createBackendInvoiceEntry({
+            targetTenant,
+            invoiceId: createdInvoiceIds[1],
+            amount: utilityAmount,
+            paymentType: "utility",
+            month,
+            year,
+            description: `Invoice ${createdInvoiceIds[1]} utility charge (${periodLabel})`,
+          });
+        }
+      } else {
+        if (createdInvoiceIds[0] && rentAmount > 0) {
+          await createBackendInvoiceEntry({
+            targetTenant,
+            invoiceId: createdInvoiceIds[0],
+            amount: rentAmount,
+            paymentType: "rent",
+            month,
+            year,
+            description: `Invoice ${createdInvoiceIds[0]} rent charge (${periodLabel})`,
+          });
+        }
+
+        if (createdInvoiceIds[0] && utilityAmount > 0) {
+          await createBackendInvoiceEntry({
+            targetTenant,
+            invoiceId: `${createdInvoiceIds[0]}-U`,
+            amount: utilityAmount,
+            paymentType: "utility",
+            month,
+            year,
+            description: `Invoice ${createdInvoiceIds[0]} utility charge (${periodLabel})`,
+          });
+        }
+      }
+    } catch (error) {
+      // Keep local invoice so users are not blocked; indicate ledger sync failure.
+      return {
+        created: true,
+        invoiceIds: createdInvoiceIds,
+        periodLabel,
+        ledgerSynced: false,
+        ledgerError: error?.response?.data?.message || error?.message || "Ledger sync failed",
+      };
+    }
+
+    return { created: true, invoiceIds: createdInvoiceIds, periodLabel, ledgerSynced: true };
   };
 
   const handleBookingActionChange = (value) => {
@@ -891,7 +1238,7 @@ const RentalInvoices = () => {
     }
   };
 
-  const handleSingleBooking = () => {
+  const handleSingleBooking = async () => {
     const selectedTenant = tenantLookup[singleBookingForm.tenantId];
     if (!selectedTenant) {
       toast.error("Please select a tenant");
@@ -905,7 +1252,7 @@ const RentalInvoices = () => {
     }
 
     const nextInvoiceNumRef = { current: getNextInvoiceNumber() };
-    const result = createInvoiceForTenant(
+    const result = await createInvoiceForTenant(
       selectedTenant,
       Number(singleBookingForm.month),
       Number(singleBookingForm.year),
@@ -923,9 +1270,15 @@ const RentalInvoices = () => {
       return;
     }
 
-    toast.success(
-      `Booked ${result.invoiceIds.join(", ")} for ${getTenantDisplayName(selectedTenant)}`
-    );
+    if (result.ledgerSynced === false) {
+      toast.warn(
+        `Booked ${result.invoiceIds.join(", ")} for ${getTenantDisplayName(selectedTenant)} but ledger sync failed: ${result.ledgerError}`
+      );
+    } else {
+      toast.success(
+        `Booked ${result.invoiceIds.join(", ")} for ${getTenantDisplayName(selectedTenant)}`
+      );
+    }
     setShowSingleBooking(false);
     setBookingAction("");
     
@@ -934,7 +1287,7 @@ const RentalInvoices = () => {
     setRefreshTick((prev) => prev + 1);
   };
 
-  const handleBatchBooking = () => {
+  const handleBatchBooking = async () => {
     const selectedPropertyId = batchBookingForm.propertyId;
     const month = Number(batchBookingForm.month);
     const year = Number(batchBookingForm.year);
@@ -962,9 +1315,10 @@ const RentalInvoices = () => {
     const nextInvoiceNumRef = { current: getNextInvoiceNumber() };
     let createdCount = 0;
     let skippedCount = 0;
+    let syncFailedCount = 0;
 
-    eligibleTenants.forEach((tenant) => {
-      const result = createInvoiceForTenant(
+    for (const tenant of eligibleTenants) {
+      const result = await createInvoiceForTenant(
         tenant,
         month,
         year,
@@ -973,19 +1327,23 @@ const RentalInvoices = () => {
       );
       if (result.created) {
         createdCount += 1;
+        if (result.ledgerSynced === false) syncFailedCount += 1;
       } else if (result.reason === "already_exists") {
         skippedCount += 1;
       }
-    });
+    }
 
     if (createdCount === 0 && skippedCount > 0) {
       toast.info(`No new invoices created. ${skippedCount} already existed.`);
       return;
     }
 
-    toast.success(
-      `Batch booking complete: ${createdCount} created${skippedCount > 0 ? `, ${skippedCount} skipped` : ""}`
-    );
+    const summary = `Batch booking complete: ${createdCount} created${skippedCount > 0 ? `, ${skippedCount} skipped` : ""}`;
+    if (syncFailedCount > 0) {
+      toast.warn(`${summary}, ${syncFailedCount} with ledger sync issues`);
+    } else {
+      toast.success(summary);
+    }
     setShowBatchBooking(false);
     setBookingAction("");
     
@@ -1293,12 +1651,14 @@ const RentalInvoices = () => {
                         className={`${
                           idx % 2 === 0 ? "bg-white" : "bg-slate-50"
                         } border-b border-slate-200 hover:bg-blue-50/40 transition-colors`}
+                        onClick={() => handleViewInvoice(invoice)}
                       >
                         <td className="px-3 py-2">
                           <input
                             type="checkbox"
                             checked={selectedInvoices.includes(invoice.key)}
                             onChange={() => toggleRowSelection(invoice.key)}
+                            onClick={(e) => e.stopPropagation()}
                           />
                         </td>
                         <td className="px-3 py-2 text-blue-700 font-bold">{invoice.id}</td>
@@ -1327,7 +1687,7 @@ const RentalInvoices = () => {
                         </td>
                         <td className="px-3 py-2 text-center text-gray-600">{invoice.createdDate}</td>
                         <td className="px-3 py-2 text-right">
-                          <div className="flex gap-1 justify-end">
+                          <div className="flex gap-1 justify-end" onClick={(e) => e.stopPropagation()}>
                             <button
                               onClick={() => handleViewInvoice(invoice)}
                               className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
@@ -1642,6 +2002,15 @@ const RentalInvoices = () => {
           </div>
         </div>
       )}
+
+      <JournalEntriesDrawer
+        open={journalDrawerOpen}
+        onClose={() => setJournalDrawerOpen(false)}
+        title="Invoice Journal Entry"
+        sourceType="invoice"
+        context={journalContext}
+        lines={journalLines}
+      />
     </DashboardLayout>
   );
 };

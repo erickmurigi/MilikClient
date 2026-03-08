@@ -16,6 +16,9 @@ import {
 import { toast } from "react-toastify";
 import DashboardLayout from "../../components/Layout/DashboardLayout";
 import { getProcessedStatements, updateStatement, deleteStatement } from "../../redux/processedStatementsRedux";
+import PayLandlordModal from "../../components/Modals/PayLandlordModal";
+import PostCommissionModal from "../../components/Modals/PostCommissionModal";
+import { adminRequests } from "../../utils/requestMethods";
 
 // Milik colors
 const MILIK_GREEN = "bg-[#0B3B2E]";
@@ -43,6 +46,8 @@ const ProcessedStatements = () => {
   const [expandedRow, setExpandedRow] = useState(null);
   const [searchText, setSearchText] = useState("");
   const [sortBy, setSortBy] = useState("date-desc"); // date-desc, date-asc
+  const [showPayModal, setShowPayModal] = useState(null); // statementId or null
+  const [showCommissionModal, setShowCommissionModal] = useState(null); // statementId or null
 
   const businessId = useMemo(() => {
     return (
@@ -147,6 +152,44 @@ const ProcessedStatements = () => {
       toast.success("Statement deleted successfully");
     } catch (error) {
       toast.error(error || "Failed to delete statement");
+    }
+  };
+
+  const handlePayLandlord = async (statementId, paymentData) => {
+    try {
+      const res = await adminRequests.post(`/landlord-payments/pay`, {
+        statementId,
+        ...paymentData,
+      });
+
+      toast.success("Payment recorded successfully");
+      setShowPayModal(null);
+      
+      // Reload processed statements
+      if (businessId) {
+        dispatch(getProcessedStatements(businessId));
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error.message || "Failed to record payment");
+    }
+  };
+
+  const handlePostCommission = async (statementId, commissionData) => {
+    try {
+      const res = await adminRequests.post(`/landlord-payments/post-commission`, {
+        statementId,
+        ...commissionData,
+      });
+
+      toast.success("Commission posted successfully");
+      setShowCommissionModal(null);
+      
+      // Reload processed statements
+      if (businessId) {
+        dispatch(getProcessedStatements(businessId));
+      }
+    } catch (error) {
+      toast.error(error?.response?.data?.message || error.message || "Failed to post commission");
     }
   };
 
@@ -311,6 +354,7 @@ const ProcessedStatements = () => {
   };
 
   return (
+    <>
     <DashboardLayout>
       <div className="min-h-screen bg-gray-100 p-6">
         <div className="max-w-7xl mx-auto">
@@ -515,6 +559,24 @@ const ProcessedStatements = () => {
 
                                   {statement.status === "unpaid" && (
                                     <button
+                                      onClick={() => setShowPayModal(statement._id)}
+                                      className={`flex items-center gap-2 px-3 py-2 ${MILIK_GREEN} ${MILIK_GREEN_HOVER} text-white text-sm rounded transition`}
+                                    >
+                                      <FaCheckCircle /> Pay Landlord
+                                    </button>
+                                  )}
+
+                                  {statement.status === "unpaid" && statement.commissionAmount > 0 && (
+                                    <button
+                                      onClick={() => setShowCommissionModal(statement._id)}
+                                      className={`flex items-center gap-2 px-3 py-2 ${MILIK_ORANGE} ${MILIK_ORANGE_HOVER} text-white text-sm rounded transition`}
+                                    >
+                                      <FaDownload /> Post Commission
+                                    </button>
+                                  )}
+
+                                  {statement.status === "unpaid" && (
+                                    <button
                                       onClick={() => handleMarkAsPaid(statement._id)}
                                       className={`flex items-center gap-2 px-3 py-2 ${MILIK_GREEN} ${MILIK_GREEN_HOVER} text-white text-sm rounded transition`}
                                     >
@@ -552,6 +614,25 @@ const ProcessedStatements = () => {
         </div>
       </div>
     </DashboardLayout>
+
+    {/* Pay Landlord Modal */}
+    {showPayModal && (
+      <PayLandlordModal
+        statement={statements.find((s) => s._id === showPayModal)}
+        onClose={() => setShowPayModal(null)}
+        onSubmit={(paymentData) => handlePayLandlord(showPayModal, paymentData)}
+      />
+    )}
+
+    {/* Post Commission Modal */}
+    {showCommissionModal && (
+      <PostCommissionModal
+        statement={statements.find((s) => s._id === showCommissionModal)}
+        onClose={() => setShowCommissionModal(null)}
+        onSubmit={(commissionData) => handlePostCommission(showCommissionModal, commissionData)}
+      />
+    )}
+  </>
   );
 };
 

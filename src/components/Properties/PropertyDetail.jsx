@@ -5,7 +5,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import DashboardLayout from '../../components/Layout/DashboardLayout';
 import {
   FaArrowLeft, FaEdit, FaTrash, FaPhone, FaEnvelope,
-  FaMapMarkerAlt, FaBuilding, FaHome, FaCity, FaCalendar
+  FaMapMarkerAlt, FaBuilding, FaHome, FaCity, FaCalendar,
+  FaFileInvoice, FaChartLine, FaMoneyBillWave
 } from 'react-icons/fa';
 import { getPropertyById, deleteProperty } from '../../redux/propertyRedux';
 
@@ -167,7 +168,15 @@ const PropertyDetail = () => {
         {/* Landlords */}
         {currentProperty.landlords && currentProperty.landlords.length > 0 && (
           <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-4">Landlords</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold text-gray-800">Landlords</h2>
+              <button
+                onClick={() => navigate(`/landlord/statements?propertyId=${id}`)}
+                className="text-sm text-emerald-600 hover:text-emerald-700 font-medium flex items-center gap-2"
+              >
+                <FaFileInvoice /> View Statements
+              </button>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {currentProperty.landlords.map((landlord, index) => (
                 <div key={index} className="border border-gray-200 rounded-lg p-4">
@@ -189,6 +198,81 @@ const PropertyDetail = () => {
             </div>
           </div>
         )}
+
+        {/* Financial Overview Section */}
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <FaChartLine className="text-emerald-600" />
+            Financial Overview
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="bg-emerald-50 rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-emerald-600 p-3 rounded-lg">
+                  <FaMoneyBillWave className="text-white text-xl" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Expected Rent</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {currentProperty.currency || 'KES'} {Number(currentProperty.expectedRent || 0).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-600 p-3 rounded-lg">
+                  <FaFileInvoice className="text-white text-xl" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Occupancy Rate</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {currentProperty.totalUnits > 0 
+                      ? Math.round((currentProperty.occupiedUnits / currentProperty.totalUnits) * 100)
+                      : 0}%
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-purple-50 rounded-lg p-4">
+              <div className="flex items-center gap-3">
+                <div className="bg-purple-600 p-3 rounded-lg">
+                  <FaBuilding className="text-white text-xl" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Total Units</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {currentProperty.totalUnits}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => navigate(`/landlord/statements?propertyId=${id}`)}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors"
+            >
+              <FaFileInvoice /> Generate Statement
+            </button>
+            <button
+              onClick={() => navigate(`/reports/rental-collection?propertyId=${id}`)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
+            >
+              <FaChartLine /> View Reports
+            </button>
+            <button
+              onClick={() => navigate(`/receipts?propertyId=${id}`)}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg flex items-center gap-2 hover:bg-purple-700 transition-colors"
+            >
+              <FaMoneyBillWave /> View Payments
+            </button>
+          </div>
+        </div>
 
         {/* Notes */}
         {currentProperty.notes && (

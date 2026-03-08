@@ -1,3 +1,4 @@
+import { propertyBelongsToLandlord } from "./propertyUtils";
 import React, { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -78,16 +79,9 @@ const LandlordPayments = () => {
   const landlordData = useMemo(() => {
     return landlords.map((landlord) => {
       // Get properties owned by this landlord
-      const landlordProperties = properties.filter((prop) => {
-        // Check if landlord is in the property's landlords array by landlordId or name (for backward compatibility)
-        return prop.landlords?.some((ll) => {
-          // Check by landlordId (new way)
-          if (ll.landlordId === landlord._id) return true;
-          // Check by name (old way, for backward compatibility)
-          if (ll.name === landlord.landlordName) return true;
-          return false;
-        });
-      });
+      const landlordProperties = properties.filter((prop) =>
+        propertyBelongsToLandlord(prop, landlord._id, landlord.landlordName)
+      );
 
       // Calculate total rent from all properties
       let totalRentExpected = 0;

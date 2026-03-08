@@ -11,6 +11,14 @@ import { getTenants } from "../../redux/tenantsRedux";
 const MILIK_GREEN = "bg-[#0B3B2E]";
 const MILIK_GREEN_HOVER = "hover:bg-[#0A3127]";
 
+const CASHBOOK_OPTIONS = [
+  "Main Cashbook",
+  "Bank Cashbook",
+  "Petty Cash",
+  "M-Pesa Collections",
+  "Agency Collections",
+];
+
 const todayInput = () => new Date().toISOString().split("T")[0];
 
 const getTenantName = (tenant) => {
@@ -46,6 +54,7 @@ const AddReceipt = () => {
     amount: "",
     paymentType: "rent",
     paymentMethod: "mobile_money",
+    cashbook: "Main Cashbook",
     paidDirectToLandlord: false,
     paymentDate: todayInput(),
     dueDate: todayInput(),
@@ -355,6 +364,11 @@ const AddReceipt = () => {
       return;
     }
 
+    if (!formData.cashbook) {
+      toast.error("Cashbook is required");
+      return;
+    }
+
     const unitId = selectedTenant?.unit?._id || selectedTenant?.unit;
     if (!unitId) {
       toast.error("Selected tenant has no linked unit");
@@ -369,6 +383,7 @@ const AddReceipt = () => {
       amount: Number(formData.amount),
       paymentType: formData.paymentType,
       paymentMethod: formData.paymentMethod,
+      cashbook: formData.cashbook,
       paidDirectToLandlord: Boolean(formData.paidDirectToLandlord),
       paymentDate: formData.paymentDate,
       dueDate: formData.dueDate,
@@ -642,6 +657,24 @@ const AddReceipt = () => {
                   <option value="check">Check</option>
                   <option value="credit_card">Credit Card</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700">Cashbook *</label>
+                <select
+                  value={formData.cashbook}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, cashbook: e.target.value }))}
+                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                >
+                  {CASHBOOK_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Select where this receipt is collected for posting to journals and ledger reports.
+                </p>
               </div>
 
               <div>
