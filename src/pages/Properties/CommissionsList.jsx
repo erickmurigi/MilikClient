@@ -277,8 +277,8 @@ const CommissionsList = () => {
                                     onChange={(e) => handleEditChange('commissionRecognitionBasis', e.target.value)}
                                     className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                   >
-                                    <option value="received">Received</option>
-                                    <option value="invoiced">Invoiced</option>
+                                    <option value="received">Rent Collected (Cash)</option>
+                                    <option value="invoiced">Rent Expected (Accrual)</option>
                                   </select>
                                 </div>
 
@@ -343,7 +343,7 @@ const CommissionsList = () => {
                                 <span className="text-gray-400">Not set</span>
                               )}
                             </td>
-                            <td className="px-6 py-4 text-sm text-gray-700">{property.commissionRecognitionBasis ? (property.commissionRecognitionBasis === 'received' ? 'Received' : 'Invoiced') : '-'}</td>
+                            <td className="px-6 py-4 text-sm text-gray-700">{property.commissionRecognitionBasis ? (property.commissionRecognitionBasis === 'received' ? 'Rent Collected (Cash)' : 'Rent Expected (Accrual)') : '-'}</td>
                             <td className="px-6 py-4 text-sm text-gray-700">{property.tenantsPaysTo ? (property.tenantsPaysTo === 'propertyManager' ? 'Manager' : 'Landlord') : '-'}</td>
                             <td className="px-6 py-4 text-sm text-gray-700">{property.depositHeldBy ? (property.depositHeldBy === 'propertyManager' ? 'Manager' : 'Landlord') : '-'}</td>
                             <td className="px-6 py-4 text-center">
@@ -422,8 +422,8 @@ const CommissionsList = () => {
                   onChange={(e) => setAddFormData(prev => ({ ...prev, commissionRecognitionBasis: e.target.value }))}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 >
-                  <option value="received">Received</option>
-                  <option value="invoiced">Invoiced</option>
+                  <option value="received">Rent Collected (Cash)</option>
+                  <option value="invoiced">Rent Expected (Accrual)</option>
                 </select>
               </div>
 

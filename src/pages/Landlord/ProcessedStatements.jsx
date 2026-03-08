@@ -24,6 +24,12 @@ const MILIK_ORANGE = "bg-[#FF8C00]";
 const MILIK_ORANGE_HOVER = "hover:bg-[#e67e00]";
 
 const money = (value) => Number(value || 0).toFixed(2);
+const getCommissionBasisLabel = (basis) =>
+  basis === "invoiced"
+    ? "Rent Expected (Accrual)"
+    : basis === "received_manager_only"
+    ? "Rent Collected by Manager Only"
+    : "Rent Collected (Cash)";
 
 const ProcessedStatements = () => {
   const dispatch = useDispatch();
@@ -215,8 +221,8 @@ const ProcessedStatements = () => {
         <th>TENANT</th>
         <th class="number">PER MONTH</th>
         <th class="number">BALANCE B/F</th>
-        <th class="number">INVOICED</th>
-        <th class="number">RECEIVED</th>
+        <th class="number">RENT EXPECTED</th>
+        <th class="number">RENT COLLECTED</th>
         <th class="number">BALANCE C/F</th>
       </tr>
     </thead>
@@ -250,11 +256,23 @@ const ProcessedStatements = () => {
     <h3 style="margin-bottom: 10px;">FINANCIAL SUMMARY</h3>
     <table>
       <tr>
-        <th>RENT RECEIVED</th>
+        <th>RENT EXPECTED</th>
+        <td>${money(statement.totalRentInvoiced)}</td>
+      </tr>
+      <tr>
+        <th>RENT COLLECTED</th>
         <td>${money(statement.totalRentReceived)}</td>
       </tr>
       <tr>
-        <th>COMMISSION (${statement.commissionPercentage}%)</th>
+        <th>ARREARS</th>
+        <td>${money((statement.totalRentInvoiced || 0) - (statement.totalRentReceived || 0))}</td>
+      </tr>
+      <tr>
+        <th>COMMISSION BASIS USED</th>
+        <td>${getCommissionBasisLabel(statement.commissionBasis)}</td>
+      </tr>
+      <tr>
+        <th>COMMISSION (${statement.commissionPercentage}% ON ${getCommissionBasisLabel(statement.commissionBasis).toUpperCase()})</th>
         <td>(${money(statement.commissionAmount)})</td>
       </tr>
       <tr style="background: #0B3B2E; color: white; font-weight: bold;">
@@ -460,8 +478,16 @@ const ProcessedStatements = () => {
                                   <p className="font-semibold text-sm mb-2">Financial Summary</p>
                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
                                     <div>
-                                      <p className="text-gray-600">Rent Received</p>
+                                      <p className="text-gray-600">Rent Expected</p>
+                                      <p className="font-semibold">{money(statement.totalRentInvoiced)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-gray-600">Rent Collected</p>
                                       <p className="font-semibold">{money(statement.totalRentReceived)}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-gray-600">Arrears</p>
+                                      <p className="font-semibold">{money((statement.totalRentInvoiced || 0) - (statement.totalRentReceived || 0))}</p>
                                     </div>
                                     <div>
                                       <p className="text-gray-600">Commission</p>
@@ -473,7 +499,7 @@ const ProcessedStatements = () => {
                                     </div>
                                     <div>
                                       <p className="text-gray-600">Basis</p>
-                                      <p className="font-semibold capitalize">{statement.commissionBasis}</p>
+                                      <p className="font-semibold">{getCommissionBasisLabel(statement.commissionBasis)}</p>
                                     </div>
                                   </div>
                                 </div>

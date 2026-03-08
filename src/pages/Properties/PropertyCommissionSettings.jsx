@@ -174,7 +174,7 @@ const PropertyCommissionSettings = () => {
                         onChange={handleInputChange}
                         className="mr-2"
                       />
-                      <span className="text-sm">Received</span>
+                      <span className="text-sm">Rent Collected (Cash)</span>
                     </label>
                     <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
                       <input
@@ -185,7 +185,7 @@ const PropertyCommissionSettings = () => {
                         onChange={handleInputChange}
                         className="mr-2"
                       />
-                      <span className="text-sm">Invoiced</span>
+                      <span className="text-sm">Rent Expected (Accrual)</span>
                     </label>
                   </div>
                 </div>

@@ -14,6 +14,8 @@ import { getLandlords, getRentPayments } from "../../redux/apiCalls";
 import { getProperties } from "../../redux/propertyRedux";
 import { getTenants } from "../../redux/tenantsRedux";
 import { closeStatement } from "../../redux/processedStatementsRedux";
+import { adminRequests } from "../../utils/requestMethods";
+import { buildLandlordStatementFromEvents } from "../../utils/landlordStatementEngine";
 
 // Milik color constants
 const MILIK_GREEN = "bg-[#0B3B2E]";
@@ -64,6 +66,13 @@ const resolvePaymentAmount = (payment) =>
   Number(payment?.amount || payment?.amountPaid || payment?.breakdown?.total || 0);
 
 const resolvePaymentTxnNo = (payment) => payment?.receiptNumber || payment?.referenceNumber || "N/A";
+
+const getCommissionBasisLabel = (basis) =>
+  basis === "invoiced"
+    ? "Rent Expected (Accrual)"
+    : basis === "received_manager_only"
+    ? "Rent Collected by Manager Only"
+    : "Rent Collected (Cash)";
 
 const loadTenantInvoiceEntries = (tenantId) => {
   if (!tenantId) return [];
@@ -176,6 +185,7 @@ const LandlordCommissionsStatement = () => {
   const [selectedPropertyId, setSelectedPropertyId] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [statementType, setStatementType] = useState("provisional"); // provisional | final
   const [statementData, setStatementData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [processingStatement, setProcessingStatement] = useState(false);
@@ -235,7 +245,7 @@ const LandlordCommissionsStatement = () => {
     });
   }, [properties, selectedLandlord]);
 
-  const generateStatement = () => {
+  const generateStatement = async () => {
     if (!selectedLandlordId || !selectedPropertyId || !selectedMonth || !selectedYear) {
       toast.error("Please select landlord, property, month, and year");
       return;
@@ -252,90 +262,13 @@ const LandlordCommissionsStatement = () => {
     const { start: periodStart, end: periodEnd } = calculateStatementDates(parseInt(selectedMonth), selectedYear);
 
     const propertyId = normalizeId(property._id);
-    const propertyTenants = tenants.filter(
-      (tenant) => resolveTenantPropertyId(tenant) === propertyId
-    );
-    const tenantIds = new Set(propertyTenants.map((t) => normalizeId(t._id)));
+    const propertyTenants = tenants.filter((tenant) => resolveTenantPropertyId(tenant) === propertyId);
 
-    const validPayments = rentPayments.filter((payment) => {
-      const tenantId = resolvePaymentTenantId(payment);
-      if (!tenantIds.has(tenantId)) return false;
-
-      if (typeof payment?.isConfirmed === "boolean" && !payment.isConfirmed) return false;
-      if (payment?.isCancelled) return false;
-      if (payment?.reversalOf) return false;
-
-      const paymentDate = toDateSafe(payment?.paymentDate || payment?.createdAt);
-      if (!paymentDate) return false;
-
-      return true;
-    });
-
-    const periodPayments = validPayments.filter((payment) => {
-      const paymentDate = toDateSafe(payment?.paymentDate || payment?.createdAt);
-      return paymentDate >= periodStart && paymentDate <= periodEnd;
-    });
-
-    const openingPayments = validPayments.filter((payment) => {
-      const paymentDate = toDateSafe(payment?.paymentDate || payment?.createdAt);
-      return paymentDate < periodStart;
-    });
-
-    const months = monthSpanInclusive(periodStart, periodEnd);
-
-    const tenantRows = propertyTenants.map((tenant) => {
-      const tenantId = normalizeId(tenant._id);
-      const rentPerMonth = Number(tenant?.rent || tenant?.unit?.rent || 0);
-
-      const invoiceEntries = loadTenantInvoiceEntries(tenantId);
-
-      const invoicedInPeriod = invoiceEntries
-        .filter((inv) => inv.createdAt && inv.createdAt >= periodStart && inv.createdAt <= periodEnd)
-        .reduce((sum, inv) => sum + Number(inv.rentAmount || 0), 0);
-
-      const invoicedBeforePeriod = invoiceEntries
-        .filter((inv) => inv.createdAt && inv.createdAt < periodStart)
-        .reduce((sum, inv) => sum + Number(inv.rentAmount || 0), 0);
-
-      const totalInvoiced = invoicedInPeriod > 0 ? invoicedInPeriod : rentPerMonth * months;
-
-      const tenantPeriodPayments = periodPayments.filter(
-        (payment) => resolvePaymentTenantId(payment) === tenantId
-      );
-
-      const tenantOpeningPayments = openingPayments.filter(
-        (payment) => resolvePaymentTenantId(payment) === tenantId
-      );
-
-      const totalReceived = tenantPeriodPayments.reduce((sum, p) => sum + resolvePaymentAmount(p), 0);
-      const openingReceived = tenantOpeningPayments.reduce((sum, p) => sum + resolvePaymentAmount(p), 0);
-
-      const openingBalance = invoicedBeforePeriod - openingReceived;
-      const closingBalance = openingBalance + totalInvoiced - totalReceived;
-
-      return {
-        unit: resolveTenantUnit(tenant),
-        tenantName: resolveTenantName(tenant),
-        rentPerMonth,
-        openingBalance,
-        totalInvoiced,
-        txnNo:
-          tenantPeriodPayments.length > 0
-            ? tenantPeriodPayments.map((p) => resolvePaymentTxnNo(p)).join(", ")
-            : "-",
-        totalReceived,
-        closingBalance,
-      };
-    });
-
-    const totalRentInvoiced = tenantRows.reduce((sum, row) => sum + row.totalInvoiced, 0);
-    const totalRentReceived = tenantRows.reduce((sum, row) => sum + row.totalReceived, 0);
-
-    const commissionPercentage = Number(property?.commissionPercentage || 0);
-    const commissionBasis = property?.commissionRecognitionBasis || "received";
-    const commissionBaseAmount = commissionBasis === "invoiced" ? totalRentInvoiced : totalRentReceived;
-    const commissionAmount = (commissionBaseAmount * commissionPercentage) / 100;
-    const netAmountDue = totalRentReceived - commissionAmount;
+    const invoiceEntriesByTenant = propertyTenants.reduce((acc, tenant) => {
+      const tenantId = normalizeId(tenant?._id);
+      acc[tenantId] = loadTenantInvoiceEntries(tenantId);
+      return acc;
+    }, {});
 
     const occupiedUnits = propertyTenants.filter((t) => {
       const st = normalizeText(t?.status || t?.tenantStatus);
@@ -345,18 +278,102 @@ const LandlordCommissionsStatement = () => {
     const totalUnits = Number(property?.totalUnits || 0);
     const vacantUnits = Math.max(totalUnits - occupiedUnits, 0);
 
+    // Fetch property expenses for final statements (previous-period lag)
+    let previousPeriodExpenses = [];
+
+    if (statementType === "final") {
+      try {
+        // Calculate previous period dates (expenses lag by one month)
+        const prevPeriodEnd = new Date(periodStart);
+        prevPeriodEnd.setDate(prevPeriodEnd.getDate() - 1);
+        const prevPeriodStart = new Date(prevPeriodEnd.getFullYear(), prevPeriodEnd.getMonth(), 1);
+
+        const response = await adminRequests.get("/expensesProperties/property/" + propertyId, {
+          params: {
+            startDate: prevPeriodStart.toISOString(),
+            endDate: prevPeriodEnd.toISOString(),
+          },
+        });
+
+        previousPeriodExpenses = response.data || [];
+      } catch (error) {
+        console.error("Error fetching expenses:", error);
+        toast.warning("Could not load expense data");
+      }
+    }
+
+    const recurringDeductions = Array.isArray(property?.recurringLandlordDeductions)
+      ? property.recurringLandlordDeductions
+      : [];
+    const managerAdvance = property?.managerAdvanceToLandlord || null;
+
+    const engineResult = buildLandlordStatementFromEvents({
+      landlord,
+      property,
+      periodStart,
+      periodEnd,
+      statementType,
+      tenants: propertyTenants,
+      rentPayments,
+      invoiceEntriesByTenant,
+      previousPeriodExpenses,
+      recurringDeductions,
+      managerAdvance,
+    });
+
+    const totalExpenses = Number(engineResult?.totals?.totalExpenses || 0);
+    const expensesByCategory = previousPeriodExpenses.reduce((acc, exp) => {
+      const cat = exp?.category || "other";
+      acc[cat] = (acc[cat] || 0) + Number(exp?.amount || 0);
+      return acc;
+    }, {});
+
+    const totalRentInvoiced = Number(engineResult?.totals?.totalRentInvoiced || 0);
+    const totalRentReceived = Number(engineResult?.totals?.totalRentReceived || 0);
+    const totalArrears = Number(engineResult?.totals?.totalArrears || 0);
+    const commissionPercentage = Number(engineResult?.totals?.commissionPercentage || 0);
+    const commissionBasis = engineResult?.totals?.commissionBasis || "received";
+    const commissionBaseAmount = Number(engineResult?.totals?.commissionBaseAmount || 0);
+    const commissionAmount = Number(engineResult?.totals?.commissionAmount || 0);
+    const remittanceBaseAmount = Number(engineResult?.totals?.managerCollectedIncome || 0);
+    const netAmountDue = Number(engineResult?.totals?.netAmountDue || 0);
+    const netAfterExpenses = Number(engineResult?.totals?.netAfterExpenses || 0);
+
     setStatementData({
       landlord,
       property,
       periodStart,
       periodEnd,
-      tenantRows,
+      statementType,
+      tenantRows: engineResult.tenantRows,
       totalRentInvoiced,
       totalRentReceived,
+      totalArrears,
       commissionPercentage,
       commissionBasis,
+      commissionBaseAmount,
+      remittanceBaseAmount,
       commissionAmount,
       netAmountDue,
+      previousPeriodExpenses,
+      totalExpenses,
+      expensesByCategory,
+      netAfterExpenses,
+      totalRentReceivedByManager: engineResult?.totals?.totalRentReceivedByManager || 0,
+      totalRentReceivedByLandlord: engineResult?.totals?.totalRentReceivedByLandlord || 0,
+      totalUtilitiesCollected: engineResult?.totals?.totalUtilitiesCollected || 0,
+      recurringDeductions: engineResult?.totals?.recurringDeductions || 0,
+      advanceRecoveries: engineResult?.totals?.advanceRecoveries || 0,
+      depositsHeldByManager:
+        engineResult?.summaryBuckets?.securityDeposits?.heldByManager || 0,
+      depositsHeldByLandlord:
+        engineResult?.summaryBuckets?.securityDeposits?.heldByLandlord || 0,
+      unappliedPayments: engineResult?.summaryBuckets?.suspense?.unappliedPayments || 0,
+      financialEvents: engineResult?.financialEvents || [],
+      summaryBuckets: engineResult?.summaryBuckets || {},
+      isNegativeStatement: !!engineResult?.summaryBuckets?.settlement?.isNegativeStatement,
+      amountPayableByLandlordToManager:
+        engineResult?.summaryBuckets?.settlement?.amountPayableByLandlordToManager || 0,
       occupiedUnits,
       vacantUnits,
     });
@@ -394,27 +411,68 @@ const LandlordCommissionsStatement = () => {
       landlord,
       property,
       tenantRows,
+      statementType,
       totalRentInvoiced,
       totalRentReceived,
+      totalArrears,
+      commissionBasis,
+      commissionBaseAmount,
       commissionAmount,
       netAmountDue,
+      totalExpenses,
+      expensesByCategory,
+      netAfterExpenses,
+      isNegativeStatement,
+      amountPayableByLandlordToManager,
     } = statementData;
+
+    const commissionBasisLabel = getCommissionBasisLabel(commissionBasis);
+    const isInvoicedBasis = commissionBasis === "invoiced";
+    const calculatedNetAmountDue = Number(netAmountDue || 0);
 
     let csv = "LANDLORD COMMISSION STATEMENT\n\n";
     csv += `Landlord:,${landlord.landlordName}\n`;
     csv += `Property:,${property.propertyCode} - ${property.propertyName}\n`;
     csv += `Period:,${selectedMonth &&selectedYear ? `${selectedMonth}/${selectedYear}` : ""}\n\n`;
-    csv += "Unit,Tenant,Per Month,Balance B/F,Amount Invoiced,TXN No,Amount Received,Balance C/F\n";
+    csv += isInvoicedBasis
+      ? "Unit,Tenant,Per Month,Balance B/F,Rent Expected,Balance C/F\n"
+      : "Unit,Tenant,Per Month,Balance B/F,Rent Expected,TXN No,Rent Collected,Balance C/F\n";
 
     tenantRows.forEach((row) => {
-      csv += `${row.unit},${row.tenantName},${money(row.rentPerMonth)},${money(row.openingBalance)},${money(row.totalInvoiced)},"${row.txnNo}",${money(row.totalReceived)},${money(row.closingBalance)}\n`;
+      csv += isInvoicedBasis
+        ? `${row.unit},${row.tenantName},${money(row.rentPerMonth)},${money(row.openingBalance)},${money(row.totalInvoiced)},${money(row.closingBalance)}\n`
+        : `${row.unit},${row.tenantName},${money(row.rentPerMonth)},${money(row.openingBalance)},${money(row.totalInvoiced)},"${row.txnNo}",${money(row.totalReceived)},${money(row.closingBalance)}\n`;
     });
 
-    csv += `\nTOTALS:,,,${money(tenantRows.reduce((s, r) => s + r.openingBalance, 0))},${money(totalRentInvoiced)},,${money(totalRentReceived)},${money(tenantRows.reduce((s, r) => s + r.closingBalance, 0))}\n\n`;
+    csv += isInvoicedBasis
+      ? `\nTOTALS:,,,${money(tenantRows.reduce((s, r) => s + r.openingBalance, 0))},${money(totalRentInvoiced)},${money(tenantRows.reduce((s, r) => s + r.closingBalance, 0))}\n\n`
+      : `\nTOTALS:,,,${money(tenantRows.reduce((s, r) => s + r.openingBalance, 0))},${money(totalRentInvoiced)},,${money(totalRentReceived)},${money(tenantRows.reduce((s, r) => s + r.closingBalance, 0))}\n\n`;
     csv += "STATEMENT SUMMARY\n";
-    csv += `Rent Received:,${money(totalRentReceived)}\n`;
+    csv += `Rent Expected:,${money(totalRentInvoiced)}\n`;
+    if (!isInvoicedBasis) {
+      csv += `Rent Collected:,${money(totalRentReceived)}\n`;
+      csv += `Arrears:,${money(totalArrears)}\n`;
+    }
+    csv += `Commission Basis Used:,${commissionBasisLabel}\n`;
+    csv += `Commission Base Amount:,${money(commissionBaseAmount)}\n`;
     csv += `Commission (${statementData.commissionPercentage}%):,${money(commissionAmount)}\n`;
-    csv += `Net Amount Due:,${money(netAmountDue)}\n`;
+    csv += `Net Amount Due:,${money(calculatedNetAmountDue)}\n`;
+    csv += `Deposits Held by Manager (Liability):,${money(statementData.depositsHeldByManager || 0)}\n`;
+    csv += `Deposits Held by Landlord (Liability):,${money(statementData.depositsHeldByLandlord || 0)}\n`;
+    csv += `Unapplied Payments (Suspense):,${money(statementData.unappliedPayments || 0)}\n`;
+    
+    // Add expenses for final statements
+    if (statementType === "final") {
+      csv += `\nPROPERTY EXPENSES (Previous Period)\n`;
+      Object.entries(expensesByCategory || {}).forEach(([category, amount]) => {
+        csv += `${category.replace("_", " ").toUpperCase()}:,${money(amount)}\n`;
+      });
+      csv += `Total Expenses:,${money(totalExpenses || 0)}\n`;
+      csv += `Net Payment to Landlord:,${money(netAfterExpenses || 0)}\n`;
+      if (isNegativeStatement) {
+        csv += `Amount Payable by Landlord to Manager:,${money(amountPayableByLandlordToManager || 0)}\n`;
+      }
+    }
 
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -441,12 +499,28 @@ const LandlordCommissionsStatement = () => {
         property: statementData.property._id,
         periodStart: statementData.periodStart,
         periodEnd: statementData.periodEnd,
+        statementType: statementData.statementType,
         totalRentInvoiced: statementData.totalRentInvoiced,
         totalRentReceived: statementData.totalRentReceived,
+        totalRentReceivedByManager: statementData.totalRentReceivedByManager || 0,
+        totalRentReceivedByLandlord: statementData.totalRentReceivedByLandlord || 0,
+        totalUtilitiesCollected: statementData.totalUtilitiesCollected || 0,
         commissionPercentage: statementData.commissionPercentage,
         commissionBasis: statementData.commissionBasis,
         commissionAmount: statementData.commissionAmount,
-        netAmountDue: statementData.netAmountDue,
+        netAmountDue: (statementData.remittanceBaseAmount ?? statementData.commissionBaseAmount ?? 0) - (statementData.commissionAmount || 0),
+        totalExpenses: statementData.totalExpenses || 0,
+        recurringDeductions: statementData.recurringDeductions || 0,
+        advanceRecoveries: statementData.advanceRecoveries || 0,
+        depositsHeldByManager: statementData.depositsHeldByManager || 0,
+        depositsHeldByLandlord: statementData.depositsHeldByLandlord || 0,
+        unappliedPayments: statementData.unappliedPayments || 0,
+        expensesByCategory: statementData.expensesByCategory || {},
+        netAfterExpenses: statementData.netAfterExpenses || 0,
+        summaryBuckets: statementData.summaryBuckets || {},
+        financialEvents: statementData.financialEvents || [],
+        isNegativeStatement: !!statementData.isNegativeStatement,
+        amountPayableByLandlordToManager: statementData.amountPayableByLandlordToManager || 0,
         occupiedUnits: statementData.occupiedUnits,
         vacantUnits: statementData.vacantUnits,
         tenantRows: statementData.tenantRows,
@@ -460,6 +534,7 @@ const LandlordCommissionsStatement = () => {
       setSelectedPropertyId("");
       setSelectedMonth("");
       setSelectedYear(new Date().getFullYear());
+      setStatementType("provisional");
 
       // Navigate to processed statements page after 1 second
       setTimeout(() => {
@@ -489,14 +564,27 @@ const LandlordCommissionsStatement = () => {
       tenantRows,
       periodStart,
       periodEnd,
+      statementType,
       totalRentInvoiced,
       totalRentReceived,
+      totalArrears,
+      commissionBasis,
+      commissionBaseAmount,
       commissionPercentage,
       commissionAmount,
       netAmountDue,
+      totalExpenses,
+      expensesByCategory,
+      netAfterExpenses,
+      isNegativeStatement,
+      amountPayableByLandlordToManager,
       occupiedUnits,
       vacantUnits,
     } = statementData;
+
+    const commissionBasisLabel = getCommissionBasisLabel(commissionBasis);
+    const isInvoicedBasis = commissionBasis === "invoiced";
+    const calculatedNetAmountDue = Number(netAmountDue || 0);
 
     const formatDate = (date) =>
       date.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
@@ -513,25 +601,33 @@ const LandlordCommissionsStatement = () => {
   <style>
     @page { margin: 0.5cm; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.3; padding: 10px; }
-    .header { text-align: center; margin-bottom: 15px; }
-    .header h1 { font-size: 14pt; font-weight: bold; margin-bottom: 3px; }
-    .header p { font-size: 9pt; margin: 1px 0; }
-    .title { text-align: center; font-size: 11pt; font-weight: bold; margin: 10px 0; border-top: 2px solid black; border-bottom: 2px solid black; padding: 5px 0; }
-    .info-section { display: flex; justify-content: space-between; margin: 10px 0; font-size: 9pt; }
+    body { font-family: Arial, sans-serif; font-size: 10pt; color: #1f2937; line-height: 1.35; padding: 8px; }
+    .header { text-align: center; margin-bottom: 12px; }
+    .header h1 { font-size: 13pt; font-weight: 700; letter-spacing: 0.3px; margin-bottom: 2px; }
+    .header p { font-size: 8.5pt; margin: 1px 0; color: #4b5563; }
+    .title { text-align: center; font-size: 10.5pt; font-weight: 700; margin: 8px 0 10px; border-top: 1px solid #111; border-bottom: 1px solid #111; padding: 5px 0; letter-spacing: 0.5px; }
+    .info-section { display: flex; justify-content: space-between; margin: 8px 0 10px; font-size: 8.8pt; }
     .info-left, .info-right { width: 48%; }
     .info-left p, .info-right p { margin: 2px 0; }
-    .statement-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 9pt; }
-    .statement-table th { background: #e0e0e0; padding: 5px; text-align: left; border: 1px solid #999; font-weight: bold; }
-    .statement-table td { padding: 5px; border: 1px solid #ccc; text-align: left; }
+    .statement-table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 8.7pt; }
+    .statement-table th { background: #f3f4f6; padding: 5px 4px; text-align: left; border-top: 1px solid #111; border-bottom: 1px solid #111; font-weight: 700; }
+    .statement-table td { padding: 4px; border-bottom: 1px dotted #cbd5e1; text-align: left; }
     .statement-table .number { text-align: right; }
-    .statement-table .total-row { font-weight: bold; background: #f5f5f5; }
-    .unit-count { font-size: 9pt; margin: 5px 0 15px 0; }
-    .summary { width: 50%; margin-left: auto; margin-top: 20px; font-size: 9pt; }
+    .statement-table .total-row td { font-weight: 700; border-top: 1px solid #111; border-bottom: 1px solid #111; background: #f8fafc; }
+    .unit-count { font-size: 8.8pt; margin: 4px 0 10px; }
+    .summary-wrap { display: flex; justify-content: flex-end; margin-top: 10px; }
+    .summary { width: 46%; border-top: 1px solid #111; border-bottom: 1px solid #111; padding: 8px 0; }
+    .summary h3 { text-align: right; margin-bottom: 6px; font-size: 9pt; letter-spacing: 0.4px; }
     .summary table { width: 100%; border-collapse: collapse; }
-    .summary th { text-align: left; padding: 5px; background: #e0e0e0; border: 1px solid #999; }
-    .summary td { padding: 5px; border: 1px solid #ccc; text-align: right; }
-    .summary .total { font-weight: bold; font-size: 10pt; }
+    .summary th, .summary td { padding: 2px 0; font-size: 8.8pt; }
+    .summary th { text-align: right; font-weight: 600; }
+    .summary td { text-align: right; width: 30%; font-weight: 700; }
+    .summary .total th, .summary .total td { border-top: 1px solid #111; padding-top: 5px; font-size: 9.2pt; font-weight: 700; }
+    .summary .expense-section { background: #fffbeb; }
+    .summary .expense-section th, .summary .expense-section td { color: #92400e; }
+    .summary .expense-item th { padding-left: 10px; font-weight: 400; }
+    .summary .final-total { background: #0B3B2E; color: white; }
+    .summary .final-total th, .summary .final-total td { padding: 4px 0; }
   </style>
 </head>
 <body>
@@ -542,7 +638,7 @@ const LandlordCommissionsStatement = () => {
     <p>EMAIL: ${company?.email || ""}</p>
   </div>
 
-  <div class="title">PROPERTY ACCOUNT STATEMENT - INTERIM/PROVISIONAL</div>
+  <div class="title">PROPERTY ACCOUNT STATEMENT - ${statementType === "provisional" ? "PROVISIONAL" : "FINAL"}</div>
 
   <div class="info-section">
     <div class="info-left">
@@ -562,9 +658,9 @@ const LandlordCommissionsStatement = () => {
         <th>TENANT/RESIDENT</th>
         <th class="number">PER MONTH</th>
         <th class="number">BALANCE B/F<br/>RENT</th>
-        <th class="number">AMOUNT INVOICED<br/>RENT</th>
-        <th>TXN NO</th>
-        <th class="number">AMOUNT RECEIVED<br/>RENT</th>
+        <th class="number">RENT EXPECTED</th>
+        ${!isInvoicedBasis ? "<th>TXN NO</th>" : ""}
+        ${!isInvoicedBasis ? "<th class=\"number\">RENT COLLECTED</th>" : ""}
         <th class="number">BALANCE C/F</th>
       </tr>
     </thead>
@@ -578,18 +674,18 @@ const LandlordCommissionsStatement = () => {
           <td class="number">${money(row.rentPerMonth)}</td>
           <td class="number">${money(row.openingBalance)}</td>
           <td class="number">${money(row.totalInvoiced)}</td>
-          <td>${row.txnNo}</td>
-          <td class="number">${money(row.totalReceived)}</td>
+          ${!isInvoicedBasis ? `<td>${row.txnNo}</td>` : ""}
+          ${!isInvoicedBasis ? `<td class=\"number\">${money(row.totalReceived)}</td>` : ""}
           <td class="number">${money(row.closingBalance)}</td>
         </tr>`
         )
         .join("")}
       <tr class="total-row">
-        <td colspan="3"><strong>TOTALS:</strong></td>
+        <td colspan="3">TOTALS:</td>
         <td class="number">${money(tenantRows.reduce((s, r) => s + r.openingBalance, 0))}</td>
-        <td class="number"><strong>${money(totalRentInvoiced)}</strong><br/><small>TOTAL INVOICED</small></td>
-        <td></td>
-        <td class="number"><strong>${money(totalRentReceived)}</strong><br/><small>TOTAL PAID</small></td>
+        <td class="number">${money(totalRentInvoiced)}</td>
+        ${!isInvoicedBasis ? "<td></td>" : ""}
+        ${!isInvoicedBasis ? `<td class=\"number\">${money(totalRentReceived)}</td>` : ""}
         <td class="number">${money(tenantRows.reduce((s, r) => s + r.closingBalance, 0))}</td>
       </tr>
     </tbody>
@@ -597,22 +693,52 @@ const LandlordCommissionsStatement = () => {
 
   <p class="unit-count"><strong>OCCUPIED UNITS: ${occupiedUnits} | VACANT UNITS: ${vacantUnits}</strong></p>
 
+  <div class="summary-wrap">
   <div class="summary">
     <h3 style="margin-bottom:10px;">STATEMENT SUMMARY</h3>
     <table>
       <tr>
-        <th>RENT RECEIVED</th>
-        <td>${money(totalRentReceived)}</td>
+        <th>RENT EXPECTED</th>
+        <td>${money(totalRentInvoiced)}</td>
+      </tr>
+      ${!isInvoicedBasis ? `<tr><th>RENT COLLECTED</th><td>${money(totalRentReceived)}</td></tr>` : ""}
+      ${!isInvoicedBasis ? `<tr><th>ARREARS</th><td>${money(totalArrears)}</td></tr>` : ""}
+      <tr>
+        <th>COMMISSION BASIS USED</th>
+        <td>${commissionBasisLabel}</td>
       </tr>
       <tr>
-        <th>COMMISSION (${commissionPercentage}%)</th>
+        <th>COMMISSION BASE AMOUNT</th>
+        <td>${money(commissionBaseAmount)}</td>
+      </tr>
+      <tr>
+        <th>LESS: COMMISSION (${commissionPercentage}%)</th>
         <td>(${money(commissionAmount)})</td>
       </tr>
       <tr class="total">
         <th>NET AMOUNT DUE</th>
-        <td>${money(netAmountDue)}</td>
+        <td>${money(calculatedNetAmountDue)}</td>
       </tr>
+      ${statementType === "final" ? `
+      <tr class="expense-section">
+        <th colspan="2" style="font-weight: 700; padding-top: 6px;">LESS: PROPERTY EXPENSES (Previous Period)</th>
+      </tr>
+      ${Object.entries(expensesByCategory || {}).map(([category, amount]) => `
+      <tr class="expense-section expense-item">
+        <th style="text-transform: capitalize;">${category.replace("_", " ")}</th>
+        <td>(${money(amount)})</td>
+      </tr>`).join("")}
+      <tr class="expense-section" style="font-weight: 700;">
+        <th>TOTAL EXPENSES</th>
+        <td>(${money(totalExpenses || 0)})</td>
+      </tr>
+      <tr class="final-total">
+        <th>NET PAYMENT TO LANDLORD</th>
+        <td>${money(netAfterExpenses || 0)}</td>
+      </tr>
+      ${isNegativeStatement ? `<tr style="background:#991b1b;color:#fff;"><th>AMOUNT PAYABLE BY LANDLORD TO MANAGER</th><td>${money(amountPayableByLandlordToManager || 0)}</td></tr>` : ""}` : ""}
     </table>
+  </div>
   </div>
 </body>
 </html>`;
@@ -621,6 +747,7 @@ const LandlordCommissionsStatement = () => {
   const months = getMonthsList();
   const years = getYearsList();
   const statementDates = calculateStatementDates(parseInt(selectedMonth), selectedYear);
+  const displayNetAmountDue = statementData ? Number(statementData.netAmountDue || 0) : 0;
 
   return (
     <DashboardLayout>
@@ -634,7 +761,7 @@ const LandlordCommissionsStatement = () => {
 
           {/* Selection Card */}
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
               {/* Landlord Dropdown */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Landlord *</label>
@@ -716,6 +843,23 @@ const LandlordCommissionsStatement = () => {
                 </select>
               </div>
 
+              {/* Statement Type Selector */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Type *</label>
+                <select
+                  value={statementType}
+                  onChange={(e) => {
+                    setStatementType(e.target.value);
+                    setStatementData(null);
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  title="Provisional = no expenses yet. Final = includes previous period expenses."
+                >
+                  <option value="provisional">Provisional</option>
+                  <option value="final">Final</option>
+                </select>
+              </div>
+
               {/* Generate Button */}
               <div className="flex items-end">
                 <button
@@ -726,6 +870,17 @@ const LandlordCommissionsStatement = () => {
                   <FaSearch /> {loading ? "Loading..." : "Generate"}
                 </button>
               </div>
+            </div>
+
+            {/* Statement Type Info */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm mb-4">
+              <p className="font-semibold text-blue-900 mb-1">Statement Types:</p>
+              <p className="text-blue-800">
+                <strong>Provisional:</strong> Generated at month start - shows expected rent minus commission (no expense deductions yet).
+              </p>
+              <p className="text-blue-800">
+                <strong>Final:</strong> Generated after collections - includes previous month's expenses deducted from net amount.
+              </p>
             </div>
 
             {/* Statement Period Display */}
@@ -751,7 +906,7 @@ const LandlordCommissionsStatement = () => {
 
               <div className="text-center mb-6">
                 <h3 className="text-lg font-bold border-t-2 border-b-2 border-gray-800 py-2">
-                  PROPERTY ACCOUNT STATEMENT - INTERIM/PROVISIONAL
+                  PROPERTY ACCOUNT STATEMENT - {statementData.statementType === "provisional" ? "PROVISIONAL" : "FINAL"}
                 </h3>
               </div>
 
@@ -775,9 +930,9 @@ const LandlordCommissionsStatement = () => {
                       <th className="border border-gray-400 p-2 text-left">TENANT/RESIDENT</th>
                       <th className="border border-gray-400 p-2 text-right">PER MONTH</th>
                       <th className="border border-gray-400 p-2 text-right">BALANCE B/F RENT</th>
-                      <th className="border border-gray-400 p-2 text-right">AMOUNT INVOICED RENT</th>
-                      <th className="border border-gray-400 p-2">TXN NO</th>
-                      <th className="border border-gray-400 p-2 text-right">AMOUNT RECEIVED RENT</th>
+                      <th className="border border-gray-400 p-2 text-right">RENT EXPECTED</th>
+                      {statementData.commissionBasis !== "invoiced" && <th className="border border-gray-400 p-2">TXN NO</th>}
+                      {statementData.commissionBasis !== "invoiced" && <th className="border border-gray-400 p-2 text-right">RENT COLLECTED</th>}
                       <th className="border border-gray-400 p-2 text-right">BALANCE C/F</th>
                     </tr>
                   </thead>
@@ -789,8 +944,8 @@ const LandlordCommissionsStatement = () => {
                         <td className="border border-gray-300 p-2 text-right">{money(row.rentPerMonth)}</td>
                         <td className="border border-gray-300 p-2 text-right">{money(row.openingBalance)}</td>
                         <td className="border border-gray-300 p-2 text-right">{money(row.totalInvoiced)}</td>
-                        <td className="border border-gray-300 p-2 text-xs">{row.txnNo}</td>
-                        <td className="border border-gray-300 p-2 text-right">{money(row.totalReceived)}</td>
+                        {statementData.commissionBasis !== "invoiced" && <td className="border border-gray-300 p-2 text-xs">{row.txnNo}</td>}
+                        {statementData.commissionBasis !== "invoiced" && <td className="border border-gray-300 p-2 text-right">{money(row.totalReceived)}</td>}
                         <td className="border border-gray-300 p-2 text-right">{money(row.closingBalance)}</td>
                       </tr>
                     ))}
@@ -798,8 +953,8 @@ const LandlordCommissionsStatement = () => {
                       <td colSpan="3" className="border border-gray-400 p-2">TOTALS:</td>
                       <td className="border border-gray-400 p-2 text-right">{money(statementData.tenantRows.reduce((s, r) => s + r.openingBalance, 0))}</td>
                       <td className="border border-gray-400 p-2 text-right">{money(statementData.totalRentInvoiced)}</td>
-                      <td className="border border-gray-400 p-2"></td>
-                      <td className="border border-gray-400 p-2 text-right">{money(statementData.totalRentReceived)}</td>
+                      {statementData.commissionBasis !== "invoiced" && <td className="border border-gray-400 p-2"></td>}
+                      {statementData.commissionBasis !== "invoiced" && <td className="border border-gray-400 p-2 text-right">{money(statementData.totalRentReceived)}</td>}
                       <td className="border border-gray-400 p-2 text-right">{money(statementData.tenantRows.reduce((s, r) => s + r.closingBalance, 0))}</td>
                     </tr>
                   </tbody>
@@ -814,26 +969,102 @@ const LandlordCommissionsStatement = () => {
                 <table className="w-full border-collapse text-sm">
                   <tbody>
                     <tr className="bg-gray-200">
-                      <th className="border border-gray-400 p-2 text-left">RENT RECEIVED</th>
-                      <td className="border border-gray-400 p-2 text-right font-semibold">{money(statementData.totalRentReceived)}</td>
+                      <th className="border border-gray-400 p-2 text-left">RENT EXPECTED</th>
+                      <td className="border border-gray-400 p-2 text-right font-semibold">{money(statementData.totalRentInvoiced)}</td>
+                    </tr>
+                    {statementData.commissionBasis !== "invoiced" && (
+                      <tr>
+                        <th className="border border-gray-400 p-2 text-left">RENT COLLECTED</th>
+                        <td className="border border-gray-400 p-2 text-right font-semibold">{money(statementData.totalRentReceived)}</td>
+                      </tr>
+                    )}
+                    <tr>
+                      <th className="border border-gray-400 p-2 text-left">RENT COLLECTED BY MANAGER</th>
+                      <td className="border border-gray-400 p-2 text-right font-semibold">{money(statementData.totalRentReceivedByManager || 0)}</td>
                     </tr>
                     <tr>
-                      <th className="border border-gray-400 p-2 text-left">COMMISSION ({statementData.commissionPercentage}%)</th>
+                      <th className="border border-gray-400 p-2 text-left">RENT COLLECTED BY LANDLORD</th>
+                      <td className="border border-gray-400 p-2 text-right font-semibold">{money(statementData.totalRentReceivedByLandlord || 0)}</td>
+                    </tr>
+                    <tr>
+                      <th className="border border-gray-400 p-2 text-left">DEPOSITS HELD BY MANAGER (LIABILITY)</th>
+                      <td className="border border-gray-400 p-2 text-right font-semibold">{money(statementData.depositsHeldByManager || 0)}</td>
+                    </tr>
+                    <tr>
+                      <th className="border border-gray-400 p-2 text-left">DEPOSITS HELD BY LANDLORD (LIABILITY)</th>
+                      <td className="border border-gray-400 p-2 text-right font-semibold">{money(statementData.depositsHeldByLandlord || 0)}</td>
+                    </tr>
+                    <tr>
+                      <th className="border border-gray-400 p-2 text-left">UNAPPLIED PAYMENTS (SUSPENSE)</th>
+                      <td className="border border-gray-400 p-2 text-right font-semibold">{money(statementData.unappliedPayments || 0)}</td>
+                    </tr>
+                    {statementData.commissionBasis !== "invoiced" && (
+                      <tr>
+                        <th className="border border-gray-400 p-2 text-left">ARREARS</th>
+                        <td className="border border-gray-400 p-2 text-right font-semibold">{money(statementData.totalArrears)}</td>
+                      </tr>
+                    )}
+                    <tr>
+                      <th className="border border-gray-400 p-2 text-left">COMMISSION BASIS USED</th>
+                      <td className="border border-gray-400 p-2 text-right font-semibold">{getCommissionBasisLabel(statementData.commissionBasis)}</td>
+                    </tr>
+                    <tr>
+                      <th className="border border-gray-400 p-2 text-left">COMMISSION BASE AMOUNT</th>
+                      <td className="border border-gray-400 p-2 text-right font-semibold">{money(statementData.commissionBaseAmount)}</td>
+                    </tr>
+                    <tr>
+                      <th className="border border-gray-400 p-2 text-left">COMMISSION ({statementData.commissionPercentage}% on {getCommissionBasisLabel(statementData.commissionBasis)})</th>
                       <td className="border border-gray-400 p-2 text-right">({money(statementData.commissionAmount)})</td>
                     </tr>
                     <tr className={`${MILIK_GREEN} text-white font-bold`}>
                       <th className="border border-gray-500 p-2 text-left">NET AMOUNT DUE</th>
-                      <td className="border border-gray-500 p-2 text-right">{money(statementData.netAmountDue)}</td>
+                      <td className="border border-gray-500 p-2 text-right">{money(displayNetAmountDue)}</td>
                     </tr>
+                    
+                    {/* Expense Deductions - Only for Final Statements */}
+                    {statementData.statementType === "final" && (
+                      <>
+                        <tr className="bg-amber-50">
+                          <th colSpan="2" className="border border-gray-400 p-2 text-left font-bold text-amber-900">
+                            LESS: PROPERTY EXPENSES (Previous Period)
+                          </th>
+                        </tr>
+                        {Object.entries(statementData.expensesByCategory || {}).map(([category, amount]) => (
+                          <tr key={category} className="bg-amber-50">
+                            <th className="border border-gray-400 p-2 text-left pl-6 font-normal capitalize">
+                              {category.replace("_", " ")}
+                            </th>
+                            <td className="border border-gray-400 p-2 text-right">({money(amount)})</td>
+                          </tr>
+                        ))}
+                        <tr className="bg-amber-100 font-semibold">
+                          <th className="border border-gray-400 p-2 text-left">TOTAL EXPENSES</th>
+                          <td className="border border-gray-400 p-2 text-right">({money(statementData.totalExpenses || 0)})</td>
+                        </tr>
+                        <tr className={`${MILIK_ORANGE} text-white font-bold text-lg`}>
+                          <th className="border border-gray-500 p-2 text-left">NET PAYMENT TO LANDLORD</th>
+                          <td className="border border-gray-500 p-2 text-right">{money(statementData.netAfterExpenses || 0)}</td>
+                        </tr>
+                        {statementData.isNegativeStatement && (
+                          <tr className="bg-red-700 text-white font-bold">
+                            <th className="border border-red-800 p-2 text-left">PAYABLE BY LANDLORD TO MANAGER</th>
+                            <td className="border border-red-800 p-2 text-right">{money(statementData.amountPayableByLandlordToManager || 0)}</td>
+                          </tr>
+                        )}
+                      </>
+                    )}
                   </tbody>
                 </table>
               </div>
 
               <div className="p-3 bg-blue-50 border border-blue-200 rounded text-sm mb-6">
                 <p>
-                  <strong>Note:</strong> Commission calculated on{" "}
-                  <strong>{statementData.commissionBasis === "invoiced" ? "Invoiced Amount" : "Received Amount"}</strong>
-                  {" "}basis.
+                  <strong>Statement Type:</strong> {statementData.statementType === "provisional" ? "Provisional (No Expenses)" : "Final (With Previous Period Expenses)"}.
+                </p>
+                <p>
+                  <strong>Note:</strong> Commission calculated on <strong>{getCommissionBasisLabel(statementData.commissionBasis)}</strong>.
+                  {" "}For accrual mode, remittance is computed from rent expected for the period.
+                  {statementData.statementType === "final" && " Expenses from previous period are deducted after commission."}
                 </p>
               </div>
 
