@@ -178,16 +178,16 @@ const Receipts = () => {
   const loading = useSelector((state) => state.rentPayment?.isFetching || false);
 
   const initialFilters = {
-    search: "",
-    tenantSearch: "",
-    status: "all",
-    paymentType: "all",
-    tenant: tenantId || "all",
-    property: "all",
-    unit: "all",
-    ledger: "all",
-    from: "",
-    to: "",
+     search: "",
+     tenantSearch: "",
+     status: "all",
+     paymentType: "all",
+     tenant: tenantId || "all",
+     property: "all",
+     unit: "all",
+     ledger: "all",
+     from: "",
+     to: "",
   };
 
   const [draftFilters, setDraftFilters] = useState(initialFilters);
@@ -249,12 +249,16 @@ const Receipts = () => {
     ];
   }, [rentPayments, tenants, draftFilters.property]);
 
+  // Only show receipts, not invoices
   const filteredReceipts = useMemo(() => {
     return rentPayments.filter((payment) => {
+      // Only allow receipts and cashbook entries, not invoices
+      const ledgerType = getLedgerType(payment);
+      if (ledgerType !== "receipts" && ledgerType !== "cashbook") return false;
+
       const tenantName = getTenantName(payment, tenants).toLowerCase();
       const unitName = getUnitName(payment, tenants).toLowerCase();
       const propertyName = getPropertyName(payment, tenants);
-      const ledgerType = getLedgerType(payment);
       const receiptNo = (payment.receiptNumber || "").toLowerCase();
       const referenceNo = (payment.referenceNumber || "").toLowerCase();
       const searchTerm = appliedFilters.search.toLowerCase().trim();
@@ -280,6 +284,8 @@ const Receipts = () => {
 
       if (appliedFilters.property !== "all" && propertyName !== appliedFilters.property) return false;
       if (appliedFilters.unit !== "all" && getUnitName(payment, tenants) !== appliedFilters.unit) return false;
+
+      // Remove ledger filter for invoices
       if (appliedFilters.ledger !== "all" && ledgerType !== appliedFilters.ledger) return false;
 
       if (appliedFilters.from) {
@@ -956,7 +962,6 @@ const Receipts = () => {
                 <option value="all">All Ledgers</option>
                 <option value="receipts">Receipts Ledger</option>
                 <option value="cashbook">Cashbook Ledger</option>
-                <option value="invoices">Invoices Ledger</option>
               </select>
 
               <select

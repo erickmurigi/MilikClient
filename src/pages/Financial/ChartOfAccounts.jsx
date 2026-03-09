@@ -494,6 +494,22 @@ const ChartOfAccounts = () => {
                     <option value="expenses">Expenses</option>
                   </select>
                 </label>
+                <label className="text-sm text-slate-700 block">
+  Sub Account Type
+  <select
+    value={formData.subAccountType}
+    onChange={e => setFormData(prev => ({ ...prev, subAccountType: e.target.value }))}
+    className="mt-1 w-full px-3 py-2 rounded border border-slate-300"
+  >
+    <option value="">Select Sub Account</option>
+    <option value="cashbook">Cashbook</option>
+    <option value="current_asset">Current Asset</option>
+    <option value="current_liability">Current Liability</option>
+    <option value="equity">Equity</option>
+    <option value="income">Income</option>
+    <option value="expense">Expense</option>
+  </select>
+</label>
               </div>
 
               <label className="text-sm text-slate-700 block">
