@@ -7,6 +7,7 @@ import { getProperties } from "../../redux/propertyRedux";
 import { getLeases, getUtilities } from "../../redux/apiCalls";
 import DashboardLayout from "../../components/Layout/DashboardLayout";
 import InvoiceCreationModal from "./InvoiceCreationModal";
+import { createTenantInvoice, cancelTenantInvoice, getTenantInvoices } from "../../redux/invoiceApi";
 import { toast } from "react-toastify";
 import {
   FaArrowLeft,
@@ -57,10 +58,46 @@ const TenantStatement = () => {
     note: "",
   });
   const [selectedSchedules, setSelectedSchedules] = useState([]);
+  const [showDeleteScheduleModal, setShowDeleteScheduleModal] = useState(false);
+  const [showEditScheduleModal, setShowEditScheduleModal] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [invoiceRefresh, setInvoiceRefresh] = useState(0);
-  const [createdInvoices, setCreatedInvoices] = useState({});
+  const [createdInvoices, setCreatedInvoices] = useState([]);
   const [createdInvoicesHydrated, setCreatedInvoicesHydrated] = useState(false);
+    // Load invoices for tenant
+    useEffect(() => {
+      if (tenantId) {
+        getTenantInvoices(tenantId)
+          .then((invoices) => {
+            setCreatedInvoices(invoices);
+            setCreatedInvoicesHydrated(true);
+          })
+          .catch(() => setCreatedInvoicesHydrated(false));
+      }
+    }, [tenantId, invoiceRefresh]);
+    // Handler for invoice creation
+    const handleCreateInvoice = async (invoiceData) => {
+      try {
+        await createTenantInvoice(invoiceData);
+        toast.success("Invoice created successfully");
+        setInvoiceRefresh((v) => v + 1);
+        setShowInvoiceModal(false);
+      } catch (err) {
+        toast.error("Failed to create invoice: " + (err?.response?.data?.error || err.message));
+      }
+    };
+
+    // Handler for invoice cancellation
+    const handleCancelInvoice = async (invoiceId) => {
+      try {
+        await cancelTenantInvoice(invoiceId);
+        toast.success("Invoice cancelled");
+        setInvoiceRefresh((v) => v + 1);
+      } catch (err) {
+        toast.error("Failed to cancel invoice: " + (err?.response?.data?.error || err.message));
+      }
+    };
   const currentCompany = useSelector((state) => state.company?.currentCompany);
 
   const tenantsFromStore = useSelector((state) => state.tenant?.tenants || []);
@@ -952,17 +989,168 @@ const TenantStatement = () => {
               Delete Schedule
             </button>
             <button
-              onClick={handleFreezeSchedules}
+              onClick={() => {
+                if (selectedSchedules.length > 0) {
+                  setEditingSchedule(selectedSchedules[0]);
+                  setShowEditScheduleModal(true);
+                }
+              }}
               disabled={selectedSchedules.length === 0}
               className={`flex items-center gap-1 px-3 py-2 rounded text-xs font-semibold transition-colors ${
                 selectedSchedules.length === 0
                   ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-purple-600 hover:bg-purple-700 text-white'
+                  : 'bg-gray-600 hover:bg-gray-700 text-white'
               }`}
             >
-              <FaCalendarAlt size={12} />
-              Freeze Period
+              <FaCog size={12} />
+              Edit Schedule
             </button>
+            <button
+              onClick={() => {
+                if (selectedSchedules.length > 0) setShowDeleteScheduleModal(true);
+              }}
+              disabled={selectedSchedules.length === 0}
+              className={`flex items-center gap-1 px-3 py-2 rounded text-xs font-semibold transition-colors ${
+                selectedSchedules.length === 0
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : 'bg-gray-600 hover:bg-gray-700 text-white'
+              }`}
+            >
+              <FaTrash size={12} />
+              Delete Schedule
+            </button>
+            <button
+              onClick={() => {
+                if (selectedSchedules.length > 0) {
+                  // Freeze selected schedules
+                  selectedSchedules.forEach(sch => {
+                    sch.frozen = "Yes";
+                  });
+                  // TODO: Persist freeze to backend if schedules are stored
+                  setSelectedSchedules([]);
+                  toast.success("Schedule(s) frozen");
+                }
+              }}
+              disabled={selectedSchedules.length === 0}
+              className={`flex items-center gap-1 px-3 py-2 rounded text-xs font-semibold transition-colors ${
+                selectedSchedules.length === 0
+                  ? 'bg-blue-200 text-blue-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
+            >
+              <FaCheck size={12} />
+              Freeze Schedule
+            </button>
+                        {/* Schedule Deletion Confirmation Modal */}
+                        {showDeleteScheduleModal && selectedSchedules.length > 0 && (
+                          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-lg shadow-xl border border-slate-200 w-full max-w-md">
+                              <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                                <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                                  <FaTrash className="text-red-600" />
+                                  Confirm Schedule Deletion
+                                </h3>
+                                <button
+                                  onClick={() => setShowDeleteScheduleModal(false)}
+                                  className="text-slate-500 hover:text-slate-700"
+                                >
+                                  <FaTimes />
+                                </button>
+                              </div>
+                              <div className="p-4">
+                                <p className="text-sm text-slate-700 mb-4">
+                                  Are you sure you want to delete the selected schedule(s)? This action cannot be undone.
+                                </p>
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    onClick={() => setShowDeleteScheduleModal(false)}
+                                    className="px-4 py-2 text-xs border border-slate-300 rounded-md font-semibold hover:bg-slate-50"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      // Remove schedules from local state
+                                      setShowDeleteScheduleModal(false);
+                                      setSelectedSchedules([]);
+                                      // TODO: Remove from backend if schedules are persisted
+                                    }}
+                                    className="px-4 py-2 text-xs rounded-md text-white font-semibold bg-red-600 hover:bg-red-700"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                  {/* Schedule Editing Modal */}
+                  {showEditScheduleModal && editingSchedule && (
+                    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                      <div className="bg-white rounded-lg shadow-xl border border-slate-200 w-full max-w-md">
+                        <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                          <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                            <FaCog className="text-green-600" />
+                            Edit Schedule
+                          </h3>
+                          <button
+                            onClick={() => setShowEditScheduleModal(false)}
+                            className="text-slate-500 hover:text-slate-700"
+                          >
+                            <FaTimes />
+                          </button>
+                        </div>
+                        <div className="p-4 space-y-3">
+                          <label className="text-xs font-semibold text-slate-700">From Date</label>
+                          <input
+                            type="date"
+                            value={editingSchedule.from}
+                            onChange={e => setEditingSchedule({ ...editingSchedule, from: e.target.value })}
+                            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                          />
+                          <label className="text-xs font-semibold text-slate-700">To Date</label>
+                          <input
+                            type="date"
+                            value={editingSchedule.to}
+                            onChange={e => setEditingSchedule({ ...editingSchedule, to: e.target.value })}
+                            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                          />
+                          <label className="text-xs font-semibold text-slate-700">Rent</label>
+                          <input
+                            type="number"
+                            value={editingSchedule.rent}
+                            onChange={e => setEditingSchedule({ ...editingSchedule, rent: e.target.value })}
+                            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                          />
+                          <label className="text-xs font-semibold text-slate-700">Utility</label>
+                          <input
+                            type="number"
+                            value={editingSchedule.utility}
+                            onChange={e => setEditingSchedule({ ...editingSchedule, utility: e.target.value })}
+                            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                          />
+                        </div>
+                        <div className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2">
+                          <button
+                            onClick={() => setShowEditScheduleModal(false)}
+                            className="px-4 py-2 text-xs border border-slate-300 rounded-md font-semibold hover:bg-slate-50"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={() => {
+                              // Save changes to schedule (local state or backend)
+                              setShowEditScheduleModal(false);
+                              // TODO: Persist changes if schedules are stored in backend
+                            }}
+                            className={`px-4 py-2 text-xs rounded-md text-white font-semibold ${MILIK_GREEN} hover:bg-[#0A3127]`}
+                          >
+                            Save Changes
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
             {selectedSchedules.length > 0 && (
               <span className="ml-auto flex items-center text-xs text-gray-600 font-semibold">
                 {selectedSchedules.length} selected

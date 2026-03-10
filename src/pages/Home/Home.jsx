@@ -20,6 +20,7 @@ import {
   FaWhatsapp
 } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
+import FreeTrialModal from '../../components/FreeTrialModal';
 
 function Home() {
   // FAQ Data
@@ -153,6 +154,7 @@ function Home() {
   ];
 
   const [activeFaq, setActiveFaq] = React.useState(null);
+  const [showTrialModal, setShowTrialModal] = React.useState(false);
 
   return (
     <div className="min-h-screen bg-white">
@@ -222,7 +224,10 @@ function Home() {
               
               {/* CTA Buttons */}
               <div className="flex flex-wrap gap-4 justify-center lg:justify-start mb-8">
-                <button className="inline-flex items-center justify-center bg-[#286323] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#026227] transition-all">
+                <button
+                  className="inline-flex items-center justify-center bg-[#286323] text-white font-semibold px-8 py-3.5 rounded-lg shadow-lg hover:shadow-xl hover:bg-[#026227] transition-all"
+                  onClick={() => setShowTrialModal(true)}
+                >
                   Start Free
                 </button>
                 <button className="inline-flex items-center justify-center border border-gray-300 bg-white text-gray-700 font-semibold px-8 py-3.5 rounded-lg hover:bg-gray-50 transition-colors">
@@ -594,6 +599,8 @@ function Home() {
           <FaWhatsapp className="text-2xl" />
         </a>
       </div>
+
+      <FreeTrialModal isOpen={showTrialModal} onClose={() => setShowTrialModal(false)} />
     </div>
   );
 }

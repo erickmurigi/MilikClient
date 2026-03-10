@@ -111,8 +111,9 @@ const getPropertyName = (payment, tenants) => {
 };
 
 const getLedgerType = (payment) => {
+  // Only receipts and cashbook entries should be here
   if (payment?.reversalOf) return "cashbook";
-  return payment?.ledgerType || "receipts";
+  return "receipts";
 };
 
 const getCashbookAccount = (cashbook) => {
@@ -252,7 +253,7 @@ const Receipts = () => {
   // Only show receipts, not invoices
   const filteredReceipts = useMemo(() => {
     return rentPayments.filter((payment) => {
-      // Only allow receipts and cashbook entries, not invoices
+      // Only allow receipts and cashbook entries
       const ledgerType = getLedgerType(payment);
       if (ledgerType !== "receipts" && ledgerType !== "cashbook") return false;
 
@@ -324,29 +325,8 @@ const Receipts = () => {
   const getCreatedInvoicesForTenant = (targetTenantId) => {
     if (!targetTenantId) return [];
 
-    const storageKey = `createdInvoices_${targetTenantId}`;
-    const stored = localStorage.getItem(storageKey);
-    if (!stored) return [];
-
-    try {
-      const entries = JSON.parse(stored);
-      return Object.entries(entries || {}).map(([period, entry]) => {
-        const amount =
-          typeof entry === "object" && Number.isFinite(Number(entry?.amount))
-            ? Number(entry.amount)
-            : 0;
-        const createdAt =
-          typeof entry === "object" ? entry?.createdAt || entry?.createdDate || null : null;
-
-        return {
-          period,
-          amount,
-          createdAt,
-        };
-      });
-    } catch (error) {
-      return [];
-    }
+    // Removed localStorage usage. Only fetch from backend/database.
+    return [];
   };
 
   // Helper: Calculate tenant balance from actual invoices and confirmed receipts

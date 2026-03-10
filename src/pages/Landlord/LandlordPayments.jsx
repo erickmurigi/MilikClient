@@ -20,7 +20,7 @@ import {
   FaTrash,
 } from "react-icons/fa";
 import { toast } from "react-toastify";
-import { getLandlords, getRentPayments } from "../../redux/apiCalls";
+import { getLandlords, getRentPayments, getLandlordPayments, createLandlordPayment } from "../../redux/apiCalls";
 import { getProperties } from "../../redux/propertyRedux";
 import { getTenants } from "../../redux/tenantsRedux";
 
@@ -64,15 +64,24 @@ const LandlordPayments = () => {
     description: "",
     propertyIds: [],
   });
+  // Landlord payment vouchers from backend
+  const [landlordPayments, setLandlordPayments] = useState([]);
 
   // Load data
   useEffect(() => {
-    if (currentCompany?._id) {
-      getLandlords(dispatch, currentCompany._id);
-      dispatch(getProperties({ business: currentCompany._id }));
-      dispatch(getTenants({ business: currentCompany._id }));
-      getRentPayments(dispatch, currentCompany._id);
-    }
+    const fetchData = async () => {
+      if (currentCompany?._id) {
+        getLandlords(dispatch, currentCompany._id);
+        dispatch(getProperties({ business: currentCompany._id }));
+        dispatch(getTenants({ business: currentCompany._id }));
+        getRentPayments(dispatch, currentCompany._id);
+        // Fetch landlord payment vouchers
+        const payments = await getLandlordPayments(currentCompany._id);
+        setLandlordPayments(payments);
+      }
+    };
+    fetchData();
+    // eslint-disable-next-line
   }, [dispatch, currentCompany]);
 
   // Calculate landlord financial data
@@ -124,8 +133,10 @@ const LandlordPayments = () => {
         });
       });
 
-      // Mock payments to landlord (in real scenario, this would come from a landlordPayments collection)
-      const paymentsMade = 0; // TODO: Fetch from landlord payments API
+      // Real payments to landlord from backend
+      const paymentsMade = landlordPayments
+        .filter((p) => p.landlordId === landlord._id)
+        .reduce((sum, p) => sum + (p.amount || 0), 0);
       const balance = totalRentCollected - paymentsMade;
 
       return {
@@ -147,7 +158,7 @@ const LandlordPayments = () => {
         propertyBreakdown,
       };
     });
-  }, [landlords, properties, tenants, rentPayments]);
+  }, [landlords, properties, tenants, rentPayments, landlordPayments]);
 
   // Filter landlords
   const filteredLandlords = useMemo(() => {
@@ -214,18 +225,38 @@ const LandlordPayments = () => {
       return;
     }
 
-    // TODO: Integrate with backend API to save landlord payment
-    toast.success("Payment recorded successfully");
-    setShowPaymentModal(false);
-    setPaymentForm({
-      landlordId: "",
-      amount: "",
-      paymentDate: new Date().toISOString().split("T")[0],
-      paymentMethod: "bank_transfer",
-      referenceNumber: "",
-      description: "",
-      propertyIds: [],
-    });
+    try {
+      // Save payment to backend
+      const payload = {
+        landlordId: paymentForm.landlordId,
+        amount: Number(paymentForm.amount),
+        paymentDate: paymentForm.paymentDate,
+        paymentMethod: paymentForm.paymentMethod,
+        referenceNumber: paymentForm.referenceNumber,
+        description: paymentForm.description,
+        propertyIds: paymentForm.propertyIds,
+        business: currentCompany?._id,
+      };
+      await createLandlordPayment(payload);
+      toast.success("Payment recorded successfully");
+      // Refresh landlord payments
+      if (currentCompany?._id) {
+        const payments = await getLandlordPayments(currentCompany._id);
+        setLandlordPayments(payments);
+      }
+      setShowPaymentModal(false);
+      setPaymentForm({
+        landlordId: "",
+        amount: "",
+        paymentDate: new Date().toISOString().split("T")[0],
+        paymentMethod: "bank_transfer",
+        referenceNumber: "",
+        description: "",
+        propertyIds: [],
+      });
+    } catch (err) {
+      toast.error("Failed to record payment: " + (err?.response?.data?.message || err.message));
+    }
   };
 
   const handleViewDetails = (landlord) => {

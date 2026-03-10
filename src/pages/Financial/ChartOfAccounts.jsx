@@ -128,22 +128,13 @@ const ChartOfAccounts = () => {
   }, [currentCompany?._id]);
 
   const persistCustomAccounts = (next) => {
-    try {
-      const raw = localStorage.getItem(CUSTOM_ACCOUNTS_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : {};
-      parsed[currentCompany?._id || "default"] = next;
-      localStorage.setItem(CUSTOM_ACCOUNTS_STORAGE_KEY, JSON.stringify(parsed));
-      setCustomAccounts(next);
-    } catch (error) {
-      console.error("Failed to save custom accounts", error);
-      toast.error("Failed to save chart account changes");
-    }
+    // Removed localStorage usage. Only use setCustomAccounts.
+    setCustomAccounts(next);
   };
 
   const cashbookAccounts = useMemo(() => {
     const confirmedManagerReceipts = (rentPayments || []).filter((payment) => {
       if (!payment?.isConfirmed) return false;
-      if (String(payment?.ledgerType || "receipts").toLowerCase() === "invoices") return false;
       return !payment?.paidDirectToLandlord;
     });
 
@@ -191,19 +182,7 @@ const ChartOfAccounts = () => {
       const amount = Number(payment?.amount || 0);
       if (!amount) return;
 
-      const ledgerType = String(payment?.ledgerType || "receipts").toLowerCase();
-      const paymentType = String(payment?.paymentType || "").toLowerCase();
-
-      if (ledgerType === "invoices") {
-        balances["1200"] += amount;
-        if (paymentType === "utility") {
-          balances["4102"] += amount;
-        } else {
-          balances["4100"] += amount;
-        }
-        return;
-      }
-
+      // Only receipts should be here
       if (payment?.isConfirmed && !payment?.paidDirectToLandlord) {
         const cashbookName = String(payment?.cashbook || "").trim();
         const dynamicCashbookCode = cashbookCodeByName[cashbookName];

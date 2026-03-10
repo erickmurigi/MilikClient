@@ -366,48 +366,39 @@ const AddTenant = () => {
     return Object.keys(errors).length === 0;
   };
 
+  // Redux-integrated submit handler
   const handleSubmit = async (e) => {
     e.preventDefault();
     setGeneralError("");
-
-    if (!validateForm()) {
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       toast.error("Please fix validation errors");
       return;
     }
-
     try {
-      const tenantData = {
-        name: formData.name,
-        phone: formData.phone,
-        idNumber: formData.idNumber,
-        unit: formData.unit,
+      const payload = {
+        ...formData,
         rent: parseFloat(formData.rent),
-        paymentMethod: formData.paymentMethod,
-        leaseType: formData.leaseType || "at_will",
-        moveInDate: formData.moveInDate,
-        moveOutDate: formData.leaseType === "fixed" ? formData.moveOutDate : null,
-        status: "active",
+        business: currentCompany._id,
+        utilities: [
+          ...formData.utilities,
+          ...additionalUtilities.filter(u => u.utility)
+        ],
         emergencyContact: {
           name: formData.emergencyContactName || "",
           phone: formData.emergencyContactPhone || "",
           relationship: formData.emergencyContactRelationship || "Family",
         },
-        business: currentCompany._id,
-        // Include both auto-loaded and additional utilities
-        utilities: [
-          ...formData.utilities,
-          ...additionalUtilities.filter(u => u.utility) // Only include utilities with a type selected
-        ]
       };
-
-      // Dispatch createTenant action
-      const result = await dispatch(createTenant(tenantData)).unwrap();
-      
+      await dispatch(createTenant(payload)).unwrap();
       toast.success("Tenant created successfully!");
-      setAdditionalUtilities([]); // Clear additional utilities after successful creation
+      setAdditionalUtilities([]);
+      // Refresh tenants list
+      dispatch(getTenants({ business: currentCompany._id }));
       navigate("/tenants");
-    } catch (error) {
-      const errorMsg = error?.message || "Failed to create tenant";
+    } catch (err) {
+      const errorMsg = err?.message || "Failed to create tenant";
       setGeneralError(errorMsg);
       toast.error(errorMsg);
     }

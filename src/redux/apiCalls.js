@@ -1,3 +1,9 @@
+// Create payment voucher (generic, for compatibility)
+export const createPaymentVoucher = async (voucherData) => {
+  // Use the same endpoint as createLandlordPayment
+  const res = await adminRequests.post("/payment-vouchers", voucherData);
+  return res.data;
+};
 /* eslint-disable no-undef */
 import {adminRequests} from "../utils/requestMethods"
 import { clearClientSessionStorage } from "../utils/sessionCleanup";
@@ -1044,34 +1050,32 @@ export const getPaymentSummary = async (business, month = null, year = null) => 
   }
 };
 
-// ========== PAYMENT VOUCHERS SECTION ==========
 
-export const getPaymentVouchers = async (query = {}) => {
+// ========== LANDLORD PAYMENTS SECTION ========== 
+// Update payment voucher status
+export const updatePaymentVoucherStatus = async (id, statusData) => {
+  const res = await adminRequests.put(`/payment-vouchers/status/${id}`, statusData);
+  return res.data;
+};
+
+// Get all landlord payment vouchers for a company
+export const getLandlordPayments = async (companyId) => {
   const params = new URLSearchParams();
-  Object.entries(query || {}).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== "" && value !== "all") {
-      params.append(key, value);
-    }
-  });
-  const res = await adminRequests.get(`/payment-vouchers${params.toString() ? `?${params.toString()}` : ""}`);
+  if (companyId) params.append("business", companyId);
+  const res = await adminRequests.get(`/payment-vouchers?${params.toString()}`);
   return extractList(res.data);
 };
 
-export const createPaymentVoucher = async (voucherData) => {
-  const res = await adminRequests.post("/payment-vouchers", voucherData);
+// Alias for compatibility with PaymentVouchers.jsx
+export const getPaymentVouchers = getLandlordPayments;
+
+// Create a landlord payment voucher
+export const createLandlordPayment = async (paymentData) => {
+  const res = await adminRequests.post("/payment-vouchers", paymentData);
   return res.data;
 };
 
-export const updatePaymentVoucher = async (id, voucherData) => {
-  const res = await adminRequests.put(`/payment-vouchers/${id}`, voucherData);
-  return res.data;
-};
-
-export const updatePaymentVoucherStatus = async (id, statusData) => {
-  const res = await adminRequests.put(`/payment-vouchers/${id}/status`, statusData);
-  return res.data;
-};
-
+// Delete a landlord payment voucher
 export const deletePaymentVoucher = async (id) => {
   const res = await adminRequests.delete(`/payment-vouchers/${id}`);
   return res.data;

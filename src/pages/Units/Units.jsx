@@ -216,7 +216,7 @@ const Units = () => {
         propertyCode: propertyCode, // Store property code
         property: propertyId, // Use property ID for reliable filtering
         tenant: tenantName,
-        area: "0.00", // TODO: Add area field to unit model
+        area: typeof unit.areaSqFt === "number" ? unit.areaSqFt.toFixed(2) : "0.00",
         rentUnit: formatRentAmount(unit.rent),
         marketRent: formatRentAmount(unit.rent),
         currentRent: formatRentAmount(unit.rent),
