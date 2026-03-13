@@ -82,14 +82,14 @@ const Tenants = () => {
   // ===== FILTERS =====
   const [draftFilters, setDraftFilters] = useState({
     property: "any",
-    status: "active",
+    status: "any",
     search: "",
     tenantName: "",
     tenantCode: "",
   });
   const [appliedFilters, setAppliedFilters] = useState({
     property: "any",
-    status: "active",
+    status: "any",
     search: "",
     tenantName: "",
     tenantCode: "",
@@ -233,7 +233,7 @@ const Tenants = () => {
           ? `Ksh ${Number(tenantLease.rentAmount).toLocaleString()}`
           : "-",
         balance,
-        status: (tenant.status || "active").toLowerCase(),
+        status: (tenant.status || "any").toLowerCase(),
         phone: tenant.phone || "-",
         email: tenant.email || "-",
       };
@@ -846,7 +846,7 @@ const Tenants = () => {
                         <td className="px-2 py-1 text-center border-r border-gray-200">
                           <span
                             className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
-                              tenant.status === "active"
+                              tenant.status === "any"
                                 ? "bg-green-100 text-green-800"
                                 : "bg-gray-100 text-gray-800"
                             }`}
@@ -910,7 +910,7 @@ const Tenants = () => {
                                     <span className="font-bold text-gray-700 block text-xs">Status:</span>
                                     <p
                                       className={`text-xs font-bold ${
-                                        tenant.status === "active"
+                                        tenant.status === "any"
                                           ? "text-green-700"
                                           : "text-gray-700"
                                       }`}

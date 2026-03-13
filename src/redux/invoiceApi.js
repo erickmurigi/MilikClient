@@ -1,4 +1,3 @@
-// Invoice API calls for tenant invoices
 import { adminRequests } from "../utils/requestMethods";
 
 // Create tenant invoice
@@ -7,14 +6,21 @@ export const createTenantInvoice = async (invoiceData) => {
   return res.data;
 };
 
-// Cancel tenant invoice
-export const cancelTenantInvoice = async (invoiceId) => {
-  const res = await adminRequests.delete(`/tenant-invoices/${invoiceId}`);
+// Get tenant invoices
+export const getTenantInvoices = async ({ tenantId, business, status } = {}) => {
+  const params = new URLSearchParams();
+
+  if (tenantId) params.append("tenant", tenantId);
+  if (business) params.append("business", business);
+  if (status) params.append("status", status);
+
+  const query = params.toString();
+  const res = await adminRequests.get(`/tenant-invoices${query ? `?${query}` : ""}`);
   return res.data;
 };
 
-// Get tenant invoices
-export const getTenantInvoices = async (tenantId) => {
-  const res = await adminRequests.get(`/tenant-invoices?tenant=${tenantId}`);
+// Delete tenant invoice
+export const deleteTenantInvoice = async (invoiceId) => {
+  const res = await adminRequests.delete(`/tenant-invoices/${invoiceId}`);
   return res.data;
 };

@@ -20,12 +20,12 @@ import JournalEntriesDrawer from "../../components/Accounting/JournalEntriesDraw
 import { getTenants } from "../../redux/tenantsRedux";
 import { getProperties } from "../../redux/propertyRedux";
 import { getUnits } from "../../redux/unitRedux";
+import { getRentPayments, getChartOfAccounts } from "../../redux/apiCalls";
 import {
-  getRentPayments,
   createTenantInvoice,
   getTenantInvoices,
-  getChartOfAccounts,
-} from "../../redux/apiCalls";
+  deleteTenantInvoice,
+} from "../../redux/invoiceApi";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
 const MILIK_GREEN_HOVER = "hover:bg-[#0A3127]";
@@ -1269,40 +1269,68 @@ const RentalInvoices = () => {
     toast.info(`Open tenant statement to review ${selectedInvoice.id}`);
   };
 
-  const handleDeleteSelected = () => {
+  const handleDeleteSelected = async () => {
     if (selectedInvoices.length === 0) {
       toast.warn("Select at least one invoice to delete");
       return;
     }
 
     const selectedRows = filteredInvoices.filter((inv) => selectedInvoices.includes(inv.key));
-    const undeletable = selectedRows.filter((invoice) => invoice.status === "Paid");
+    const undeletable = selectedRows.filter((invoice) =>
+      ["paid", "partially_paid"].includes(String(invoice.status || "").toLowerCase())
+    );
 
     if (undeletable.length > 0) {
       toast.warn("Paid invoices cannot be deleted from this screen.");
       return;
     }
 
-    setDeletingInvoiceIds((prev) => [
-      ...prev,
-      ...selectedRows.map((row) => row._id).filter(Boolean),
-    ]);
+    try {
+      for (const invoice of selectedRows) {
+        if (!invoice?._id) continue;
+        await deleteTenantInvoice(invoice._id);
+      }
 
-    toast.success(`${selectedRows.length} invoice(s) removed from the list view`);
-    window.dispatchEvent(new Event("invoicesUpdated"));
-    setSelectedInvoices([]);
-    setSelectAll(false);
+      toast.success(`${selectedRows.length} invoice(s) deleted successfully`);
+      window.dispatchEvent(new Event("invoicesUpdated"));
+      setRefreshTick((prev) => prev + 1);
+      setSelectedInvoices([]);
+      setSelectAll(false);
+      setDeletingInvoiceIds([]);
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.error ||
+          error?.response?.data?.message ||
+          error.message ||
+          "Failed to delete selected invoices"
+      );
+    }
   };
 
-  const handleDeleteSingle = (invoice) => {
-    if (invoice.status === "Paid") {
+  const handleDeleteSingle = async (invoice) => {
+    if (["paid", "partially_paid"].includes(String(invoice?.status || "").toLowerCase())) {
       toast.warn("Paid invoices cannot be deleted from this screen.");
       return;
     }
 
-    setDeletingInvoiceIds((prev) => [...prev, invoice._id].filter(Boolean));
-    window.dispatchEvent(new Event("invoicesUpdated"));
-    toast.success(`Invoice ${invoice.id} removed from the list view`);
+    if (!invoice?._id) {
+      toast.error("Invoice id is missing.");
+      return;
+    }
+
+    try {
+      await deleteTenantInvoice(invoice._id);
+      window.dispatchEvent(new Event("invoicesUpdated"));
+      setRefreshTick((prev) => prev + 1);
+      toast.success(`Invoice ${invoice.id} deleted successfully`);
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.error ||
+          error?.response?.data?.message ||
+          error.message ||
+          `Failed to delete invoice ${invoice.id}`
+      );
+    }
   };
 
   const handleViewTenantStatement = (targetTenantId) => {
