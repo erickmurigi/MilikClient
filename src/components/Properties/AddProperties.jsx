@@ -1,4 +1,3 @@
-// pages/AddProperty.js
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -12,8 +11,6 @@ import {
   FaBuilding,
   FaCalculator,
   FaChartBar,
-  FaShieldAlt,
-  FaCog,
   FaBell,
   FaStickyNote,
   FaHome,
@@ -22,25 +19,15 @@ import {
   FaChevronDown,
 } from "react-icons/fa";
 import { createProperty } from "../../redux/propertyRedux";
-import { getLandlords } from "../../redux/apiCalls";
+import { getLandlords, createLandlord } from "../../redux/apiCalls";
 import { toast } from "react-toastify";
 import MilikConfirmDialog from "../Modals/MilikConfirmDialog";
 
-/**
- * 🔥 MILIK-ish burn orange
- * - Used for dropdown highlight + selected state + focus accents
- */
 const MILIK_ORANGE_BG = "bg-orange-600";
 const MILIK_ORANGE_BG_HOVER = "hover:bg-orange-700";
 const MILIK_ORANGE_RING = "focus:ring-orange-500/30";
 const MILIK_ORANGE_BORDER_FOCUS = "focus:border-orange-700";
 
-/**
- * Simple reusable modal (local) for Add Property page.
- * NOTE:
- * - If you already have a global "AddLandlordModal" used on Landlords page,
- *   you can replace this with an import and keep the same props.
- */
 function Modal({ open, title, onClose, children, maxWidthClass = "max-w-lg" }) {
   const panelRef = useRef(null);
 
@@ -65,11 +52,7 @@ function Modal({ open, title, onClose, children, maxWidthClass = "max-w-lg" }) {
 
   return (
     <div className="fixed inset-0 z-[9999]">
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
       <div className="absolute inset-0 flex items-center justify-center p-4">
         <div
           ref={panelRef}
@@ -79,9 +62,7 @@ function Modal({ open, title, onClose, children, maxWidthClass = "max-w-lg" }) {
           aria-label={title}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-            <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
-              {title}
-            </h3>
+            <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">{title}</h3>
             <button
               type="button"
               onClick={onClose}
@@ -99,11 +80,6 @@ function Modal({ open, title, onClose, children, maxWidthClass = "max-w-lg" }) {
   );
 }
 
-/**
- * Custom dropdown so we can control highlight color (native <select> highlight is OS-controlled).
- * - Searchable
- * - Keyboard-light (Esc closes, Enter selects when focused via click)
- */
 function MilikSelect({
   label,
   required,
@@ -182,19 +158,12 @@ function MilikSelect({
                     type="button"
                     key={v}
                     onClick={() => {
-                      console.log("🎯 Landlord dropdown option clicked:", {
-                        id: v,
-                        label: getLabel(it),
-                        fullObject: it
-                      });
                       onChange?.(v, it);
                       setOpen(false);
                     }}
                     className={[
                       "w-full text-left px-3 py-2 text-sm font-semibold transition-colors",
-                      isSelected
-                        ? `${MILIK_ORANGE_BG} text-white`
-                        : "text-slate-800 hover:bg-orange-50",
+                      isSelected ? `${MILIK_ORANGE_BG} text-white` : "text-slate-800 hover:bg-orange-50",
                     ].join(" ")}
                   >
                     {getLabel(it)}
@@ -217,18 +186,12 @@ const AddProperty = () => {
   const { currentCompany } = useSelector((state) => state.company);
   const { currentUser } = useSelector((state) => state.auth);
 
-  /**
-   * ✅ Landlords list (from DB)
-   * This is intentionally defensive so it won't crash if your slice shape differs.
-   * Update this selector to match your actual landlord slice when you connect.
-   */
   const landlordsFromStore =
     useSelector((state) => state?.landlord?.landlords) ||
     useSelector((state) => state?.landlords?.items) ||
     useSelector((state) => state?.landlords?.landlords) ||
     [];
 
-  // Get existing properties for sequential code generation
   const propertiesFromStore =
     useSelector((state) => state?.property?.properties) ||
     useSelector((state) => state?.properties?.items) ||
@@ -236,7 +199,6 @@ const AddProperty = () => {
 
   const [activeTab, setActiveTab] = useState("general");
 
-  // Milik Confirm Dialog state
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
     title: "",
@@ -247,10 +209,9 @@ const AddProperty = () => {
 
   const initialFormData = useMemo(
     () => ({
-      // General Information
       dateAcquired: "",
       letManage: "Managing",
-      landlords: [{ name: "", contact: "", isPrimary: true }], // we will store selected landlordId in landlords[0].landlordId
+      landlords: [{ landlordId: "", name: "", contact: "", isPrimary: true }],
       propertyCode: "",
       propertyName: "",
       lrNumber: "",
@@ -264,15 +225,11 @@ const AddProperty = () => {
       roadStreet: "",
       zoneRegion: "",
       address: "",
-
-      // Space/Units
       grossLettableArea: "",
       netLettableArea: "",
       unitMeasurement: "Sq Ft",
       rentPerMeasure: "",
       rentCurrency: "Kenyan Shilling [KES]",
-
-      // Accounting & Billing
       accountLedgerType: "Property Control Ledger In GL",
       primaryBank: "",
       alternativeTaxPin: "",
@@ -281,12 +238,8 @@ const AddProperty = () => {
       mpesaPaybill: true,
       disableMpesaStkPush: false,
       mpesaNarration: "",
-
-      // Standing Charges
       standingCharges: [],
       securityDeposits: [],
-
-      // SMS & Email Exemptions
       smsExemptions: {
         all: false,
         invoice: false,
@@ -301,22 +254,14 @@ const AddProperty = () => {
         receipt: false,
         balance: false,
       },
-
-      // Other Preferences
       excludeFeeSummary: false,
-
-      // Banking Details
       drawerBank: "",
       bankBranch: "",
       accountName: "",
       accountNumber: "",
-
-      // Notes
       notes: "",
       specificContactInfo: "",
       description: "",
-
-      // Status
       status: "active",
       images: [],
     }),
@@ -327,7 +272,6 @@ const AddProperty = () => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [generalError, setGeneralError] = useState("");
 
-  // Add Landlord modal state (Add Property page)
   const [openAddLandlordModal, setOpenAddLandlordModal] = useState(false);
   const [newLandlord, setNewLandlord] = useState({
     fullName: "",
@@ -377,11 +321,9 @@ const AddProperty = () => {
     "Eldoret",
   ];
 
-  // ✅ Corporate clean styling (same as you have now)
   const labelClass = "block text-sm font-bold text-slate-800 mb-1 tracking-tight";
   const helperLabelClass = "block text-xs font-medium text-slate-600 mb-1";
 
-  // Border darker only on focus + subtle shadow + smooth transition + taller
   const baseField =
     "w-full rounded-md bg-white text-slate-900 placeholder:text-slate-400 " +
     "border border-slate-300 shadow-sm " +
@@ -390,21 +332,18 @@ const AddProperty = () => {
     "hover:border-slate-400";
 
   const inputClass = `${baseField} h-10 px-3 text-sm font-semibold`;
-  const selectClass = `${baseField} h-10 px-3 text-sm font-semibold`;
   const textareaClass = `${baseField} min-h-[96px] px-3 py-2 text-sm font-semibold`;
 
   const sectionCard = "bg-white border border-slate-200 rounded-lg shadow-sm";
   const sectionHeader = "text-sm font-bold text-slate-900 tracking-tight";
 
-  // Handle form field changes
   const handleChange = (e, section = null, index = null) => {
     const { name, value, type, checked } = e.target;
 
     if (fieldErrors[name]) {
       setFieldErrors((prev) => ({ ...prev, [name]: "" }));
     }
-    
-    // Clear general error when user makes changes
+
     if (generalError) {
       setGeneralError("");
     }
@@ -437,7 +376,6 @@ const AddProperty = () => {
     }));
   };
 
-  // Standing charges / deposits
   const addStandingCharge = () => {
     setFormData((prev) => ({
       ...prev,
@@ -483,34 +421,28 @@ const AddProperty = () => {
     setFormData((prev) => ({ ...prev, securityDeposits: updatedDeposits }));
   };
 
-  /**
-   * ✅ When landlord selected:
-   * - Save landlordId in landlords[0].landlordId
-   * - Autofill Landlord Name + Contact Information
-   */
   const handleSelectLandlord = (landlordId, landlordObj) => {
-    console.log("🔍 handleSelectLandlord called with:");
-    console.log("  landlordId:", landlordId);
-    console.log("  landlordObj:", landlordObj);
-    
-     const updated = [...formData.landlords];
-     const primary = updated[0] || { isPrimary: true };
+    const updated = [...formData.landlords];
+    const primary = updated[0] || { isPrimary: true };
 
     const displayName =
       landlordObj?.fullName ||
       landlordObj?.name ||
       landlordObj?.landlordName ||
-       landlordObj?.landlord ||
+      landlordObj?.landlord ||
       "";
-   
-     if (!displayName || !displayName.trim()) {
-       console.error("❌ Landlord name is empty:", landlordObj);
-       setFieldErrors((prev) => ({ ...prev, landlord: "Landlord name is missing. Please refresh and try again." }));
-       return;
-     }
+
+    if (!displayName || !displayName.trim()) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        landlord: "Landlord name is missing. Please refresh and try again.",
+      }));
+      return;
+    }
 
     const contact =
       landlordObj?.email ||
+      landlordObj?.phoneNumber ||
       landlordObj?.phone ||
       landlordObj?.contact ||
       "";
@@ -518,14 +450,13 @@ const AddProperty = () => {
     updated[0] = {
       ...primary,
       landlordId,
-       name: displayName.trim(),
-      contact: contact,
+      name: displayName.trim(),
+      contact,
       isPrimary: true,
     };
 
-    console.log("  Updated landlords[0]:", updated[0]);
-
     setFormData((prev) => ({ ...prev, landlords: updated }));
+
     if (fieldErrors.landlord) {
       setFieldErrors((prev) => ({ ...prev, landlord: "" }));
     }
@@ -534,38 +465,23 @@ const AddProperty = () => {
   const validatePropertyForm = () => {
     const errors = {};
 
-    if (!formData.dateAcquired?.trim()) {
-      errors.dateAcquired = "Date acquired is required.";
-    }
-    if (!formData.propertyName?.trim()) {
-      errors.propertyName = "Property name is required.";
-    }
-    if (!formData.lrNumber?.trim()) {
-      errors.lrNumber = "LR number is required.";
-    }
-    if (!formData.propertyType?.trim()) {
-      errors.propertyType = "Property type is required.";
-    }
-    if (!formData.landlords?.[0]?.name?.trim()) {
+    if (!formData.dateAcquired?.trim()) errors.dateAcquired = "Date acquired is required.";
+    if (!formData.propertyName?.trim()) errors.propertyName = "Property name is required.";
+    if (!formData.lrNumber?.trim()) errors.lrNumber = "LR number is required.";
+    if (!formData.propertyType?.trim()) errors.propertyType = "Property type is required.";
+    if (!formData.landlords?.[0]?.name?.trim() || !formData.landlords?.[0]?.landlordId?.trim()) {
       errors.landlord = "Primary landlord is required.";
     }
-    // Company validation removed - user is already logged in to a company
 
     return errors;
   };
 
-  /**
-   * ✅ Add Landlord from Add Property page
-   * Requirement:
-   * - Open the SAME modal as Landlords page.
-   *
-   * Since we don’t have that component here, this local modal is a safe drop-in.
-   * When you hook DB:
-   * - Replace this handler with your real action (e.g. dispatch(createLandlord(payload)))
-   * - Then refetch landlords list (e.g. dispatch(fetchLandlords()))
-   * - Finally auto-select the created landlord and autofill fields (done below).
-   */
   const saveNewLandlordFromModal = async () => {
+    if (!currentCompany?._id) {
+      toast.error("No active company selected. Please create or select a company first.");
+      return;
+    }
+
     if (!newLandlord.fullName.trim()) {
       toast.error("Landlord full name is required");
       return;
@@ -574,27 +490,39 @@ const AddProperty = () => {
       toast.error("Landlord email is required");
       return;
     }
+    if (!newLandlord.phone.trim()) {
+      toast.error("Landlord phone is required");
+      return;
+    }
+
+    const names = newLandlord.fullName.trim().split(/\s+/);
+    const landlordName = newLandlord.fullName.trim();
+    const regId = `TEMP-${Date.now()}`;
+    const taxPin = `TEMP-PIN-${Date.now()}`;
 
     try {
-      /**
-       * ✅ TODO (DB wiring):
-       * Example:
-       * const created = await dispatch(createLandlord({ ...newLandlord, company: currentCompany?._id })).unwrap();
-       * await dispatch(fetchLandlords(currentCompany?._id));
-       * handleSelectLandlord(created._id, created);
-       */
+      const created = await dispatch(
+        createLandlord({
+          landlordName,
+          landlordType: "Individual",
+          regId,
+          taxPin,
+          postalAddress: "",
+          email: newLandlord.email.trim(),
+          phoneNumber: newLandlord.phone.trim(),
+          location: "",
+          portalAccess: "Disabled",
+          status: "Active",
+          company: currentCompany._id,
+        })
+      );
 
-      // TEMP (until wired): create a local "landlord" object and select it
-      const tempId = `temp-${Date.now()}`;
-      const created = {
-        _id: tempId,
-        fullName: newLandlord.fullName,
-        email: newLandlord.email,
-        phone: newLandlord.phone,
-      };
+      const savedLandlord = created;
 
-      handleSelectLandlord(created._id, created);
-      toast.success("Landlord added (temporary). Connect DB to persist.");
+      await dispatch(getLandlords({ company: currentCompany._id }));
+      handleSelectLandlord(savedLandlord._id, savedLandlord);
+
+      toast.success("Landlord added successfully!");
       setOpenAddLandlordModal(false);
       setNewLandlord({ fullName: "", email: "", phone: "" });
     } catch (err) {
@@ -602,7 +530,6 @@ const AddProperty = () => {
     }
   };
 
-  // Handle property submit
   const handleSubmit = async (e) => {
     e?.preventDefault?.();
 
@@ -615,114 +542,88 @@ const AddProperty = () => {
       return;
     }
 
-    // Auto-generate propertyCode if not provided (backend requires it)
     let propertyCode = formData.propertyCode?.trim();
     if (!propertyCode) {
-      // Generate code: {Landlord Prefix}{Global Sequential Number}{Letter}
-      // Example: AH0001A, AH0002B, MB0003A (MB resets letter)
-      
-      let first2Letters = "PR"; // Default fallback to "PR" (Property)
-      
-      // Try to get landlord initials from formData.landlords[0].landlordId
+      let first2Letters = "PR";
       const selectedLandlordId = formData.landlords?.[0]?.landlordId;
+
       if (selectedLandlordId && landlordsFromStore?.length > 0) {
-        const landlordObj = landlordsFromStore.find(l => l._id === selectedLandlordId);
-        // Check multiple possible field names for landlord name
+        const landlordObj = landlordsFromStore.find((l) => l._id === selectedLandlordId);
         const landlordName = landlordObj?.landlordName || landlordObj?.name || landlordObj?.fullName || "";
         if (landlordName) {
           const extracted = landlordName
             .toUpperCase()
             .replace(/[^A-Z]/g, "")
             .substring(0, 2);
-          // Only use extracted letters if we got at least 1 character
-          if (extracted.length === 2) {
-            first2Letters = extracted;
-          } else if (extracted.length === 1) {
-            first2Letters = extracted.padEnd(2, "X");
-          }
-          // If no letters at all, keep default "PR"
+
+          if (extracted.length === 2) first2Letters = extracted;
+          else if (extracted.length === 1) first2Letters = extracted.padEnd(2, "X");
         }
       }
-      
-      // GLOBAL sequential number: Find highest number across ALL properties
+
       const allNumbers = propertiesFromStore
-        .map(p => {
-          // Extract 4-digit number from middle of code (e.g., "AH0001A" -> 0001)
+        .map((p) => {
           const match = p.propertyCode?.match(/\d{4}/);
           return match ? parseInt(match[0]) : 0;
         })
         .sort((a, b) => b - a);
-      
+
       const globalNextNumber = (allNumbers[0] || 0) + 1;
       const sequentialDigits = String(globalNextNumber).padStart(4, "0");
-      
-      // Per-landlord letter: Count existing properties for this landlord
+
       const landlordPropertyCount = propertiesFromStore
-        .filter(p => p.propertyCode?.startsWith(first2Letters))
+        .filter((p) => p.propertyCode?.startsWith(first2Letters))
         .length;
-      
-      // Generate letter (A, B, C, ... Z, A, B, ...)
+
       const letterIndex = landlordPropertyCount % 26;
-      const letter = String.fromCharCode(65 + letterIndex); // 65 = 'A'
-      
+      const letter = String.fromCharCode(65 + letterIndex);
+
       propertyCode = `${first2Letters}${sequentialDigits}${letter}`;
     }
 
     const businessId = currentCompany?._id;
-    
+
     if (!businessId) {
-      console.error("Company not found:", currentCompany);
-      toast.error("Company information not available. Please refresh and try again.");
+      const message = "Business context is required to create a property. Please ensure you are logged in with a company account.";
+      setGeneralError(message);
+      toast.error(message);
       return;
     }
 
-    // Clean up optional enum fields - remove empty strings to avoid validation errors
     const cleanedFormData = { ...formData };
-    const optionalEnumFields = ['specification', 'multiStoreyType', 'category'];
-    optionalEnumFields.forEach(field => {
-      if (cleanedFormData[field] === '') {
+    const optionalEnumFields = ["specification", "multiStoreyType", "category"];
+    optionalEnumFields.forEach((field) => {
+      if (cleanedFormData[field] === "") {
         delete cleanedFormData[field];
       }
     });
 
     const propertyData = {
       ...cleanedFormData,
-      propertyCode, // Use generated or provided code
+      propertyCode,
       business: businessId,
       createdBy: currentUser?._id,
       updatedBy: currentUser?._id,
     };
 
-    console.log("📤 SENDING PROPERTY DATA TO BACKEND:");
-    console.log("Landlords array:", JSON.stringify(propertyData.landlords, null, 2));
-
     try {
       setFieldErrors({});
       setGeneralError("");
+
       const result = await dispatch(createProperty(propertyData)).unwrap();
-      
-      // Refresh landlords list to update their property counts
+
       await dispatch(getLandlords({ company: businessId }));
-      
+
       toast.success(result?.message || "Property created successfully!");
       navigate("/properties");
     } catch (err) {
-      console.error("Property creation error:", err);
-      
       let backendMessage = "Failed to create property";
-      
-      // Extract error from different possible sources
-      if (typeof err === 'string') {
-        backendMessage = err;
-      } else if (err?.message && err.message !== 'Unauthorized') {
-        backendMessage = err.message;
-      } else if (err?.error) {
-        backendMessage = err.error;
-      } else if (err?.data?.message) {
-        backendMessage = err.data.message;
-      } else if (err?.response?.data?.message) {
-        backendMessage = err.response.data.message;
-      }
+
+      if (typeof err === "string") backendMessage = err;
+      else if (err?.message && err.message !== "Unauthorized") backendMessage = err.message;
+      else if (err?.error) backendMessage = err.error;
+      else if (err?.data?.message) backendMessage = err.data.message;
+      else if (err?.response?.data?.message) backendMessage = err.response.data.message;
 
       if (err?.fieldErrors && typeof err.fieldErrors === "object") {
         setFieldErrors((prev) => ({ ...prev, ...err.fieldErrors }));
@@ -733,7 +634,6 @@ const AddProperty = () => {
     }
   };
 
-  // Reset form
   const handleReset = () => {
     setConfirmDialog({
       isOpen: true,
@@ -743,13 +643,12 @@ const AddProperty = () => {
       onConfirm: () => {
         setFormData(initialFormData);
         setActiveTab("general");
-        setConfirmDialog({ ...confirmDialog, isOpen: false });
+        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
         toast.info("Form reset successfully");
       },
     });
   };
 
-  // Tab navigation
   const handleNextTab = () => {
     const currentIndex = tabs.findIndex((tab) => tab.id === activeTab);
     if (currentIndex < tabs.length - 1) {
@@ -767,26 +666,21 @@ const AddProperty = () => {
   const isFirstTab = tabs.findIndex((tab) => tab.id === activeTab) === 0;
   const isLastTab = tabs.findIndex((tab) => tab.id === activeTab) === tabs.length - 1;
 
-  // Show error toast
   useEffect(() => {
     if (error) toast.error(error);
   }, [error]);
 
-  // Fetch landlords when component mounts with company context
   useEffect(() => {
     if (currentCompany?._id) {
       dispatch(getLandlords({ company: currentCompany._id }));
     }
   }, [currentCompany, dispatch]);
 
-  // ---------- RENDERS ----------
   const renderGeneralInfo = () => {
-    // Normalize landlords list items for dropdown
     const landlordItems = Array.isArray(landlordsFromStore) ? landlordsFromStore : [];
 
     const getLandlordId = (l) => l?._id || l?.id || l?.landlordId || "";
-    const getLandlordLabel = (l) =>
-      l?.fullName || l?.name || l?.landlordName || l?.email || "Unnamed";
+    const getLandlordLabel = (l) => l?.fullName || l?.name || l?.landlordName || l?.email || "Unnamed";
 
     const selectedLandlordId = formData.landlords?.[0]?.landlordId || "";
 
@@ -975,7 +869,6 @@ const AddProperty = () => {
           </div>
         </div>
 
-        {/* Landlords Section (Add Property page) */}
         <div className={`${sectionCard} p-4`}>
           <div className="flex justify-between items-center mb-3">
             <h3 className={sectionHeader}>Landlords *</h3>
@@ -989,7 +882,6 @@ const AddProperty = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-            {/* Landlord Name -> dropdown */}
             <div>
               <MilikSelect
                 label="Landlord Name"
@@ -1004,11 +896,10 @@ const AddProperty = () => {
               />
               {fieldErrors.landlord && <p className="mt-1 text-xs text-red-600">{fieldErrors.landlord}</p>}
               <p className="mt-1 text-xs text-slate-500">
-                Select an existing landlord (fetched from database once connected).
+                Select an existing landlord from the database.
               </p>
             </div>
 
-            {/* Contact Information -> autofill */}
             <div>
               <label className={labelClass}>Contact Information</label>
               <input
@@ -1016,27 +907,28 @@ const AddProperty = () => {
                 name="contact"
                 value={formData.landlords?.[0]?.contact || ""}
                 onChange={(e) => {
-                  // allow manual edit but will autofill on selection
                   const updated = [...formData.landlords];
-                  updated[0] = { ...(updated[0] || { isPrimary: true }), contact: e.target.value, isPrimary: true };
+                  updated[0] = {
+                    ...(updated[0] || { isPrimary: true }),
+                    contact: e.target.value,
+                    isPrimary: true,
+                  };
                   setFormData((p) => ({ ...p, landlords: updated }));
                 }}
                 className={`${inputClass} ${MILIK_ORANGE_BORDER_FOCUS}`}
                 placeholder="Phone/Email"
               />
               <p className="mt-1 text-xs text-slate-500">
-                Autofills from selected landlord (email/phone).
+                Autofills from selected landlord.
               </p>
             </div>
 
-            {/* Primary landlord badge */}
             <div className="flex items-center">
               <div className="text-xs text-slate-500 italic">Primary landlord</div>
             </div>
           </div>
         </div>
 
-        {/* Add Landlord Modal (for Add Property page) */}
         <Modal
           open={openAddLandlordModal}
           title="Add Landlord"
@@ -1064,7 +956,7 @@ const AddProperty = () => {
             </div>
 
             <div>
-              <label className={labelClass}>Phone</label>
+              <label className={labelClass}>Phone *</label>
               <input
                 value={newLandlord.phone}
                 onChange={(e) => setNewLandlord((p) => ({ ...p, phone: e.target.value }))}
@@ -1088,11 +980,6 @@ const AddProperty = () => {
               >
                 Save Landlord
               </button>
-            </div>
-
-            <div className="text-xs text-slate-500 pt-1">
-              Note: This modal is ready for DB wiring. When you connect it to the Landlords page modal/action,
-              it will auto-select the new landlord and autofill contact fields.
             </div>
           </div>
         </Modal>
@@ -1467,7 +1354,8 @@ const AddProperty = () => {
           {formData.securityDeposits.map((deposit, index) => (
             <div
               key={index}
-              className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end p-3 border border-slate-200 rounded-lg bg-slate-50/40">
+              className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end p-3 border border-slate-200 rounded-lg bg-slate-50/40"
+            >
               <div>
                 <MilikSelect
                   label="Deposit Type"
@@ -1476,7 +1364,7 @@ const AddProperty = () => {
                     "Rent Security Deposit",
                     "Water Security Deposit",
                     "Electricity Security Deposit",
-                    "Others"
+                    "Others",
                   ]}
                   value={deposit.depositType}
                   onChange={(val) => {
@@ -1762,191 +1650,183 @@ const AddProperty = () => {
   return (
     <>
       <DashboardLayout>
-      <style>{`
-        /* Orange highlight for select dropdown options */
-        select {
-          accent-color: #ea580c;
-        }
-        
-        /* Orange checkboxes */
-        input[type="checkbox"] {
-          accent-color: #ea580c;
-          width: 18px;
-          height: 18px;
-          cursor: pointer;
-        }
-        
-        /* All option states - orange background */
-        select option {
-          background-color: white;
-          color: #1e293b;
-        }
-        
-        select option:hover,
-        select option:focus,
-        select option:active,
-        select option:checked {
-          background-color: #ea580c !important;
-          background: #ea580c !important;
-          color: white !important;
-          outline: none !important;
-        }
-        
-        /* Firefox specific */
-        select option:hover {
-          background-color: #ea580c !important;
-          background: #ea580c;
-          color: white;
-        }
-        
-        /* Webkit/Chrome specific */
-        select option:checked,
-        select option:checked:hover {
-          background: linear-gradient(#ea580c, #ea580c) !important;
-          background-color: #ea580c !important;
-          color: white !important;
-        }
-        
-        /* Force orange on all interactive states */
-        select:focus option:hover,
-        select:active option:hover,
-        select option[selected],
-        select option:not(:checked):hover {
-          background: #ea580c !important;
-          background-color: #ea580c !important;
-          color: white !important;
-        }
-      `}</style>
-      <div className="p-3 w-full h-full overflow-y-auto bg-slate-50">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-3">
-          <div>
-            <h1 className="text-lg font-extrabold text-slate-900 tracking-tight">
-              Add New Property
-            </h1>
-            <p className="text-sm text-slate-600">Fill in the property details below</p>
+        <style>{`
+          select {
+            accent-color: #ea580c;
+          }
+
+          input[type="checkbox"] {
+            accent-color: #ea580c;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+          }
+
+          select option {
+            background-color: white;
+            color: #1e293b;
+          }
+
+          select option:hover,
+          select option:focus,
+          select option:active,
+          select option:checked {
+            background-color: #ea580c !important;
+            background: #ea580c !important;
+            color: white !important;
+            outline: none !important;
+          }
+
+          select option:hover {
+            background-color: #ea580c !important;
+            background: #ea580c;
+            color: white;
+          }
+
+          select option:checked,
+          select option:checked:hover {
+            background: linear-gradient(#ea580c, #ea580c) !important;
+            background-color: #ea580c !important;
+            color: white !important;
+          }
+
+          select:focus option:hover,
+          select:active option:hover,
+          select option[selected],
+          select option:not(:checked):hover {
+            background: #ea580c !important;
+            background-color: #ea580c !important;
+            color: white !important;
+          }
+        `}</style>
+
+        <div className="p-3 w-full h-full overflow-y-auto bg-slate-50">
+          <div className="flex justify-between items-center mb-3">
+            <div>
+              <h1 className="text-lg font-extrabold text-slate-900 tracking-tight">
+                Add New Property
+              </h1>
+              <p className="text-sm text-slate-600">Fill in the property details below</p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate(-1)}
+                className="h-10 px-4 text-sm font-semibold border border-slate-300 rounded-md bg-white hover:bg-slate-50 transition-colors"
+                disabled={loading}
+              >
+                <FaTimes className="inline-block mr-2" />
+                Cancel
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate(-1)}
-              className="h-10 px-4 text-sm font-semibold border border-slate-300 rounded-md bg-white hover:bg-slate-50 transition-colors"
-              disabled={loading}
-            >
-              <FaTimes className="inline-block mr-2" />
-              Cancel
-            </button>
+          <div className="border-b border-slate-200 mb-3">
+            <div className="flex flex-wrap gap-2">
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    disabled={loading}
+                    className={[
+                      "h-10 px-4 text-sm font-bold flex items-center gap-2 rounded-t-md transition-all duration-200",
+                      isActive
+                        ? `${MILIK_ORANGE_BG} text-white shadow-sm border-b-2 border-orange-700`
+                        : "text-slate-700 hover:bg-slate-100",
+                      loading ? "opacity-50 cursor-not-allowed" : "",
+                    ].join(" ")}
+                  >
+                    <span className="text-base">{tab.icon}</span>
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
 
-        {/* Tabs Navigation */}
-        <div className="border-b border-slate-200 mb-3">
-          <div className="flex flex-wrap gap-2">
-            {tabs.map((tab) => {
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  disabled={loading}
-                  className={[
-                    "h-10 px-4 text-sm font-bold flex items-center gap-2 rounded-t-md transition-all duration-200",
-                    isActive
-                      ? `${MILIK_ORANGE_BG} text-white shadow-sm border-b-2 border-orange-700`
-                      : "text-slate-700 hover:bg-slate-100",
-                    loading ? "opacity-50 cursor-not-allowed" : "",
-                  ].join(" ")}
-                >
-                  <span className="text-base">{tab.icon}</span>
-                  {tab.label}
-                </button>
-              );
-            })}
+          <div className={`${sectionCard}`}>
+            <div className="p-4">
+              <form id="add-property-form" onSubmit={handleSubmit}>
+                {renderContent()}
+              </form>
+            </div>
           </div>
-        </div>
 
-        {/* Form Content */}
-        <div className={`${sectionCard}`}>
-          <div className="p-4">
-            <form id="add-property-form" onSubmit={handleSubmit}>{renderContent()}</form>
-          </div>
-        </div>
+          {fieldErrors.business && (
+            <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {fieldErrors.business}
+            </div>
+          )}
 
-        {fieldErrors.business && (
-          <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {fieldErrors.business}
-          </div>
-        )}
+          <div className="flex justify-between items-center mt-4">
+            <div className="text-xs text-slate-500">Fields marked with * are required</div>
 
-        {/* Action Buttons */}
-        <div className="flex justify-between items-center mt-4">
-          <div className="text-xs text-slate-500">Fields marked with * are required</div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              disabled={loading}
-              className="h-10 px-5 text-sm font-semibold border border-slate-300 rounded-md bg-white hover:bg-slate-50 transition-colors disabled:opacity-50"
-            >
-              Cancel
-            </button>
-
-            <button
-              type="button"
-              onClick={handleReset}
-              disabled={loading}
-              className="h-10 px-5 text-sm font-semibold border border-slate-300 rounded-md bg-white hover:bg-slate-50 transition-colors disabled:opacity-50"
-            >
-              Reset
-            </button>
-
-            {!isFirstTab && (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={handlePreviousTab}
+                onClick={() => navigate(-1)}
                 disabled={loading}
                 className="h-10 px-5 text-sm font-semibold border border-slate-300 rounded-md bg-white hover:bg-slate-50 transition-colors disabled:opacity-50"
               >
-                Previous
+                Cancel
               </button>
-            )}
 
-            {!isLastTab ? (
               <button
                 type="button"
-                onClick={handleNextTab}
+                onClick={handleReset}
                 disabled={loading}
-                className={`h-10 px-5 text-sm font-semibold ${MILIK_ORANGE_BG} text-white rounded-md ${MILIK_ORANGE_BG_HOVER} transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+                className="h-10 px-5 text-sm font-semibold border border-slate-300 rounded-md bg-white hover:bg-slate-50 transition-colors disabled:opacity-50"
               >
-                Next
+                Reset
               </button>
-            ) : (
-              <button
-                type="submit"
-                form="add-property-form"
-                disabled={loading}
-                className="h-10 px-5 text-sm font-semibold bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <>
-                    <FaSpinner className="inline-block mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <FaSave className="inline-block mr-2" />
-                    Save Property
-                  </>
-                )}
-              </button>
-            )}
+
+              {!isFirstTab && (
+                <button
+                  type="button"
+                  onClick={handlePreviousTab}
+                  disabled={loading}
+                  className="h-10 px-5 text-sm font-semibold border border-slate-300 rounded-md bg-white hover:bg-slate-50 transition-colors disabled:opacity-50"
+                >
+                  Previous
+                </button>
+              )}
+
+              {!isLastTab ? (
+                <button
+                  type="button"
+                  onClick={handleNextTab}
+                  disabled={loading}
+                  className={`h-10 px-5 text-sm font-semibold ${MILIK_ORANGE_BG} text-white rounded-md ${MILIK_ORANGE_BG_HOVER} transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  Next
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  form="add-property-form"
+                  disabled={loading}
+                  className="h-10 px-5 text-sm font-semibold bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? (
+                    <>
+                      <FaSpinner className="inline-block mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <FaSave className="inline-block mr-2" />
+                      Save Property
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
       </DashboardLayout>
 
-      {/* Milik Confirm Dialog */}
       <MilikConfirmDialog
         isOpen={confirmDialog.isOpen}
         title={confirmDialog.title}
@@ -1958,7 +1838,6 @@ const AddProperty = () => {
         onCancel={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
       />
 
-      {/* Fixed Error Display - Bottom Left */}
       {generalError && (
         <div className="fixed bottom-4 left-4 z-50 max-w-md animate-in slide-in-from-left-5">
           <div className="bg-red-50 border-l-4 border-red-500 rounded-md shadow-lg p-4">

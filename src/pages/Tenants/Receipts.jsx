@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -18,16 +18,16 @@ import {
 import { toast } from "react-toastify";
 import DashboardLayout from "../../components/Layout/DashboardLayout";
 import JournalEntriesDrawer from "../../components/Accounting/JournalEntriesDrawer";
-import { getTenants } from "../../redux/tenantsRedux";
 import {
+  getTenants,
   confirmRentPayment,
   createRentPayment,
   deleteRentPayment,
   getRentPayments,
   reverseRentPayment,
-  cancelReversalRentPayment,
   updateRentPayment,
   unconfirmRentPayment,
+  getTenantInvoices,
 } from "../../redux/apiCalls";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
@@ -73,24 +73,31 @@ const formatDate = (value) => {
   return date.toLocaleDateString();
 };
 
+const safeId = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object") return value._id ? String(value._id) : "";
+  return String(value);
+};
+
 const getTenantName = (payment, tenants) => {
   const directName =
     payment?.tenant?.name ||
     payment?.tenant?.tenantName ||
     [payment?.tenant?.firstName, payment?.tenant?.lastName].filter(Boolean).join(" ");
   if (directName) return directName;
-  const tenantId = payment?.tenant?._id || payment?.tenant;
-  const tenantIdStr = tenantId ? String(tenantId) : "";
-  const found = tenants.find((tenant) => String(tenant?._id || "") === tenantIdStr);
+
+  const tenantIdStr = safeId(payment?.tenant);
+  const found = tenants.find((tenant) => safeId(tenant) === tenantIdStr);
   return found?.name || "N/A";
 };
 
 const getUnitName = (payment, tenants) => {
   const direct = payment?.unit?.unitNumber || payment?.unit?.name || payment?.unit?.unitName;
   if (direct) return direct;
-  const tenantId = payment?.tenant?._id || payment?.tenant;
-  const tenantIdStr = tenantId ? String(tenantId) : "";
-  const found = tenants.find((tenant) => String(tenant?._id || "") === tenantIdStr);
+
+  const tenantIdStr = safeId(payment?.tenant);
+  const found = tenants.find((tenant) => safeId(tenant) === tenantIdStr);
   return found?.unit?.unitNumber || "N/A";
 };
 
@@ -98,9 +105,8 @@ const getPropertyName = (payment, tenants) => {
   const directProperty = payment?.unit?.property?.propertyName || payment?.unit?.propertyName;
   if (directProperty) return directProperty;
 
-  const tenantId = payment?.tenant?._id || payment?.tenant;
-  const tenantIdStr = tenantId ? String(tenantId) : "";
-  const found = tenants.find((tenant) => String(tenant?._id || "") === tenantIdStr);
+  const tenantIdStr = safeId(payment?.tenant);
+  const found = tenants.find((tenant) => safeId(tenant) === tenantIdStr);
 
   return (
     found?.unit?.property?.propertyName ||
@@ -111,9 +117,7 @@ const getPropertyName = (payment, tenants) => {
 };
 
 const getLedgerType = (payment) => {
-  // Only receipts and cashbook entries should be here
-  if (payment?.reversalOf) return "cashbook";
-  return "receipts";
+  return payment?.ledgerType === "receipts" ? "receipts" : "unknown";
 };
 
 const getCashbookAccount = (cashbook) => {
@@ -121,32 +125,20 @@ const getCashbookAccount = (cashbook) => {
 };
 
 const buildJournalEntriesForReceipt = (receipt) => {
-  const amount = Number(receipt?.amount || 0);
-  const narration = receipt?.description || `Receipt ${receipt?.receiptNumber || receipt?.referenceNumber || ""}`;
-  const ledgerType = getLedgerType(receipt);
+  const amount = Math.abs(Number(receipt?.amount || 0));
+  const narration =
+    receipt?.description || `Receipt ${receipt?.receiptNumber || receipt?.referenceNumber || ""}`;
   const cashbook = receipt?.cashbook || "Main Cashbook";
   const cashbookAccount = getCashbookAccount(cashbook);
 
-  if (ledgerType === "invoices") {
-    const incomeAccount = receipt?.paymentType === "utility"
-      ? { code: "4102", name: "Utility Recharge Income" }
-      : { code: "4100", name: "Rent Income" };
-    return [
-      {
-        accountCode: "1200",
-        accountName: "Tenant Receivables",
-        debit: amount,
-        credit: 0,
-        narration,
-      },
-      {
-        accountCode: incomeAccount.code,
-        accountName: incomeAccount.name,
-        debit: 0,
-        credit: amount,
-        narration,
-      },
-    ];
+  let creditAccount = { code: "1200", name: "Tenant Receivables" };
+
+  if (receipt?.paymentType === "deposit") {
+    creditAccount = { code: "2200", name: "Tenant Deposit Liability" };
+  } else if (receipt?.paymentType === "late_fee") {
+    creditAccount = { code: "4200", name: "Late Fee Income" };
+  } else if (receipt?.paymentType === "other") {
+    creditAccount = { code: "4300", name: "Other Income" };
   }
 
   return [
@@ -158,8 +150,8 @@ const buildJournalEntriesForReceipt = (receipt) => {
       narration,
     },
     {
-      accountCode: "1200",
-      accountName: "Tenant Receivables",
+      accountCode: creditAccount.code,
+      accountName: creditAccount.name,
       debit: 0,
       credit: amount,
       narration,
@@ -176,19 +168,18 @@ const Receipts = () => {
   const { currentUser } = useSelector((state) => state.auth || {});
   const tenants = useSelector((state) => state.tenant?.tenants || []);
   const rentPayments = useSelector((state) => state.rentPayment?.rentPayments || []);
-  const loading = useSelector((state) => state.rentPayment?.isFetching || false);
 
   const initialFilters = {
-     search: "",
-     tenantSearch: "",
-     status: "all",
-     paymentType: "all",
-     tenant: tenantId || "all",
-     property: "all",
-     unit: "all",
-     ledger: "all",
-     from: "",
-     to: "",
+    search: "",
+    tenantSearch: "",
+    status: "all",
+    paymentType: "all",
+    tenant: tenantId || "all",
+    property: "all",
+    unit: "all",
+    ledger: "all",
+    from: "",
+    to: "",
   };
 
   const [draftFilters, setDraftFilters] = useState(initialFilters);
@@ -200,6 +191,7 @@ const Receipts = () => {
   const [journalDrawerOpen, setJournalDrawerOpen] = useState(false);
   const [journalContext, setJournalContext] = useState({});
   const [journalLines, setJournalLines] = useState([]);
+  const [tenantInvoices, setTenantInvoices] = useState([]);
   const [formData, setFormData] = useState({
     tenantId: tenantId || "",
     amount: "",
@@ -212,56 +204,75 @@ const Receipts = () => {
     isConfirmed: false,
   });
 
-  const loadData = async () => {
+  const loadInvoices = useCallback(async () => {
     if (!currentCompany?._id) return;
     try {
-      await dispatch(getTenants({ business: currentCompany._id }));
-      await getRentPayments(dispatch, currentCompany._id, appliedFilters.tenant !== "all" ? appliedFilters.tenant : null);
+      const invoiceRows = await getTenantInvoices({ business: currentCompany._id });
+      setTenantInvoices(Array.isArray(invoiceRows) ? invoiceRows : []);
+    } catch (error) {
+      console.error("Failed to load tenant invoices:", error);
+      setTenantInvoices([]);
+    }
+  }, [currentCompany?._id]);
+
+  const loadData = useCallback(async () => {
+    if (!currentCompany?._id) return;
+    try {
+      await getTenants(dispatch, currentCompany._id);
+      await getRentPayments(
+        dispatch,
+        currentCompany._id,
+        appliedFilters.tenant !== "all" ? appliedFilters.tenant : null
+      );
+      await loadInvoices();
     } catch (error) {
       toast.error("Failed to load receipts");
     }
-  };
+  }, [currentCompany?._id, appliedFilters.tenant, dispatch, loadInvoices]);
 
   useEffect(() => {
     if (!currentCompany?._id) return;
     loadData();
-  }, [currentCompany?._id, appliedFilters.tenant]);
+  }, [currentCompany?._id, appliedFilters.tenant, loadData]);
 
   const propertyOptions = useMemo(() => {
     return [
       "all",
-      ...Array.from(new Set(rentPayments.map((p) => getPropertyName(p, tenants)).filter(Boolean))).sort((a, b) =>
-        String(a).localeCompare(String(b))
-      ),
+      ...Array.from(
+        new Set(
+          rentPayments
+            .filter((p) => p?.ledgerType === "receipts")
+            .map((p) => getPropertyName(p, tenants))
+            .filter(Boolean)
+        )
+      ).sort((a, b) => String(a).localeCompare(String(b))),
     ];
   }, [rentPayments, tenants]);
 
   const unitOptions = useMemo(() => {
     const scoped = rentPayments.filter((p) => {
+      if (p?.ledgerType !== "receipts") return false;
       if (draftFilters.property === "all") return true;
       return getPropertyName(p, tenants) === draftFilters.property;
     });
 
     return [
       "all",
-      ...Array.from(new Set(scoped.map((p) => getUnitName(p, tenants)).filter(Boolean))).sort((a, b) =>
-        String(a).localeCompare(String(b))
+      ...Array.from(new Set(scoped.map((p) => getUnitName(p, tenants)).filter(Boolean))).sort(
+        (a, b) => String(a).localeCompare(String(b))
       ),
     ];
   }, [rentPayments, tenants, draftFilters.property]);
 
-  // Only show receipts, not invoices
   const filteredReceipts = useMemo(() => {
     return rentPayments.filter((payment) => {
-      // Only allow receipts and cashbook entries
-      const ledgerType = getLedgerType(payment);
-      if (ledgerType !== "receipts" && ledgerType !== "cashbook") return false;
+      if (payment?.ledgerType !== "receipts") return false;
 
       const tenantName = getTenantName(payment, tenants).toLowerCase();
       const unitName = getUnitName(payment, tenants).toLowerCase();
       const propertyName = getPropertyName(payment, tenants);
-      const receiptNo = (payment.receiptNumber || "").toLowerCase();
-      const referenceNo = (payment.referenceNumber || "").toLowerCase();
+      const receiptNo = String(payment.receiptNumber || "").toLowerCase();
+      const referenceNo = String(payment.referenceNumber || "").toLowerCase();
       const searchTerm = appliedFilters.search.toLowerCase().trim();
       const tenantSearch = appliedFilters.tenantSearch.toLowerCase().trim();
 
@@ -272,6 +283,7 @@ const Receipts = () => {
           unitName.includes(searchTerm) ||
           receiptNo.includes(searchTerm) ||
           referenceNo.includes(searchTerm);
+
         if (!hasMatch) return false;
       }
 
@@ -280,14 +292,14 @@ const Receipts = () => {
       if (appliedFilters.paymentType !== "all" && payment.paymentType !== appliedFilters.paymentType) return false;
       if (tenantSearch && !tenantName.includes(tenantSearch)) return false;
 
-      const thisTenantId = payment?.tenant?._id || payment?.tenant;
-      if (appliedFilters.tenant !== "all" && thisTenantId !== appliedFilters.tenant) return false;
+      const thisTenantId = safeId(payment?.tenant);
+      if (appliedFilters.tenant !== "all" && thisTenantId !== String(appliedFilters.tenant)) return false;
 
       if (appliedFilters.property !== "all" && propertyName !== appliedFilters.property) return false;
       if (appliedFilters.unit !== "all" && getUnitName(payment, tenants) !== appliedFilters.unit) return false;
 
-      // Remove ledger filter for invoices
-      if (appliedFilters.ledger !== "all" && ledgerType !== appliedFilters.ledger) return false;
+      if (appliedFilters.ledger === "receipts" && payment.ledgerType !== "receipts") return false;
+      if (appliedFilters.ledger === "cashbook") return false;
 
       if (appliedFilters.from) {
         const fromDate = new Date(appliedFilters.from);
@@ -307,9 +319,10 @@ const Receipts = () => {
   }, [rentPayments, appliedFilters, tenants]);
 
   const stats = useMemo(() => {
-    const total = filteredReceipts.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+    const total = filteredReceipts.reduce((sum, item) => sum + Math.abs(Number(item.amount) || 0), 0);
     const confirmedCount = filteredReceipts.filter((item) => item.isConfirmed).length;
     const pendingCount = filteredReceipts.length - confirmedCount;
+
     return {
       count: filteredReceipts.length,
       total,
@@ -319,71 +332,118 @@ const Receipts = () => {
   }, [filteredReceipts]);
 
   const selectedTenant = useMemo(() => {
-    return tenants.find((tenant) => tenant._id === formData.tenantId);
+    return tenants.find((tenant) => safeId(tenant) === String(formData.tenantId));
   }, [formData.tenantId, tenants]);
 
-  const getCreatedInvoicesForTenant = (targetTenantId) => {
-    if (!targetTenantId) return [];
+  const getCreatedInvoicesForTenant = useCallback(
+    (targetTenantId) => {
+      if (!targetTenantId) return [];
+      const tenantIdStr = String(targetTenantId);
 
-    // Removed localStorage usage. Only fetch from backend/database.
-    return [];
-  };
+      return tenantInvoices.filter((invoice) => {
+        const invoiceTenantId = safeId(invoice?.tenant);
+        return invoiceTenantId === tenantIdStr;
+      });
+    },
+    [tenantInvoices]
+  );
 
-  // Helper: Calculate tenant balance from actual invoices and confirmed receipts
-  const calculateTenantBalance = (tenantId) => {
-    if (!tenantId) return { totalOwed: 0, totalPaid: 0, balance: 0 };
-    
-    // Get all tenant's confirmed payments
-    const tenantPayments = rentPayments.filter(
-      (p) => (p.tenant === tenantId || p.tenant?._id === tenantId) && p.isConfirmed === true
-    );
-    const totalPaid = tenantPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  const calculateTenantBalance = useCallback(
+    (targetTenantId) => {
+      if (!targetTenantId) return { totalOwed: 0, totalPaid: 0, balance: 0 };
 
-    const invoices = getCreatedInvoicesForTenant(tenantId);
-    const totalOwed = invoices.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
-    const balance = totalOwed - totalPaid;
+      const tenantIdStr = String(targetTenantId);
 
-    return { totalOwed, totalPaid, balance };
-  };
-
-  // Helper: Outstanding invoice breakdown from actual created invoices
-  const getOutstandingInvoices = (tenantId) => {
-    if (!tenantId) return [];
-
-    const invoices = getCreatedInvoicesForTenant(tenantId)
-      .filter((inv) => Number(inv.amount) > 0)
-      .sort((a, b) => {
-        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return aTime - bTime;
+      const tenantPayments = rentPayments.filter((p) => {
+        const paymentTenantId = safeId(p?.tenant);
+        return (
+          p?.ledgerType === "receipts" &&
+          paymentTenantId === tenantIdStr &&
+          p.isConfirmed === true &&
+          p.isCancelled !== true
+        );
       });
 
-    const confirmedPayments = rentPayments
-      .filter((p) => (p.tenant === tenantId || p.tenant?._id === tenantId) && p.isConfirmed === true)
-      .sort((a, b) => {
-        const aTime = new Date(a.paymentDate || a.createdAt).getTime();
-        const bTime = new Date(b.paymentDate || b.createdAt).getTime();
-        return aTime - bTime;
-      });
+      const totalPaid = tenantPayments.reduce((sum, p) => sum + Math.abs(Number(p.amount) || 0), 0);
 
-    let remainingPaid = confirmedPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const invoices = getCreatedInvoicesForTenant(targetTenantId).filter(
+        (inv) => !["cancelled", "reversed"].includes(String(inv?.status || "").toLowerCase())
+      );
 
-    return invoices
-      .map((inv) => {
-        const invAmount = Number(inv.amount) || 0;
-        const paid = Math.min(invAmount, Math.max(0, remainingPaid));
-        remainingPaid -= paid;
-        const outstanding = Math.max(0, invAmount - paid);
+      const totalOwed = invoices.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+      const balance = totalOwed - totalPaid;
 
-        return {
-          month: inv.period,
-          rent: invAmount,
-          paid,
-          outstanding,
-        };
-      })
-      .filter((inv) => inv.outstanding > 0 || inv.paid > 0);
-  };
+      return { totalOwed, totalPaid, balance };
+    },
+    [rentPayments, getCreatedInvoicesForTenant]
+  );
+
+  const getOutstandingInvoices = useCallback(
+    (targetTenantId) => {
+      if (!targetTenantId) return [];
+
+      const invoices = getCreatedInvoicesForTenant(targetTenantId)
+        .filter(
+          (inv) =>
+            Number(inv.amount) > 0 &&
+            !["cancelled", "reversed"].includes(String(inv?.status || "").toLowerCase())
+        )
+        .sort((a, b) => {
+          const aTime = a.invoiceDate
+            ? new Date(a.invoiceDate).getTime()
+            : a.createdAt
+            ? new Date(a.createdAt).getTime()
+            : 0;
+          const bTime = b.invoiceDate
+            ? new Date(b.invoiceDate).getTime()
+            : b.createdAt
+            ? new Date(b.createdAt).getTime()
+            : 0;
+          return aTime - bTime;
+        });
+
+      const confirmedPayments = rentPayments
+        .filter((p) => {
+          const paymentTenantId = safeId(p?.tenant);
+          return (
+            p?.ledgerType === "receipts" &&
+            paymentTenantId === String(targetTenantId) &&
+            p.isConfirmed === true &&
+            p.isCancelled !== true
+          );
+        })
+        .sort((a, b) => {
+          const aTime = new Date(a.paymentDate || a.createdAt).getTime();
+          const bTime = new Date(b.paymentDate || b.createdAt).getTime();
+          return aTime - bTime;
+        });
+
+      let remainingPaid = confirmedPayments.reduce(
+        (sum, p) => sum + Math.abs(Number(p.amount) || 0),
+        0
+      );
+
+      return invoices
+        .map((inv) => {
+          const invAmount = Number(inv.amount) || 0;
+          const paid = Math.min(invAmount, Math.max(0, remainingPaid));
+          remainingPaid -= paid;
+          const outstanding = Math.max(0, invAmount - paid);
+
+          return {
+            month:
+              inv.period ||
+              inv.invoiceNumber ||
+              (inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString() : "Invoice"),
+            rent: invAmount,
+            paid,
+            outstanding,
+          };
+        })
+        .filter((inv) => inv.outstanding > 0 || inv.paid > 0);
+    },
+    [getCreatedInvoicesForTenant, rentPayments]
+  );
 
   const resetForm = () => {
     setFormData({
@@ -410,7 +470,7 @@ const Receipts = () => {
   };
 
   const openEditForm = (receipt) => {
-    const tenantRef = receipt?.tenant?._id || receipt?.tenant || "";
+    const tenantRef = safeId(receipt?.tenant) || "";
     setActiveReceipt(receipt);
     setFormData({
       tenantId: tenantRef,
@@ -418,8 +478,10 @@ const Receipts = () => {
       paymentType: receipt.paymentType || "rent",
       paymentMethod: receipt.paymentMethod || "mobile_money",
       cashbook: receipt.cashbook || "Main Cashbook",
-      paymentDate: (receipt.paymentDate || "").split("T")[0] || new Date().toISOString().split("T")[0],
-      dueDate: (receipt.dueDate || "").split("T")[0] || new Date().toISOString().split("T")[0],
+      paymentDate:
+        (receipt.paymentDate || "").split("T")[0] || new Date().toISOString().split("T")[0],
+      dueDate:
+        (receipt.dueDate || "").split("T")[0] || new Date().toISOString().split("T")[0],
       description: receipt.description || "",
       isConfirmed: Boolean(receipt.isConfirmed),
     });
@@ -431,6 +493,7 @@ const Receipts = () => {
       toast.error("Tenant is required");
       return;
     }
+
     if (!formData.amount || Number(formData.amount) <= 0) {
       toast.error("Amount must be greater than zero");
       return;
@@ -461,6 +524,7 @@ const Receipts = () => {
       isConfirmed: formData.isConfirmed,
       month: paymentDateObj.getMonth() + 1,
       year: paymentDateObj.getFullYear(),
+      ledgerType: "receipts",
     };
 
     try {
@@ -559,22 +623,8 @@ const Receipts = () => {
     }
   };
 
-  const handleCancelReversalOne = async (receipt) => {
-    if (!receipt?.isReversed) {
-      toast.info("Receipt is not reversed");
-      return;
-    }
-
-    const reason = window.prompt("Provide reason for cancelling reversal", "Allocation restoration");
-    if (reason === null) return;
-
-    try {
-      await cancelReversalRentPayment(dispatch, receipt._id, { reason });
-      toast.success("Reversal cancelled. Receipt allocation restored.");
-      await loadData();
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Failed to cancel reversal");
-    }
+  const handleCancelReversalOne = async () => {
+    toast.info("Cancellation of posted reversals is blocked. Create a correcting receipt instead.");
   };
 
   const applySearchFilters = () => {
@@ -667,7 +717,7 @@ const Receipts = () => {
 
     try {
       await unconfirmRentPayment(dispatch, receipt._id);
-      toast.success("Receipt unconfirmed. You can now delete it.");
+      toast.success("Receipt unconfirmed.");
       await loadData();
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to unconfirm receipt");
@@ -754,7 +804,7 @@ const Receipts = () => {
             <div class="row"><span class="label">Payment Type</span><span class="value">${escapeHtml(receipt.paymentType || "-")}</span></div>
             <div class="row"><span class="label">Method</span><span class="value">${escapeHtml(receipt.paymentMethod || "-")}</span></div>
             <div class="row"><span class="label">Status</span><span class="value">${receipt.isConfirmed ? "Confirmed" : "Pending"}</span></div>
-            <div class="row"><span class="label">Amount</span><span class="value amount">Ksh ${Number(receipt.amount || 0).toLocaleString()}</span></div>
+            <div class="row"><span class="label">Amount</span><span class="value amount">Ksh ${Math.abs(Number(receipt.amount || 0)).toLocaleString()}</span></div>
           </div>
         </body>
       </html>
@@ -779,7 +829,7 @@ const Receipts = () => {
             <td>${escapeHtml(getPropertyName(receipt, tenants))}</td>
             <td>${escapeHtml(getUnitName(receipt, tenants))}</td>
             <td>${escapeHtml(receipt.referenceNumber || "-")}</td>
-            <td style="text-align:right;">Ksh ${Number(receipt.amount || 0).toLocaleString()}</td>
+            <td style="text-align:right;">Ksh ${Math.abs(Number(receipt.amount || 0)).toLocaleString()}</td>
             <td>${receipt.isConfirmed ? "Confirmed" : "Pending"}</td>
           </tr>
         `
@@ -1106,7 +1156,7 @@ const Receipts = () => {
                           <td className="px-3 py-2 font-semibold text-slate-900 capitalize">{receipt.paymentType || "-"}</td>
                           <td className="px-3 py-2 font-semibold text-slate-900 capitalize">{(receipt.paymentMethod || "-").replace("_", " ")}</td>
                           <td className="px-3 py-2 text-right font-bold text-slate-900">
-                            Ksh {Number(receipt.amount || 0).toLocaleString()}
+                            Ksh {Math.abs(Number(receipt.amount || 0)).toLocaleString()}
                           </td>
                           <td className="px-3 py-2">
                             <span
@@ -1208,14 +1258,13 @@ const Receipts = () => {
             </div>
 
             <div className="p-4">
-              {/* Balance Summary Section */}
               {formData.tenantId && (
                 <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
                   {(() => {
                     const { totalOwed, totalPaid, balance } = calculateTenantBalance(formData.tenantId);
                     const receiptAmount = Number(formData.amount) || 0;
                     const newBalance = balance - receiptAmount;
-                    
+
                     return (
                       <>
                         <div className="bg-red-50 border border-red-200 rounded-lg p-3">
@@ -1224,13 +1273,13 @@ const Receipts = () => {
                         </div>
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                           <p className="text-[10px] font-bold uppercase text-blue-700 mb-1">Current Balance</p>
-                          <p className={`text-xl font-bold ${balance > 0 ? 'text-blue-700' : 'text-green-700'}`}>
+                          <p className={`text-xl font-bold ${balance > 0 ? "text-blue-700" : "text-green-700"}`}>
                             Ksh {balance.toLocaleString()}
                           </p>
                         </div>
                         <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                           <p className="text-[10px] font-bold uppercase text-green-700 mb-1">After Receipt</p>
-                          <p className={`text-xl font-bold ${newBalance > 0 ? 'text-red-700' : 'text-green-700'}`}>
+                          <p className={`text-xl font-bold ${newBalance > 0 ? "text-red-700" : "text-green-700"}`}>
                             Ksh {newBalance.toLocaleString()}
                           </p>
                         </div>
@@ -1240,7 +1289,6 @@ const Receipts = () => {
                 </div>
               )}
 
-              {/* Outstanding Invoices List */}
               {formData.tenantId && (
                 <div className="mb-4 bg-slate-50 border border-slate-200 rounded-lg p-3">
                   <h4 className="text-xs font-bold text-slate-700 mb-3">📋 OUTSTANDING INVOICES</h4>
@@ -1250,12 +1298,14 @@ const Receipts = () => {
                         <div key={idx} className="bg-white border border-slate-200 rounded p-2 text-xs">
                           <div className="flex justify-between items-center mb-1">
                             <span className="font-semibold text-slate-900">{invoice.month}</span>
-                            <span className={`px-2 py-1 rounded text-[10px] font-bold ${
-                              invoice.outstanding > 0 
-                                ? 'bg-orange-100 text-orange-700' 
-                                : 'bg-green-100 text-green-700'
-                            }`}>
-                              {invoice.outstanding === 0 ? '✓ PAID' : '⚠ DUE'}
+                            <span
+                              className={`px-2 py-1 rounded text-[10px] font-bold ${
+                                invoice.outstanding > 0
+                                  ? "bg-orange-100 text-orange-700"
+                                  : "bg-green-100 text-green-700"
+                              }`}
+                            >
+                              {invoice.outstanding === 0 ? "✓ PAID" : "⚠ DUE"}
                             </span>
                           </div>
                           <div className="flex justify-between text-slate-600 mb-1">
@@ -1264,7 +1314,7 @@ const Receipts = () => {
                           </div>
                           {invoice.outstanding > 0 && (
                             <div className="w-full bg-slate-200 rounded-full h-1.5">
-                              <div 
+                              <div
                                 className="bg-orange-500 h-1.5 rounded-full transition-all"
                                 style={{ width: `${Math.min(100, (invoice.paid / invoice.rent) * 100)}%` }}
                               />
@@ -1279,27 +1329,25 @@ const Receipts = () => {
                 </div>
               )}
 
-              {/* Impact Visualization */}
               {formData.tenantId && formData.amount && (
                 <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-3">
                   <h4 className="text-xs font-bold text-amber-800 mb-2">💡 BALANCE IMPACT</h4>
                   {(() => {
                     const { balance } = calculateTenantBalance(formData.tenantId);
                     const receiptAmount = Number(formData.amount) || 0;
-                    const newBalance = balance - receiptAmount;
                     const progressBase = Math.abs(balance);
                     const progress =
                       progressBase > 0
                         ? Math.max(0, Math.min(100, (Math.min(progressBase, receiptAmount) / progressBase) * 100))
                         : 0;
-                    
+
                     return (
                       <>
                         <p className="text-[10px] text-amber-800 mb-2">
-                          This receipt of <strong>Ksh {receiptAmount.toLocaleString()}</strong> will reduce the balance by {(progress).toFixed(1)}%
+                          This receipt of <strong>Ksh {receiptAmount.toLocaleString()}</strong> will reduce the balance by {progress.toFixed(1)}%
                         </p>
                         <div className="w-full bg-slate-300 rounded-full h-2">
-                          <div 
+                          <div
                             className="bg-gradient-to-r from-amber-500 to-green-500 h-2 rounded-full transition-all duration-300"
                             style={{ width: `${Math.min(100, progress)}%` }}
                           />
@@ -1310,122 +1358,121 @@ const Receipts = () => {
                 </div>
               )}
 
-              {/* Form Fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-700">Tenant *</label>
-                <select
-                  value={formData.tenantId}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, tenantId: e.target.value }))}
-                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
-                >
-                  <option value="">Select tenant</option>
-                  {tenants.map((tenant) => (
-                    <option key={tenant._id} value={tenant._id}>
-                      {tenant.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Tenant *</label>
+                  <select
+                    value={formData.tenantId}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, tenantId: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                  >
+                    <option value="">Select tenant</option>
+                    {tenants.map((tenant) => (
+                      <option key={tenant._id} value={tenant._id}>
+                        {tenant.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700">Amount *</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={formData.amount}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, amount: e.target.value }))}
-                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
-                />
-              </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Amount *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.amount}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, amount: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                  />
+                </div>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700">Payment Type *</label>
-                <select
-                  value={formData.paymentType}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, paymentType: e.target.value }))}
-                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
-                >
-                  <option value="rent">Rent</option>
-                  <option value="deposit">Deposit</option>
-                  <option value="utility">Utility</option>
-                  <option value="late_fee">Late Fee</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Payment Type *</label>
+                  <select
+                    value={formData.paymentType}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, paymentType: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                  >
+                    <option value="rent">Rent</option>
+                    <option value="deposit">Deposit</option>
+                    <option value="utility">Utility</option>
+                    <option value="late_fee">Late Fee</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700">Payment Method *</label>
-                <select
-                  value={formData.paymentMethod}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, paymentMethod: e.target.value }))}
-                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
-                >
-                  <option value="mobile_money">Mobile Money</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="cash">Cash</option>
-                  <option value="check">Check</option>
-                  <option value="credit_card">Credit Card</option>
-                </select>
-              </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Payment Method *</label>
+                  <select
+                    value={formData.paymentMethod}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, paymentMethod: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                  >
+                    <option value="mobile_money">Mobile Money</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="cash">Cash</option>
+                    <option value="check">Check</option>
+                    <option value="credit_card">Credit Card</option>
+                  </select>
+                </div>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700">Cashbook *</label>
-                <select
-                  value={formData.cashbook}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, cashbook: e.target.value }))}
-                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
-                >
-                  {CASHBOOK_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Cashbook *</label>
+                  <select
+                    value={formData.cashbook}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, cashbook: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                  >
+                    {CASHBOOK_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700">Payment Date *</label>
-                <input
-                  type="date"
-                  value={formData.paymentDate}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, paymentDate: e.target.value }))}
-                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
-                />
-              </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Payment Date *</label>
+                  <input
+                    type="date"
+                    value={formData.paymentDate}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, paymentDate: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                  />
+                </div>
 
-              <div>
-                <label className="text-xs font-semibold text-slate-700">Due Date *</label>
-                <input
-                  type="date"
-                  value={formData.dueDate}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, dueDate: e.target.value }))}
-                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
-                />
-              </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-700">Due Date *</label>
+                  <input
+                    type="date"
+                    value={formData.dueDate}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, dueDate: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                  />
+                </div>
 
-              <div className="md:col-span-2">
-                <label className="text-xs font-semibold text-slate-700">Description</label>
-                <textarea
-                  rows={2}
-                  value={formData.description}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                  className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
-                  placeholder="Optional note"
-                />
-              </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs font-semibold text-slate-700">Description</label>
+                  <textarea
+                    rows={2}
+                    value={formData.description}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                    className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                    placeholder="Optional note"
+                  />
+                </div>
 
-              <div className="md:col-span-2 flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="isConfirmed"
-                  checked={formData.isConfirmed}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, isConfirmed: e.target.checked }))}
-                />
-                <label htmlFor="isConfirmed" className="text-xs font-semibold text-slate-700">
-                  Mark as confirmed
-                </label>
-              </div>
+                <div className="md:col-span-2 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="isConfirmed"
+                    checked={formData.isConfirmed}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, isConfirmed: e.target.checked }))}
+                  />
+                  <label htmlFor="isConfirmed" className="text-xs font-semibold text-slate-700">
+                    Mark as confirmed
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -1469,7 +1516,7 @@ const Receipts = () => {
               <div className="flex justify-between"><span className="text-slate-600">Method</span><span className="font-semibold capitalize">{activeReceipt.paymentMethod?.replace("_", " ")}</span></div>
               <div className="flex justify-between"><span className="text-slate-600">Cashbook</span><span className="font-semibold">{activeReceipt.cashbook || "Main Cashbook"}</span></div>
               <div className="flex justify-between"><span className="text-slate-600">Status</span><span className="font-semibold">{activeReceipt.isConfirmed ? "Confirmed" : "Pending"}</span></div>
-              <div className="flex justify-between"><span className="text-slate-600">Amount</span><span className="font-bold text-lg">Ksh {Number(activeReceipt.amount || 0).toLocaleString()}</span></div>
+              <div className="flex justify-between"><span className="text-slate-600">Amount</span><span className="font-bold text-lg">Ksh {Math.abs(Number(activeReceipt.amount || 0)).toLocaleString()}</span></div>
               <div className="pt-2 border-t border-slate-200">
                 <span className="text-slate-600">Description</span>
                 <p className="font-medium mt-1">{activeReceipt.description || "-"}</p>

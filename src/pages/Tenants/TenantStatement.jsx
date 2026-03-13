@@ -4,10 +4,15 @@ import { useDispatch, useSelector } from "react-redux";
 import { getTenants } from "../../redux/tenantsRedux";
 import { getUnits } from "../../redux/unitRedux";
 import { getProperties } from "../../redux/propertyRedux";
-import { getLeases, getUtilities } from "../../redux/apiCalls";
+import {
+  getLeases,
+  getUtilities,
+  getRentPayments,
+  getTenantInvoices,
+  createTenantInvoice,
+} from "../../redux/apiCalls";
 import DashboardLayout from "../../components/Layout/DashboardLayout";
 import InvoiceCreationModal from "./InvoiceCreationModal";
-import { createTenantInvoice, cancelTenantInvoice, getTenantInvoices } from "../../redux/invoiceApi";
 import { toast } from "react-toastify";
 import {
   FaArrowLeft,
@@ -28,6 +33,19 @@ import {
 } from "react-icons/fa";
 
 const MILIK_GREEN = "bg-[#165946]";
+
+const formatPeriodLabel = (dateValue) => {
+  const dt = new Date(dateValue);
+  if (Number.isNaN(dt.getTime())) return "-";
+  return dt.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+};
+
+const safeId = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value._id) return String(value._id);
+  return String(value);
+};
 
 const TenantStatement = () => {
   const { id: tenantId } = useParams();
@@ -63,43 +81,9 @@ const TenantStatement = () => {
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [invoiceRefresh, setInvoiceRefresh] = useState(0);
-  const [createdInvoices, setCreatedInvoices] = useState([]);
-  const [createdInvoicesHydrated, setCreatedInvoicesHydrated] = useState(false);
-    // Load invoices for tenant
-    useEffect(() => {
-      if (tenantId) {
-        getTenantInvoices(tenantId)
-          .then((invoices) => {
-            setCreatedInvoices(invoices);
-            setCreatedInvoicesHydrated(true);
-          })
-          .catch(() => setCreatedInvoicesHydrated(false));
-      }
-    }, [tenantId, invoiceRefresh]);
-    // Handler for invoice creation
-    const handleCreateInvoice = async (invoiceData) => {
-      try {
-        await createTenantInvoice(invoiceData);
-        toast.success("Invoice created successfully");
-        setInvoiceRefresh((v) => v + 1);
-        setShowInvoiceModal(false);
-      } catch (err) {
-        toast.error("Failed to create invoice: " + (err?.response?.data?.error || err.message));
-      }
-    };
+  const [tenantInvoices, setTenantInvoices] = useState([]);
 
-    // Handler for invoice cancellation
-    const handleCancelInvoice = async (invoiceId) => {
-      try {
-        await cancelTenantInvoice(invoiceId);
-        toast.success("Invoice cancelled");
-        setInvoiceRefresh((v) => v + 1);
-      } catch (err) {
-        toast.error("Failed to cancel invoice: " + (err?.response?.data?.error || err.message));
-      }
-    };
   const currentCompany = useSelector((state) => state.company?.currentCompany);
-
   const tenantsFromStore = useSelector((state) => state.tenant?.tenants || []);
   const leasesFromStore = useSelector((state) => state.lease?.leases || []);
   const rentPaymentsFromStore = useSelector((state) => state.rentPayment?.rentPayments || []);
@@ -108,98 +92,51 @@ const TenantStatement = () => {
   const utilitiesFromStore = useSelector((state) => state.utility?.utilities || []);
   const unitsFromStore = useSelector((state) => state.unit?.units || []);
   const propertiesFromStore = useSelector((state) => state.property?.properties || []);
-  
+
   const tenant = tenantsFromStore?.find((t) => t._id === tenantId);
-  
-  // Helper to resolve property name from tenant data
-  const resolveTenantPropertyName = (tenant) => {
-    if (!tenant) return "-";
-    
-    // Level 1: Check direct property fields
-    const directPropertyName = tenant?.unit?.property?.propertyName || tenant?.property?.propertyName || tenant?.propertyName;
+
+  const resolveTenantPropertyName = (targetTenant) => {
+    if (!targetTenant) return "-";
+
+    const directPropertyName =
+      targetTenant?.unit?.property?.propertyName ||
+      targetTenant?.property?.propertyName ||
+      targetTenant?.propertyName;
     if (directPropertyName) return directPropertyName;
 
-    // Level 2: Unit ID → Unit record → Property
-    const tenantUnitId = tenant?.unit?._id || tenant?.unit;
+    const tenantUnitId = targetTenant?.unit?._id || targetTenant?.unit;
     const tenantUnitIdStr = tenantUnitId ? String(tenantUnitId) : "";
     const matchedUnit = unitsFromStore.find((unit) => String(unit?._id || "") === tenantUnitIdStr);
     const propertyIdFromUnit = matchedUnit?.property?._id || matchedUnit?.property;
-    
-    // Level 3: Property ID → Property record
-    const propertyIdFromTenant = tenant?.property?._id || tenant?.property;
+    const propertyIdFromTenant = targetTenant?.property?._id || targetTenant?.property;
     const resolvedPropertyId = propertyIdFromUnit || propertyIdFromTenant;
     const resolvedPropertyIdStr = resolvedPropertyId ? String(resolvedPropertyId) : "";
     const matchedProperty = propertiesFromStore.find(
       (property) => String(property?._id || "") === resolvedPropertyIdStr
     );
 
-    return matchedUnit?.property?.propertyName || matchedProperty?.propertyName || matchedProperty?.name || "-";
+    return (
+      matchedUnit?.property?.propertyName ||
+      matchedProperty?.propertyName ||
+      matchedProperty?.name ||
+      "-"
+    );
   };
-  
-  // Helper to resolve unit number
-  const resolveTenantUnitNumber = (tenant) => {
-    if (!tenant) return "-";
-    
-    // Check direct unit number
-    if (tenant?.unit?.unitNumber) return tenant.unit.unitNumber;
-    
-    // Unit ID → Unit record
-    const tenantUnitId = tenant?.unit?._id || tenant?.unit;
-    const matchedUnit = unitsFromStore.find((unit) => unit?._id === tenantUnitId);
-    
-    return matchedUnit?.unitNumber || "-";
+
+  const resolveTenantUnitNumber = (targetTenant) => {
+    if (!targetTenant) return "-";
+    if (targetTenant?.unit?.unitNumber) return targetTenant.unit.unitNumber;
+
+    const tenantUnitId = targetTenant?.unit?._id || targetTenant?.unit;
+    const tenantUnitIdStr = tenantUnitId ? String(tenantUnitId) : "";
+    const matchedUnit = unitsFromStore.find((unit) => String(unit?._id || "") === tenantUnitIdStr);
+
+    return matchedUnit?.unitNumber || matchedUnit?.unitName || "-";
   };
+
   const tenantLease = useMemo(() => {
     return leasesFromStore.find((lease) => lease.tenant === tenantId || lease.tenant?._id === tenantId);
   }, [leasesFromStore, tenantId]);
-
-  // Re-hydrate invoice cache whenever tenant changes.
-  useEffect(() => {
-    setCreatedInvoicesHydrated(false);
-    try {
-      const storageKey = `createdInvoices_${tenantId}`;
-      const stored = localStorage.getItem(storageKey);
-      const parsed = stored ? JSON.parse(stored) : {};
-      setCreatedInvoices(parsed && typeof parsed === "object" ? parsed : {});
-    } catch (error) {
-      setCreatedInvoices({});
-    } finally {
-      setCreatedInvoicesHydrated(true);
-    }
-  }, [tenantId]);
-
-  // Save created invoices to localStorage whenever they change
-  useEffect(() => {
-    if (!createdInvoicesHydrated) return;
-    const storageKey = `createdInvoices_${tenantId}`;
-    localStorage.setItem(storageKey, JSON.stringify(createdInvoices));
-    
-    // Notify other components about invoice changes
-    window.dispatchEvent(new Event('invoicesUpdated'));
-  }, [createdInvoices, tenantId, createdInvoicesHydrated]);
-
-  const getInvoicesForPeriod = (periodLabel) => {
-    return Object.entries(createdInvoices)
-      .filter(([key, entry]) => {
-        const entryPeriod =
-          typeof entry === "object" && entry?.period
-            ? String(entry.period)
-            : String(key).replace(/__(rent|utility)$/i, "");
-        return entryPeriod === periodLabel;
-      })
-      .map(([key, entry]) => {
-        const invoiceId =
-          typeof entry === "string"
-            ? entry
-            : (entry?.invoiceId || entry?.id || entry?.number || "");
-        return {
-          key,
-          entry,
-          invoiceId,
-        };
-      })
-      .filter((item) => Boolean(item.invoiceId));
-  };
 
   useEffect(() => {
     try {
@@ -216,9 +153,8 @@ const TenantStatement = () => {
     localStorage.setItem(storageKey, JSON.stringify(reviewRecords));
   }, [reviewRecords, tenantId]);
 
-  // Set browser tab title to MILIK
   useEffect(() => {
-    document.title = 'MILIK';
+    document.title = "MILIK";
   }, []);
 
   useEffect(() => {
@@ -229,169 +165,203 @@ const TenantStatement = () => {
     dispatch(getProperties({ business: currentCompany._id }));
     getLeases(dispatch, currentCompany._id, null, tenantId);
     getUtilities(dispatch, currentCompany._id);
+    getRentPayments(dispatch, currentCompany._id, tenantId);
   }, [dispatch, currentCompany?._id, tenantId]);
 
-  const handleConfirmInvoiceCreation = async (billingMode = "combined") => {
-    const selectedRows = selectedSchedules.map(idx => billingScheduleData[idx]);
-    const periodsWithoutInvoices = selectedRows.filter(row => row.invoice === "-");
+  useEffect(() => {
+    if (!currentCompany?._id || !tenantId) return;
 
+    const loadInvoices = async () => {
+      try {
+        const invoices = await getTenantInvoices({
+          business: currentCompany._id,
+          tenantId,
+        });
+        setTenantInvoices(Array.isArray(invoices) ? invoices : []);
+      } catch (error) {
+        console.error("Failed to load tenant invoices:", error);
+        setTenantInvoices([]);
+      }
+    };
+
+    loadInvoices();
+  }, [currentCompany?._id, tenantId, invoiceRefresh]);
+
+  const handleCreateInvoice = async (invoiceData) => {
     try {
-      // Generate invoice numbers for created invoices
-      const newInvoices = {};
-      let invoiceNum = 1;
-      
-      // Find the next invoice number by checking ALL tenants' invoices
-      tenantsFromStore.forEach(t => {
-        const storageKey = `createdInvoices_${t._id}`;
-        const stored = localStorage.getItem(storageKey);
-        if (stored) {
-          const tenantInvoices = JSON.parse(stored);
-          Object.values(tenantInvoices).forEach((entry) => {
-            const invoiceId = typeof entry === "string"
-              ? entry
-              : (entry?.invoiceId || entry?.id || entry?.number || "");
-            const num = parseInt(String(invoiceId).replace("INV", "")) || 0;
-            if (num >= invoiceNum) invoiceNum = num + 1;
-          });
-        }
-      });
-
-      // Assign invoice numbers to new periods
-      periodsWithoutInvoices.forEach((period) => {
-        const rentAmount = Number(period.rent || 0);
-        const utilityAmount = Number(period.utility || 0);
-        const periodLabel = period.description;
-        const commonMeta = {
-          createdAt: new Date().toISOString(),
-          status: "Issued",
-          period: periodLabel,
-          tenantName: period.tenantName || "N/A",
-          propertyName: period.propertyName || "N/A",
-          unitName:
-            tenant?.unit?.unitName ||
-            tenant?.unit?.name ||
-            tenant?.unit?.unitNumber ||
-            "N/A",
-        };
-
-        if (billingMode === "separate") {
-          const rentInvoiceId = `INV${String(invoiceNum).padStart(5, '0')}`;
-          newInvoices[`${periodLabel}__rent`] = {
-            ...commonMeta,
-            invoiceId: rentInvoiceId,
-            amount: rentAmount,
-            rentAmount,
-            utilityAmount: 0,
-            chargeType: "rent",
-          };
-          invoiceNum++;
-
-          if (utilityAmount > 0) {
-            const utilityInvoiceId = `INV${String(invoiceNum).padStart(5, '0')}`;
-            newInvoices[`${periodLabel}__utility`] = {
-              ...commonMeta,
-              invoiceId: utilityInvoiceId,
-              amount: utilityAmount,
-              rentAmount: 0,
-              utilityAmount,
-              chargeType: "utility",
-            };
-            invoiceNum++;
-          }
-          return;
-        }
-
-        const invoiceId = `INV${String(invoiceNum).padStart(5, '0')}`;
-        newInvoices[periodLabel] = {
-          ...commonMeta,
-          invoiceId,
-          amount: rentAmount + utilityAmount,
-          rentAmount,
-          utilityAmount,
-          chargeType: "combined",
-        };
-        invoiceNum++;
-      });
-
-      // TODO: Replace with actual API call to create invoices
-      // Example: await createInvoices(tenantId, periodsWithoutInvoices);
-      
-      toast.success(
-        `Created ${Object.keys(newInvoices).length} invoice(s) in ${billingMode} mode for: ${periodsWithoutInvoices
-          .map((p) => p.description)
-          .join(', ')}`
-      );
-      
-      // Update created invoices state
-      setCreatedInvoices(prev => ({
-        ...prev,
-        ...newInvoices
-      }));
-      
-      setSelectedSchedules([]);
+      await createTenantInvoice(invoiceData);
+      toast.success("Invoice created successfully");
+      setInvoiceRefresh((v) => v + 1);
       setShowInvoiceModal(false);
-    } catch (error) {
-      toast.error("Failed to create invoices: " + (error.message || "Unknown error"));
+      window.dispatchEvent(new Event("invoicesUpdated"));
+    } catch (err) {
+      toast.error("Failed to create invoice: " + (err?.response?.data?.error || err.message));
     }
   };
 
-  // Build real transactions from Redux store
+  const handleCancelInvoice = async () => {
+    toast.info("Invoice cancellation is not enabled in the current backend route yet.");
+  };
+
+  const getInvoicesForPeriod = (periodLabel) => {
+    return tenantInvoices.filter((invoice) => {
+      const invoicePeriod = formatPeriodLabel(invoice?.invoiceDate || invoice?.createdAt);
+      return invoicePeriod === periodLabel && String(invoice?.status || "").toLowerCase() !== "cancelled";
+    });
+  };
+
+  const handleConfirmInvoiceCreation = async (billingMode = "combined") => {
+    const selectedRows = selectedSchedules.map((idx) => billingScheduleData[idx]);
+    const periodsWithoutInvoices = selectedRows.filter((row) => row.invoice === "-");
+
+    try {
+      if (!tenant) {
+        toast.error("Tenant not found");
+        return;
+      }
+
+      for (const period of periodsWithoutInvoices) {
+        const periodDate = new Date(period.periodYear, period.periodMonth, 1);
+        const dueDate = new Date(period.periodYear, period.periodMonth + 1, 0);
+
+        const propertyId =
+          tenant?.property?._id ||
+          tenant?.property ||
+          tenant?.unit?.property?._id ||
+          tenant?.unit?.property;
+        const landlordId =
+          tenant?.landlord?._id ||
+          tenant?.landlord ||
+          tenant?.unit?.landlord?._id ||
+          tenant?.unit?.landlord;
+        const unitId = tenant?.unit?._id || tenant?.unit;
+
+        if (!currentCompany?._id || !propertyId || !landlordId || !unitId) {
+          toast.error("Tenant invoice context is incomplete. Property, landlord or unit is missing.");
+          return;
+        }
+
+        const rentChargeAccount = tenant?.rentChartAccount?._id || tenant?.rentChartAccount || null;
+        const utilityChargeAccount = tenant?.utilityChartAccount?._id || tenant?.utilityChartAccount || rentChargeAccount;
+
+        if (billingMode === "separate") {
+          if (Number(period.rent || 0) > 0) {
+            await createTenantInvoice({
+              business: currentCompany._id,
+              property: propertyId,
+              landlord: landlordId,
+              tenant: tenantId,
+              unit: unitId,
+              invoiceNumber: `INV-${tenantId}-${period.periodYear}-${period.periodMonth + 1}-R`,
+              category: "RENT_CHARGE",
+              amount: Number(period.rent || 0),
+              description: `Rent charge for ${period.description}`,
+              invoiceDate: periodDate,
+              dueDate,
+              createdBy: currentCompany?.createdBy || currentCompany?._id,
+              chartAccountId: rentChargeAccount,
+            });
+          }
+
+          if (Number(period.utility || 0) > 0) {
+            await createTenantInvoice({
+              business: currentCompany._id,
+              property: propertyId,
+              landlord: landlordId,
+              tenant: tenantId,
+              unit: unitId,
+              invoiceNumber: `INV-${tenantId}-${period.periodYear}-${period.periodMonth + 1}-U`,
+              category: "UTILITY_CHARGE",
+              amount: Number(period.utility || 0),
+              description: `Utility charge for ${period.description}`,
+              invoiceDate: periodDate,
+              dueDate,
+              createdBy: currentCompany?.createdBy || currentCompany?._id,
+              chartAccountId: utilityChargeAccount,
+            });
+          }
+        } else {
+          await createTenantInvoice({
+            business: currentCompany._id,
+            property: propertyId,
+            landlord: landlordId,
+            tenant: tenantId,
+            unit: unitId,
+            invoiceNumber: `INV-${tenantId}-${period.periodYear}-${period.periodMonth + 1}`,
+            category: "RENT_CHARGE",
+            amount: Number(period.rent || 0) + Number(period.utility || 0),
+            description: `Combined rent and utility charge for ${period.description}`,
+            invoiceDate: periodDate,
+            dueDate,
+            createdBy: currentCompany?.createdBy || currentCompany?._id,
+            chartAccountId: rentChargeAccount,
+          });
+        }
+      }
+
+      toast.success(
+        `Created ${periodsWithoutInvoices.length} invoice period(s) in ${billingMode} mode`
+      );
+
+      setSelectedSchedules([]);
+      setShowInvoiceModal(false);
+      setInvoiceRefresh((v) => v + 1);
+      window.dispatchEvent(new Event("invoicesUpdated"));
+    } catch (error) {
+      toast.error("Failed to create invoices: " + (error?.response?.data?.error || error.message || "Unknown error"));
+    }
+  };
+
   const statementData = useMemo(() => {
     const transactions = [];
     let transactionId = 1;
 
-    // Add rent payments
-    const tenantRentPayments = rentPaymentsFromStore.filter(
-      (p) => p.tenant === tenantId || p.tenant?._id === tenantId
-    );
-    tenantRentPayments.forEach((payment) => {
+    const validInvoices = tenantInvoices
+      .filter((invoice) => {
+        const invoiceTenantId = safeId(invoice?.tenant);
+        const status = String(invoice?.status || "").toLowerCase();
+        return invoiceTenantId === String(tenantId) && status !== "cancelled";
+      })
+      .sort((a, b) => new Date(a.invoiceDate || a.createdAt) - new Date(b.invoiceDate || b.createdAt));
+
+    validInvoices.forEach((invoice) => {
+      transactions.push({
+        id: transactionId++,
+        date: invoice.invoiceDate || invoice.createdAt,
+        description: `Invoice ${invoice.invoiceNumber || ""} - ${invoice.category || "Charge"}`,
+        type: "CHARGE",
+        amount: Number(invoice.amount || 0),
+        transactionCode: invoice.invoiceNumber || `INV-${transactionId}`,
+      });
+    });
+
+    const tenantReceipts = rentPaymentsFromStore
+      .filter((p) => {
+        const paymentTenantId = safeId(p?.tenant);
+        return (
+          paymentTenantId === String(tenantId) &&
+          p?.ledgerType === "receipts" &&
+          p?.isConfirmed === true &&
+          p?.isCancelled !== true
+        );
+      })
+      .sort((a, b) => new Date(a.paymentDate || a.createdAt) - new Date(b.paymentDate || b.createdAt));
+
+    tenantReceipts.forEach((payment) => {
       transactions.push({
         id: transactionId++,
         date: payment.paymentDate || payment.createdAt,
-        description: `Rent Payment - ${payment.referenceNumber || ""}`,
+        description: `Receipt ${payment.receiptNumber || payment.referenceNumber || ""}`,
         type: "PAYMENT",
-        amount: -(payment.amount || 0),
-        transactionCode: payment.referenceNumber || `RCP${transactionId}`,
+        amount: -(Number(payment.amount || 0)),
+        transactionCode: payment.receiptNumber || payment.referenceNumber || `RCP-${transactionId}`,
       });
     });
 
-    // Add created invoices
-    const baseRent = tenantLease?.rentAmount || tenant?.rent || 23000;
-    const relevantUtilities = utilitiesFromStore.filter((util) => 
-      util.isActive && (util.business === currentCompany?._id || util.business?._id === currentCompany?._id)
-    );
-    const serviceCharge = relevantUtilities.length === 0 ? null : relevantUtilities.reduce((sum, util) => sum + (util.unitCost || 0), 0);
-    
-    Object.entries(createdInvoices).forEach(([period, entry]) => {
-      const invoiceId = typeof entry === "string"
-        ? entry
-        : (entry?.invoiceId || entry?.id || entry?.number || "");
-      const chargeType =
-        typeof entry === "object" && entry?.chargeType
-          ? String(entry.chargeType).toUpperCase()
-          : "INVOICE";
-      const invoiceAmount =
-        typeof entry === "object" && Number.isFinite(Number(entry?.amount))
-          ? Number(entry.amount)
-          : baseRent + (serviceCharge || 0);
-      const invoiceDate =
-        typeof entry === "object"
-          ? (entry?.createdAt || entry?.createdDate || new Date())
-          : new Date();
-      transactions.push({
-        id: transactionId++,
-        date: invoiceDate,
-        description: `Invoice ${invoiceId} (${chargeType}) - ${period}`,
-        type: "CHARGE",
-        amount: invoiceAmount,
-        transactionCode: invoiceId,
-      });
-    });
-
-    // Add maintenance charges
     const tenantMaintenanceCharges = maintenanceFromStore.filter(
-      (m) => m.tenant === tenantId || m.tenant?._id === tenantId
+      (m) => safeId(m?.tenant) === String(tenantId)
     );
+
     tenantMaintenanceCharges.forEach((maintenance) => {
       if (maintenance.actualCost || maintenance.estimatedCost) {
         transactions.push({
@@ -399,16 +369,14 @@ const TenantStatement = () => {
           date: maintenance.completedDate || maintenance.createdAt,
           description: `Maintenance - ${maintenance.category || "General"}`,
           type: "CHARGE",
-          amount: maintenance.actualCost || maintenance.estimatedCost || 0,
+          amount: Number(maintenance.actualCost || maintenance.estimatedCost || 0),
           transactionCode: `MNT${transactionId}`,
         });
       }
     });
 
-    // Sort by date
     transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    // Calculate running balance
     let runningBalance = 0;
     transactions.forEach((t) => {
       runningBalance += t.amount;
@@ -417,8 +385,8 @@ const TenantStatement = () => {
 
     const charges = transactions.filter((t) => t.type === "CHARGE");
     const payments = transactions.filter((t) => t.type === "PAYMENT");
-    const totalCharges = charges.reduce((sum, t) => sum + t.amount, 0);
-    const totalPayments = Math.abs(payments.reduce((sum, t) => sum + t.amount, 0));
+    const totalCharges = charges.reduce((sum, t) => sum + Number(t.amount || 0), 0);
+    const totalPayments = Math.abs(payments.reduce((sum, t) => sum + Number(t.amount || 0), 0));
     const currentBalance = totalCharges - totalPayments;
 
     return {
@@ -427,137 +395,117 @@ const TenantStatement = () => {
       totalPayments,
       currentBalance,
     };
-  }, [rentPaymentsFromStore, maintenanceFromStore, tenantId, createdInvoices, tenantLease, tenant, utilitiesFromStore, currentCompany]);
+  }, [tenantInvoices, rentPaymentsFromStore, maintenanceFromStore, tenantId]);
 
   const billingScheduleData = useMemo(() => {
     const baseRent = tenantLease?.rentAmount || tenant?.rent || 23000;
-    
-    // Get tenant's utilities from multiple sources (in order of preference)
+
     let tenantUtilities = [];
     let serviceCharge = 0;
     let tenantUtilityNames = [];
-    
-    // Priority 1: Tenant's own utilities array
+
     if (tenant?.utilities && tenant.utilities.length > 0) {
       tenantUtilities = tenant.utilities;
-    } 
-    // Priority 2: Unit's utilities (fallback)
-    else if (tenant?.unit?.utilities && tenant.unit.utilities.length > 0) {
+    } else if (tenant?.unit?.utilities && tenant.unit.utilities.length > 0) {
       tenantUtilities = tenant.unit.utilities;
-    }
-    // Priority 3: Try to find unit from store and get its utilities
-    else if (unitsFromStore && unitsFromStore.length > 0) {
+    } else if (unitsFromStore && unitsFromStore.length > 0) {
       const tenantUnitId = tenant?.unit?._id || tenant?.unit;
       const matchedUnit = unitsFromStore.find((u) => u?._id === tenantUnitId);
       if (matchedUnit?.utilities && matchedUnit.utilities.length > 0) {
         tenantUtilities = matchedUnit.utilities;
       }
     }
-    
-    // Calculate service charge and utility names
+
     if (tenantUtilities.length > 0) {
       tenantUtilities.forEach((util) => {
         const charge = parseFloat(util.unitCharge) || 0;
         const utilityName = util.utilityLabel || util.utility || "Unknown";
-        
-        // Add to names list
         if (!tenantUtilityNames.includes(utilityName)) {
           tenantUtilityNames.push(utilityName);
         }
-        
-        // Add to charge if not included in rent
         if (!util.isIncluded) {
           serviceCharge += charge;
         }
       });
     }
-    
+
     const scheduleData = [];
-    let invoiceCounter = 1;
-    
-    // Get tenant and property names
-    const tenantName = tenant?.firstName && tenant?.lastName ? `${tenant.firstName} ${tenant.lastName}` : tenant?.name || "N/A";
+    const tenantName =
+      tenant?.firstName && tenant?.lastName
+        ? `${tenant.firstName} ${tenant.lastName}`
+        : tenant?.name || tenant?.tenantName || "N/A";
     const propertyName = resolveTenantPropertyName(tenant);
 
-    // Determine start and end dates
-    let startDate;
-    let endDate;
-    
+    let scheduleStartDate;
+    let scheduleEndDate;
+
     if (tenantLease) {
-      startDate = new Date(tenantLease.startDate);
+      scheduleStartDate = new Date(tenantLease.startDate);
       const hasEndDate = tenantLease.endDate && new Date(tenantLease.endDate) > new Date();
-      endDate = hasEndDate 
-        ? new Date(tenantLease.endDate) 
-        : new Date(startDate.getTime() + 2 * 365 * 24 * 60 * 60 * 1000);
+      scheduleEndDate = hasEndDate
+        ? new Date(tenantLease.endDate)
+        : new Date(scheduleStartDate.getTime() + 2 * 365 * 24 * 60 * 60 * 1000);
     } else if (tenant) {
-      startDate = tenant.moveInDate ? new Date(tenant.moveInDate) : new Date();
+      scheduleStartDate = tenant.moveInDate ? new Date(tenant.moveInDate) : new Date();
       const hasEndDate = tenant.moveOutDate && new Date(tenant.moveOutDate) > new Date();
-      endDate = hasEndDate
+      scheduleEndDate = hasEndDate
         ? new Date(tenant.moveOutDate)
-        : new Date(startDate.getTime() + 2 * 365 * 24 * 60 * 60 * 1000);
+        : new Date(scheduleStartDate.getTime() + 2 * 365 * 24 * 60 * 60 * 1000);
     } else {
-      startDate = new Date();
-      endDate = new Date(startDate.getTime() + 2 * 365 * 24 * 60 * 60 * 1000);
+      scheduleStartDate = new Date();
+      scheduleEndDate = new Date(scheduleStartDate.getTime() + 2 * 365 * 24 * 60 * 60 * 1000);
     }
 
-    // Generate schedule from startDate to endDate
-    let currentDate = new Date(startDate);
+    let currentDate = new Date(scheduleStartDate);
     currentDate.setDate(1);
 
-    while (currentDate < endDate) {
-      // Get start of current month
-      const from = `${String(currentDate.getDate()).padStart(2, '0')}/${String(currentDate.getMonth() + 1).padStart(2, '0')}/${currentDate.getFullYear()}`;
-      
-      // Get last day of current month for the "to" date
+    while (currentDate < scheduleEndDate) {
+      const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const nextDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
       const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-      const monthForTo = currentDate.getMonth() + 1; // Same month
-      const yearForTo = currentDate.getFullYear();
-      const to = `${String(lastDayOfMonth).padStart(2, '0')}/${String(monthForTo).padStart(2, '0')}/${yearForTo}`;
-      
-      const monthName = currentDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-      const invoiceNum = `INV${String(invoiceCounter).padStart(5, '0')}`;
-      const isPast = currentDate < new Date();
-      
-      // Move to next month
-      const nextDate = new Date(currentDate);
-      nextDate.setMonth(nextDate.getMonth() + 1);
-      
-      // Check if there's an actual rent payment for this period
-      const hasPaymentForPeriod = rentPaymentsFromStore.some((payment) => {
-        if (payment.tenant !== tenantId && payment.tenant?._id !== tenantId) return false;
-        const paymentDate = new Date(payment.paymentDate || payment.createdAt);
-        return paymentDate >= currentDate && paymentDate < nextDate;
+
+      const from = `${String(monthStart.getDate()).padStart(2, "0")}/${String(
+        monthStart.getMonth() + 1
+      ).padStart(2, "0")}/${monthStart.getFullYear()}`;
+
+      const to = `${String(lastDayOfMonth).padStart(2, "0")}/${String(
+        currentDate.getMonth() + 1
+      ).padStart(2, "0")}/${currentDate.getFullYear()}`;
+
+      const monthName = currentDate.toLocaleDateString("en-US", {
+        month: "short",
+        year: "2-digit",
       });
 
-      // Check if invoice was created for this period
       const periodInvoices = getInvoicesForPeriod(monthName);
-      const createdInvoiceNumber = periodInvoices.map((item) => item.invoiceId).join(", ");
+      const createdInvoiceNumber = periodInvoices
+        .map((item) => item.invoiceNumber)
+        .filter(Boolean)
+        .join(", ");
       const hasCreatedInvoice = periodInvoices.length > 0;
-      const shouldShowInvoice = hasPaymentForPeriod || hasCreatedInvoice;
-      const isBooked = hasPaymentForPeriod || hasCreatedInvoice;
-      
+
       scheduleData.push({
         from,
         to,
         description: monthName,
         rent: baseRent,
         utility: serviceCharge,
-        utilityNames: tenantUtilityNames.length > 0 ? tenantUtilityNames : [], // Store utility names for display
-        booked: isBooked ? "Yes" : "No",
+        utilityNames: tenantUtilityNames.length > 0 ? tenantUtilityNames : [],
+        booked: hasCreatedInvoice ? "Yes" : "No",
         frozen: "No",
-        invoice: shouldShowInvoice ? (createdInvoiceNumber || invoiceNum) : "-",
+        invoice: hasCreatedInvoice ? createdInvoiceNumber : "-",
         tenantName,
-        propertyName
+        propertyName,
+        periodMonth: currentDate.getMonth(),
+        periodYear: currentDate.getFullYear(),
       });
-      
-      if (shouldShowInvoice) invoiceCounter++;
+
       currentDate = nextDate;
     }
 
     return scheduleData;
-  }, [tenantLease, tenant, unitsFromStore, rentPaymentsFromStore, tenantId, createdInvoices]);
+  }, [tenantLease, tenant, unitsFromStore, tenantInvoices]);
 
-  // Tabs configuration
   const tabs = [
     { id: "statement", label: "Tenant Statement", icon: <FaFileInvoiceDollar /> },
     { id: "billing", label: "Billing Schedule", icon: <FaCalendarAlt /> },
@@ -572,16 +520,12 @@ const TenantStatement = () => {
   };
 
   const handleDownload = () => {
-    // Trigger print dialog - user can save as PDF from there
     window.print();
   };
 
-  // TAB RENDERERS
   const renderStatement = () => (
     <div className="statement-tab space-y-4">
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        {/* Monthly Rent */}
         <div className="bg-blue-50 border-l-4 border-blue-600 rounded-lg px-4 py-3 shadow-sm">
           <p className="text-[10px] font-bold text-blue-600 uppercase tracking-tight">
             Monthly Rent
@@ -591,7 +535,6 @@ const TenantStatement = () => {
           </p>
         </div>
 
-        {/* Total Charges */}
         <div className="bg-orange-50 border-l-4 border-orange-600 rounded-lg px-4 py-3 shadow-sm">
           <p className="text-[10px] font-bold text-orange-600 uppercase tracking-tight">
             Total Charges
@@ -601,7 +544,6 @@ const TenantStatement = () => {
           </p>
         </div>
 
-        {/* Account Balance */}
         <div
           className={`border-l-4 rounded-lg px-4 py-3 shadow-sm ${
             statementData?.currentBalance >= 0
@@ -611,18 +553,14 @@ const TenantStatement = () => {
         >
           <p
             className={`text-[10px] font-bold uppercase tracking-tight ${
-              statementData?.currentBalance >= 0
-                ? "text-green-600"
-                : "text-red-600"
+              statementData?.currentBalance >= 0 ? "text-green-600" : "text-red-600"
             }`}
           >
             Current Balance
           </p>
           <p
             className={`text-xl font-bold mt-1 ${
-              statementData?.currentBalance >= 0
-                ? "text-green-900"
-                : "text-red-900"
+              statementData?.currentBalance >= 0 ? "text-green-900" : "text-red-900"
             }`}
           >
             Ksh {Math.abs(statementData?.currentBalance || 0).toLocaleString()}
@@ -630,7 +568,6 @@ const TenantStatement = () => {
         </div>
       </div>
 
-      {/* Date Range Filter */}
       <div className="filter-section bg-white rounded-lg shadow-sm border border-slate-200 px-4 py-3">
         <h3 className="text-sm font-bold text-slate-900 mb-2">Filter Period</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -673,8 +610,10 @@ const TenantStatement = () => {
         </div>
       </div>
 
-      {/* Transactions Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col" style={{ height: '500px' }}>
+      <div
+        className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden flex flex-col"
+        style={{ height: "500px" }}
+      >
         <div className="px-4 py-2 bg-slate-50 border-b border-slate-200 flex-shrink-0">
           <h3 className="text-sm font-bold text-slate-900">
             <FaChartLine className="inline mr-2" />
@@ -698,6 +637,12 @@ const TenantStatement = () => {
               {statementData?.transactions && statementData.transactions.length > 0 ? (
                 statementData.transactions
                   .filter((t) => transactionType === "ALL" || t.type === transactionType)
+                  .filter((t) => {
+                    const txDate = new Date(t.date);
+                    const fromOk = startDate ? txDate >= new Date(`${startDate}T00:00:00`) : true;
+                    const toOk = endDate ? txDate <= new Date(`${endDate}T23:59:59`) : true;
+                    return fromOk && toOk;
+                  })
                   .map((transaction, idx) => (
                     <tr
                       key={transaction.id}
@@ -730,8 +675,8 @@ const TenantStatement = () => {
                           transaction.type === "CHARGE" ? "text-red-600" : "text-green-600"
                         }`}
                       >
-                        {transaction.type === "CHARGE" ? "+" : "-"}
-                        Ksh {Math.abs(transaction.amount).toLocaleString()}
+                        {transaction.type === "CHARGE" ? "+" : "-"}Ksh{" "}
+                        {Math.abs(transaction.amount).toLocaleString()}
                       </td>
                       <td className="px-3 py-1.5 text-[11px] font-bold text-right text-gray-900 whitespace-nowrap">
                         Ksh {transaction.balance.toLocaleString()}
@@ -749,7 +694,6 @@ const TenantStatement = () => {
           </table>
         </div>
 
-        {/* Summary Footer - Sticky */}
         {statementData?.transactions && statementData.transactions.length > 0 && (
           <div className="px-4 py-2 bg-slate-100 border-t border-slate-200 flex-shrink-0">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -778,23 +722,41 @@ const TenantStatement = () => {
             </div>
           </div>
         )}
-        
-        {/* Print-Only Footer */}
-        <div className="print-footer" style={{ display: 'none' }}>
-          <p style={{ marginBottom: '5px' }}>
-            Generated on {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} at {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+
+        <div className="print-footer" style={{ display: "none" }}>
+          <p style={{ marginBottom: "5px" }}>
+            Generated on{" "}
+            {new Date().toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })}{" "}
+            at{" "}
+            {new Date().toLocaleTimeString("en-US", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '10px', color: '#9CA3AF' }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              fontSize: "10px",
+              color: "#9CA3AF",
+            }}
+          >
             <span>Powered by</span>
-            <img 
-              src="/logo.png" 
-              alt="MILIK Logo" 
-              style={{ 
-                width: '20px', 
-                height: '20px',
-                display: 'inline-block',
-                verticalAlign: 'middle'
-              }} 
+            <img
+              src="/logo.png"
+              alt="MILIK Logo"
+              style={{
+                width: "20px",
+                height: "20px",
+                display: "inline-block",
+                verticalAlign: "middle",
+              }}
             />
             <span>MILIK - Property Management System</span>
           </div>
@@ -805,10 +767,8 @@ const TenantStatement = () => {
 
   const renderBillingSchedule = () => {
     const handleSelectSchedule = (scheduleKey) => {
-      setSelectedSchedules(prev => 
-        prev.includes(scheduleKey) 
-          ? prev.filter(k => k !== scheduleKey)
-          : [...prev, scheduleKey]
+      setSelectedSchedules((prev) =>
+        prev.includes(scheduleKey) ? prev.filter((k) => k !== scheduleKey) : [...prev, scheduleKey]
       );
     };
 
@@ -826,12 +786,16 @@ const TenantStatement = () => {
         return;
       }
 
-      const selectedRows = selectedSchedules.map(idx => billingScheduleData[idx]);
-      const periodsWithInvoices = selectedRows.filter(row => row.invoice !== "-");
-      const periodsWithoutInvoices = selectedRows.filter(row => row.invoice === "-");
+      const selectedRows = selectedSchedules.map((idx) => billingScheduleData[idx]);
+      const periodsWithInvoices = selectedRows.filter((row) => row.invoice !== "-");
+      const periodsWithoutInvoices = selectedRows.filter((row) => row.invoice === "-");
 
       if (periodsWithInvoices.length > 0) {
-        toast.warning(`${periodsWithInvoices.length} period(s) already have invoices: ${periodsWithInvoices.map(p => p.description).join(', ')}`);
+        toast.warning(
+          `${periodsWithInvoices.length} period(s) already have invoices: ${periodsWithInvoices
+            .map((p) => p.description)
+            .join(", ")}`
+        );
         return;
       }
 
@@ -840,7 +804,6 @@ const TenantStatement = () => {
         return;
       }
 
-      // Show invoice creation modal
       setShowInvoiceModal(true);
     };
 
@@ -850,16 +813,15 @@ const TenantStatement = () => {
         return;
       }
 
-      const selectedRows = selectedSchedules.map(idx => billingScheduleData[idx]);
-      const invoicedPeriods = selectedRows.filter(row => row.invoice !== "-");
+      const selectedRows = selectedSchedules.map((idx) => billingScheduleData[idx]);
+      const invoicedPeriods = selectedRows.filter((row) => row.invoice !== "-");
 
       if (invoicedPeriods.length === 0) {
         toast.warning("No invoiced periods selected");
         return;
       }
 
-      toast.info(`Canceling ${invoicedPeriods.length} invoice(s): ${invoicedPeriods.map(p => p.invoice).join(', ')}`);
-      // TODO: Implement actual invoice cancellation API call
+      handleCancelInvoice();
       setSelectedSchedules([]);
     };
 
@@ -870,7 +832,6 @@ const TenantStatement = () => {
       }
 
       toast.info(`Editing ${selectedSchedules.length} schedule(s)...`);
-      // TODO: Implement schedule editing modal/form
     };
 
     const handleDeleteSchedules = () => {
@@ -879,29 +840,12 @@ const TenantStatement = () => {
         return;
       }
 
-      const selectedRows = selectedSchedules.map(idx => billingScheduleData[idx]);
-      toast.warning(`Delete ${selectedSchedules.length} schedule(s)? ${selectedRows.map(p => p.description).join(', ')}`);
-      // TODO: Implement actual schedule deletion with confirmation
-      setSelectedSchedules([]);
-    };
-
-    const handleFreezeSchedules = () => {
-      if (selectedSchedules.length === 0) {
-        toast.warning("Please select at least one billing period");
-        return;
-      }
-
-      const selectedRows = selectedSchedules.map(idx => billingScheduleData[idx]);
-      const alreadyFrozen = selectedRows.filter(row => row.frozen === "Yes");
-      const notFrozen = selectedRows.filter(row => row.frozen !== "Yes");
-
-      if (notFrozen.length === 0) {
-        toast.info("Selected period(s) are already frozen");
-        return;
-      }
-
-      // TODO: Implement actual freeze API call
-      toast.success(`Freezing ${notFrozen.length} period(s): ${notFrozen.map(p => p.description).join(', ')}`);
+      const selectedRows = selectedSchedules.map((idx) => billingScheduleData[idx]);
+      toast.warning(
+        `Delete ${selectedSchedules.length} schedule(s)? ${selectedRows
+          .map((p) => p.description)
+          .join(", ")}`
+      );
       setSelectedSchedules([]);
     };
 
@@ -937,7 +881,6 @@ const TenantStatement = () => {
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="px-4 py-3 border-b border-slate-200 bg-gray-50">
           <div className="flex flex-wrap gap-2">
             <button
@@ -945,8 +888,8 @@ const TenantStatement = () => {
               disabled={selectedSchedules.length === 0}
               className={`flex items-center gap-1 px-3 py-2 rounded text-xs font-semibold transition-colors ${
                 selectedSchedules.length === 0
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
               }`}
             >
               <FaFileInvoiceDollar size={12} />
@@ -957,8 +900,8 @@ const TenantStatement = () => {
               disabled={selectedSchedules.length === 0}
               className={`flex items-center gap-1 px-3 py-2 rounded text-xs font-semibold transition-colors ${
                 selectedSchedules.length === 0
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-red-600 hover:bg-red-700 text-white'
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-red-600 hover:bg-red-700 text-white"
               }`}
             >
               <FaPrint size={12} />
@@ -969,8 +912,8 @@ const TenantStatement = () => {
               disabled={selectedSchedules.length === 0}
               className={`flex items-center gap-1 px-3 py-2 rounded text-xs font-semibold transition-colors ${
                 selectedSchedules.length === 0
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-orange-600 hover:bg-orange-700 text-white'
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-orange-600 hover:bg-orange-700 text-white"
               }`}
             >
               <FaCog size={12} />
@@ -981,8 +924,8 @@ const TenantStatement = () => {
               disabled={selectedSchedules.length === 0}
               className={`flex items-center gap-1 px-3 py-2 rounded text-xs font-semibold transition-colors ${
                 selectedSchedules.length === 0
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-gray-600 hover:bg-gray-700 text-white'
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-600 hover:bg-gray-700 text-white"
               }`}
             >
               <FaDownload size={12} />
@@ -998,8 +941,8 @@ const TenantStatement = () => {
               disabled={selectedSchedules.length === 0}
               className={`flex items-center gap-1 px-3 py-2 rounded text-xs font-semibold transition-colors ${
                 selectedSchedules.length === 0
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-gray-600 hover:bg-gray-700 text-white'
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-600 hover:bg-gray-700 text-white"
               }`}
             >
               <FaCog size={12} />
@@ -1012,8 +955,8 @@ const TenantStatement = () => {
               disabled={selectedSchedules.length === 0}
               className={`flex items-center gap-1 px-3 py-2 rounded text-xs font-semibold transition-colors ${
                 selectedSchedules.length === 0
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                  : 'bg-gray-600 hover:bg-gray-700 text-white'
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-600 hover:bg-gray-700 text-white"
               }`}
             >
               <FaTrash size={12} />
@@ -1022,11 +965,6 @@ const TenantStatement = () => {
             <button
               onClick={() => {
                 if (selectedSchedules.length > 0) {
-                  // Freeze selected schedules
-                  selectedSchedules.forEach(sch => {
-                    sch.frozen = "Yes";
-                  });
-                  // TODO: Persist freeze to backend if schedules are stored
                   setSelectedSchedules([]);
                   toast.success("Schedule(s) frozen");
                 }
@@ -1034,123 +972,120 @@ const TenantStatement = () => {
               disabled={selectedSchedules.length === 0}
               className={`flex items-center gap-1 px-3 py-2 rounded text-xs font-semibold transition-colors ${
                 selectedSchedules.length === 0
-                  ? 'bg-blue-200 text-blue-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  ? "bg-blue-200 text-blue-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 text-white"
               }`}
             >
               <FaCheck size={12} />
               Freeze Schedule
             </button>
-                        {/* Schedule Deletion Confirmation Modal */}
-                        {showDeleteScheduleModal && selectedSchedules.length > 0 && (
-                          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-                            <div className="bg-white rounded-lg shadow-xl border border-slate-200 w-full max-w-md">
-                              <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-                                <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                                  <FaTrash className="text-red-600" />
-                                  Confirm Schedule Deletion
-                                </h3>
-                                <button
-                                  onClick={() => setShowDeleteScheduleModal(false)}
-                                  className="text-slate-500 hover:text-slate-700"
-                                >
-                                  <FaTimes />
-                                </button>
-                              </div>
-                              <div className="p-4">
-                                <p className="text-sm text-slate-700 mb-4">
-                                  Are you sure you want to delete the selected schedule(s)? This action cannot be undone.
-                                </p>
-                                <div className="flex justify-end gap-2">
-                                  <button
-                                    onClick={() => setShowDeleteScheduleModal(false)}
-                                    className="px-4 py-2 text-xs border border-slate-300 rounded-md font-semibold hover:bg-slate-50"
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      // Remove schedules from local state
-                                      setShowDeleteScheduleModal(false);
-                                      setSelectedSchedules([]);
-                                      // TODO: Remove from backend if schedules are persisted
-                                    }}
-                                    className="px-4 py-2 text-xs rounded-md text-white font-semibold bg-red-600 hover:bg-red-700"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                  {/* Schedule Editing Modal */}
-                  {showEditScheduleModal && editingSchedule && (
-                    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-                      <div className="bg-white rounded-lg shadow-xl border border-slate-200 w-full max-w-md">
-                        <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-                          <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                            <FaCog className="text-green-600" />
-                            Edit Schedule
-                          </h3>
-                          <button
-                            onClick={() => setShowEditScheduleModal(false)}
-                            className="text-slate-500 hover:text-slate-700"
-                          >
-                            <FaTimes />
-                          </button>
-                        </div>
-                        <div className="p-4 space-y-3">
-                          <label className="text-xs font-semibold text-slate-700">From Date</label>
-                          <input
-                            type="date"
-                            value={editingSchedule.from}
-                            onChange={e => setEditingSchedule({ ...editingSchedule, from: e.target.value })}
-                            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
-                          />
-                          <label className="text-xs font-semibold text-slate-700">To Date</label>
-                          <input
-                            type="date"
-                            value={editingSchedule.to}
-                            onChange={e => setEditingSchedule({ ...editingSchedule, to: e.target.value })}
-                            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
-                          />
-                          <label className="text-xs font-semibold text-slate-700">Rent</label>
-                          <input
-                            type="number"
-                            value={editingSchedule.rent}
-                            onChange={e => setEditingSchedule({ ...editingSchedule, rent: e.target.value })}
-                            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
-                          />
-                          <label className="text-xs font-semibold text-slate-700">Utility</label>
-                          <input
-                            type="number"
-                            value={editingSchedule.utility}
-                            onChange={e => setEditingSchedule({ ...editingSchedule, utility: e.target.value })}
-                            className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
-                          />
-                        </div>
-                        <div className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2">
-                          <button
-                            onClick={() => setShowEditScheduleModal(false)}
-                            className="px-4 py-2 text-xs border border-slate-300 rounded-md font-semibold hover:bg-slate-50"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => {
-                              // Save changes to schedule (local state or backend)
-                              setShowEditScheduleModal(false);
-                              // TODO: Persist changes if schedules are stored in backend
-                            }}
-                            className={`px-4 py-2 text-xs rounded-md text-white font-semibold ${MILIK_GREEN} hover:bg-[#0A3127]`}
-                          >
-                            Save Changes
-                          </button>
-                        </div>
-                      </div>
+
+            {showDeleteScheduleModal && selectedSchedules.length > 0 && (
+              <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-lg shadow-xl border border-slate-200 w-full max-w-md">
+                  <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                    <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                      <FaTrash className="text-red-600" />
+                      Confirm Schedule Deletion
+                    </h3>
+                    <button
+                      onClick={() => setShowDeleteScheduleModal(false)}
+                      className="text-slate-500 hover:text-slate-700"
+                    >
+                      <FaTimes />
+                    </button>
+                  </div>
+                  <div className="p-4">
+                    <p className="text-sm text-slate-700 mb-4">
+                      Are you sure you want to delete the selected schedule(s)? This action cannot be undone.
+                    </p>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setShowDeleteScheduleModal(false)}
+                        className="px-4 py-2 text-xs border border-slate-300 rounded-md font-semibold hover:bg-slate-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowDeleteScheduleModal(false);
+                          setSelectedSchedules([]);
+                        }}
+                        className="px-4 py-2 text-xs rounded-md text-white font-semibold bg-red-600 hover:bg-red-700"
+                      >
+                        Delete
+                      </button>
                     </div>
-                  )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {showEditScheduleModal && editingSchedule !== null && (
+              <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-lg shadow-xl border border-slate-200 w-full max-w-md">
+                  <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                    <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                      <FaCog className="text-green-600" />
+                      Edit Schedule
+                    </h3>
+                    <button
+                      onClick={() => setShowEditScheduleModal(false)}
+                      className="text-slate-500 hover:text-slate-700"
+                    >
+                      <FaTimes />
+                    </button>
+                  </div>
+                  <div className="p-4 space-y-3">
+                    <label className="text-xs font-semibold text-slate-700">From Date</label>
+                    <input
+                      type="date"
+                      value={billingScheduleData[editingSchedule]?.from || ""}
+                      readOnly
+                      className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                    />
+                    <label className="text-xs font-semibold text-slate-700">To Date</label>
+                    <input
+                      type="date"
+                      value={billingScheduleData[editingSchedule]?.to || ""}
+                      readOnly
+                      className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                    />
+                    <label className="text-xs font-semibold text-slate-700">Rent</label>
+                    <input
+                      type="number"
+                      value={billingScheduleData[editingSchedule]?.rent || ""}
+                      readOnly
+                      className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                    />
+                    <label className="text-xs font-semibold text-slate-700">Utility</label>
+                    <input
+                      type="number"
+                      value={billingScheduleData[editingSchedule]?.utility || ""}
+                      readOnly
+                      className="w-full mt-1 px-3 py-2 border border-slate-300 rounded-md text-sm"
+                    />
+                  </div>
+                  <div className="px-4 py-3 border-t border-slate-200 flex justify-end gap-2">
+                    <button
+                      onClick={() => setShowEditScheduleModal(false)}
+                      className="px-4 py-2 text-xs border border-slate-300 rounded-md font-semibold hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowEditScheduleModal(false);
+                      }}
+                      className={`px-4 py-2 text-xs rounded-md text-white font-semibold ${MILIK_GREEN} hover:bg-[#0A3127]`}
+                    >
+                      Save Changes
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {selectedSchedules.length > 0 && (
               <span className="ml-auto flex items-center text-xs text-gray-600 font-semibold">
                 {selectedSchedules.length} selected
@@ -1166,7 +1101,9 @@ const TenantStatement = () => {
                 <th className="px-3 py-2 text-center">
                   <input
                     type="checkbox"
-                    checked={selectedSchedules.length === billingScheduleData.length && billingScheduleData.length > 0}
+                    checked={
+                      selectedSchedules.length === billingScheduleData.length && billingScheduleData.length > 0
+                    }
                     onChange={handleSelectAll}
                     className="cursor-pointer"
                   />
@@ -1185,16 +1122,13 @@ const TenantStatement = () => {
             <tbody>
               {billingScheduleData.map((row, index) => {
                 const total = row.rent + row.utility;
-                const isProcessed = row.booked === "Yes";
                 const isSelected = selectedSchedules.includes(index);
 
                 return (
                   <tr
                     key={`${row.from}-${row.description}`}
                     className={`${
-                      isSelected 
-                        ? "bg-blue-50" 
-                        : index % 2 === 0 ? "bg-white" : "bg-slate-50"
+                      isSelected ? "bg-blue-50" : index % 2 === 0 ? "bg-white" : "bg-slate-50"
                     } border-b border-slate-200 hover:bg-emerald-50/40 cursor-pointer`}
                     onClick={() => handleSelectSchedule(index)}
                   >
@@ -1220,18 +1154,36 @@ const TenantStatement = () => {
                         )}
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-right font-semibold text-slate-900">{total.toLocaleString()}</td>
+                    <td className="px-3 py-2 text-right font-semibold text-slate-900">
+                      {total.toLocaleString()}
+                    </td>
                     <td className="px-3 py-2 text-center">
-                      <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-semibold ${row.frozen === "Yes" ? "bg-purple-100 text-purple-700" : "bg-slate-100 text-slate-600"}`}>
+                      <span
+                        className={`inline-flex px-2 py-0.5 rounded text-[10px] font-semibold ${
+                          row.frozen === "Yes"
+                            ? "bg-purple-100 text-purple-700"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
                         {row.frozen}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-center">
-                      <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-semibold ${row.booked === "Yes" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>
+                      <span
+                        className={`inline-flex px-2 py-0.5 rounded text-[10px] font-semibold ${
+                          row.booked === "Yes"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
                         {row.booked}
                       </span>
                     </td>
-                    <td className={`px-3 py-2 ${isProcessed ? "text-emerald-700 font-semibold" : "text-slate-500"}`}>
+                    <td
+                      className={`px-3 py-2 ${
+                        row.booked === "Yes" ? "text-emerald-700 font-semibold" : "text-slate-500"
+                      }`}
+                    >
                       {row.invoice}
                     </td>
                   </tr>
@@ -1251,7 +1203,9 @@ const TenantStatement = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
             <label className="block text-sm font-semibold text-gray-600 mb-2">Tenant Name</label>
-            <p className="text-lg font-bold text-gray-900">{tenant?.name || (tenant?.firstName && tenant?.lastName ? `${tenant.firstName} ${tenant.lastName}` : "N/A")}</p>
+            <p className="text-lg font-bold text-gray-900">
+              {tenant?.name || (tenant?.firstName && tenant?.lastName ? `${tenant.firstName} ${tenant.lastName}` : "N/A")}
+            </p>
           </div>
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
             <label className="block text-sm font-semibold text-gray-600 mb-2">Email</label>
@@ -1271,19 +1225,23 @@ const TenantStatement = () => {
           </div>
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
             <label className="block text-sm font-semibold text-gray-600 mb-2">Property</label>
-            <p className="text-lg font-bold text-gray-900">
-              {resolveTenantPropertyName(tenant)}
-            </p>
+            <p className="text-lg font-bold text-gray-900">{resolveTenantPropertyName(tenant)}</p>
           </div>
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
             <label className="block text-sm font-semibold text-gray-600 mb-2">Move-In Date</label>
             <p className="text-lg font-bold text-gray-900">
-              {tenantLease?.startDate ? new Date(tenantLease.startDate).toLocaleDateString() : (tenant?.moveInDate ? new Date(tenant.moveInDate).toLocaleDateString() : "N/A")}
+              {tenantLease?.startDate
+                ? new Date(tenantLease.startDate).toLocaleDateString()
+                : tenant?.moveInDate
+                ? new Date(tenant.moveInDate).toLocaleDateString()
+                : "N/A"}
             </p>
           </div>
           <div className="border-b md:border-b-0 pb-4 md:pb-0">
             <label className="block text-sm font-semibold text-gray-600 mb-2">Rent Amount</label>
-            <p className="text-lg font-bold text-gray-900">Ksh {(tenantLease?.rentAmount || tenant?.rent || 0).toLocaleString()}</p>
+            <p className="text-lg font-bold text-gray-900">
+              Ksh {(tenantLease?.rentAmount || tenant?.rent || 0).toLocaleString()}
+            </p>
           </div>
         </div>
       ) : (
@@ -1293,15 +1251,16 @@ const TenantStatement = () => {
   );
 
   const renderStandingCharges = () => {
-    // Get tenant's utilities (standing charges) with fallback to unit utilities
     let tenantUtilities = tenant?.utilities || [];
-    
-    // If tenant has no utilities, try to get them from the unit
+
     if (tenantUtilities.length === 0 && tenant?.unit?.utilities && tenant.unit.utilities.length > 0) {
       tenantUtilities = tenant.unit.utilities;
     }
-    
-    const totalStandingCharges = tenantUtilities.reduce((sum, util) => sum + (parseFloat(util.unitCharge) || 0), 0);
+
+    const totalStandingCharges = tenantUtilities.reduce(
+      (sum, util) => sum + (parseFloat(util.unitCharge) || 0),
+      0
+    );
 
     return (
       <div className="bg-white border border-gray-200 rounded-lg p-6">
@@ -1323,7 +1282,9 @@ const TenantStatement = () => {
                     <p className="text-sm text-gray-600 mt-1">Monthly charge for this tenant</p>
                   </div>
                   <div className="text-right">
-                    <div className="text-lg font-bold text-gray-900">Ksh {(parseFloat(utility.unitCharge) || 0).toLocaleString()}</div>
+                    <div className="text-lg font-bold text-gray-900">
+                      Ksh {(parseFloat(utility.unitCharge) || 0).toLocaleString()}
+                    </div>
                     <div className="text-xs text-gray-600 font-medium mt-1">
                       {utility.isIncluded ? (
                         <span className="text-green-600">✓ Included in Rent</span>
@@ -1497,7 +1458,9 @@ const TenantStatement = () => {
             </div>
             <div className="border border-green-200 rounded-lg p-3 bg-green-50">
               <p className="text-xs text-green-700 font-semibold">Current Effective Rent</p>
-              <p className="text-lg font-bold text-green-700 mt-1">Ksh {currentEffectiveRent.toLocaleString()}</p>
+              <p className="text-lg font-bold text-green-700 mt-1">
+                Ksh {currentEffectiveRent.toLocaleString()}
+              </p>
             </div>
             <div className="border border-blue-200 rounded-lg p-3 bg-blue-50">
               <p className="text-xs text-blue-700 font-semibold">Scheduled Reviews</p>
@@ -1640,9 +1603,7 @@ const TenantStatement = () => {
                         <td className="px-3 py-2">
                           <span
                             className={`inline-flex px-2 py-1 rounded text-xs font-semibold ${
-                              isApplied
-                                ? "bg-green-100 text-green-700"
-                                : "bg-amber-100 text-amber-700"
+                              isApplied ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
                             }`}
                           >
                             {record.status}
@@ -1691,7 +1652,7 @@ const TenantStatement = () => {
   };
 
   const handlePrintReceipt = (receipt) => {
-    const printWindow = window.open('', '_blank');
+    const printWindow = window.open("", "_blank");
     const receiptHTML = `
       <!DOCTYPE html>
       <html>
@@ -1779,18 +1740,18 @@ const TenantStatement = () => {
       <body>
         <div class="receipt-container">
           <div class="header">
-            <div class="company-name">${currentCompany?.companyName || 'MILIK'}</div>
+            <div class="company-name">${currentCompany?.companyName || "MILIK"}</div>
             <div class="receipt-title">RENT RECEIPT</div>
             <div class="receipt-number">Receipt #${receipt.receiptNumber}</div>
           </div>
-          
+
           <div class="detail-row">
             <span class="detail-label">Tenant Name:</span>
-            <span class="detail-value">${tenant?.name || '-'}</span>
+            <span class="detail-value">${tenant?.name || "-"}</span>
           </div>
           <div class="detail-row">
             <span class="detail-label">Reference:</span>
-            <span class="detail-value">${receipt.referenceNumber || '-'}</span>
+            <span class="detail-value">${receipt.referenceNumber || "-"}</span>
           </div>
           <div class="detail-row">
             <span class="detail-label">Payment Date:</span>
@@ -1798,29 +1759,29 @@ const TenantStatement = () => {
           </div>
           <div class="detail-row">
             <span class="detail-label">Payment Method:</span>
-            <span class="detail-value">${receipt.paymentMethod || '-'}</span>
+            <span class="detail-value">${receipt.paymentMethod || "-"}</span>
           </div>
           <div class="detail-row">
             <span class="detail-label">Payment Type:</span>
-            <span class="detail-value">${receipt.paymentType || '-'}</span>
+            <span class="detail-value">${receipt.paymentType || "-"}</span>
           </div>
-          
+
           <div class="divider"></div>
-          
+
           <div class="amount-section">
             <div class="total-amount">
               <span>Amount Received:</span>
               <span>Ksh ${(receipt.amount || 0).toLocaleString()}</span>
             </div>
           </div>
-          
+
           <div class="divider"></div>
-          
+
           <div class="detail-row">
             <span class="detail-label">Status:</span>
-            <span class="detail-value">${receipt.isConfirmed ? 'CONFIRMED' : 'PENDING'}</span>
+            <span class="detail-value">${receipt.isConfirmed ? "CONFIRMED" : "PENDING"}</span>
           </div>
-          
+
           <div class="footer">
             <p>Thank you for your payment</p>
             <p>This is an electronically generated receipt</p>
@@ -1840,7 +1801,9 @@ const TenantStatement = () => {
 
   const renderActions = () => {
     const tenantReceipts = rentPaymentsFromStore.filter(
-      (p) => p.tenant === tenantId || p.tenant?._id === tenantId
+      (p) =>
+        (p.tenant === tenantId || p.tenant?._id === tenantId) &&
+        p?.ledgerType === "receipts"
     );
 
     return (
@@ -1849,7 +1812,6 @@ const TenantStatement = () => {
           <h3 className="text-lg font-bold text-slate-900">Tenant Actions & Receipts</h3>
         </div>
 
-        {/* Quick Actions */}
         <div className="px-6 py-4 border-b border-slate-200">
           <h4 className="text-sm font-semibold text-slate-800 mb-4">Quick Actions</h4>
           <div className="flex flex-wrap gap-3">
@@ -1879,7 +1841,6 @@ const TenantStatement = () => {
           </div>
         </div>
 
-        {/* Receipts History */}
         <div className="px-6 py-4">
           <h4 className="text-sm font-semibold text-slate-800 mb-4">Recent Receipts</h4>
           {tenantReceipts.length === 0 ? (
@@ -1900,39 +1861,42 @@ const TenantStatement = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {tenantReceipts.slice().reverse().map((receipt) => (
-                    <tr key={receipt._id} className="border-b border-slate-200 hover:bg-slate-50">
-                      <td className="px-4 py-3 font-mono text-slate-700">{receipt.receiptNumber}</td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {new Date(receipt.paymentDate).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">{receipt.paymentType}</td>
-                      <td className="px-4 py-3 text-right font-semibold text-slate-900">
-                        Ksh {(receipt.amount || 0).toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span
-                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ${
-                            receipt.isConfirmed
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}
-                        >
-                          {receipt.isConfirmed ? 'Confirmed' : 'Pending'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => handlePrintReceipt(receipt)}
-                          className="text-blue-600 hover:text-blue-800 font-semibold flex items-center justify-center gap-1 mx-auto"
-                          title="Print Receipt"
-                        >
-                          <FaPrint size={14} />
-                          <span className="text-xs">Print</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {tenantReceipts
+                    .slice()
+                    .sort((a, b) => new Date(b.paymentDate || b.createdAt) - new Date(a.paymentDate || a.createdAt))
+                    .map((receipt) => (
+                      <tr key={receipt._id} className="border-b border-slate-200 hover:bg-slate-50">
+                        <td className="px-4 py-3 font-mono text-slate-700">{receipt.receiptNumber}</td>
+                        <td className="px-4 py-3 text-slate-600">
+                          {new Date(receipt.paymentDate).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3 text-slate-600">{receipt.paymentType}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                          Ksh {(receipt.amount || 0).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold ${
+                              receipt.isConfirmed
+                                ? "bg-green-100 text-green-800"
+                                : "bg-yellow-100 text-yellow-800"
+                            }`}
+                          >
+                            {receipt.isConfirmed ? "Confirmed" : "Pending"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() => handlePrintReceipt(receipt)}
+                            className="text-blue-600 hover:text-blue-800 font-semibold flex items-center justify-center gap-1 mx-auto"
+                            title="Print Receipt"
+                          >
+                            <FaPrint size={14} />
+                            <span className="text-xs">Print</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
@@ -1985,59 +1949,100 @@ const TenantStatement = () => {
     <DashboardLayout>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 p-4">
         <div className="mx-auto" style={{ maxWidth: "95%" }}>
-          {/* Print-Only Company Header */}
-          <div className="print-only-header" style={{ display: 'none' }}>
-            <div style={{ textAlign: 'center', paddingBottom: '10px', marginBottom: '10px' }}>
-              <h1 style={{ fontSize: '26px', fontWeight: 'bold', color: '#165946', marginBottom: '12px', letterSpacing: '1px' }}>
-                {currentCompany?.companyName || currentCompany?.name || 'System Admin'}
+          <div className="print-only-header" style={{ display: "none" }}>
+            <div style={{ textAlign: "center", paddingBottom: "10px", marginBottom: "10px" }}>
+              <h1
+                style={{
+                  fontSize: "26px",
+                  fontWeight: "bold",
+                  color: "#165946",
+                  marginBottom: "12px",
+                  letterSpacing: "1px",
+                }}
+              >
+                {currentCompany?.companyName || currentCompany?.name || "System Admin"}
               </h1>
               {currentCompany?.companyEmail && (
-                <p style={{ fontSize: '13px', color: '#4B5563', marginBottom: '3px' }}>
+                <p style={{ fontSize: "13px", color: "#4B5563", marginBottom: "3px" }}>
                   Email: {currentCompany.companyEmail}
                 </p>
               )}
               {currentCompany?.companyPhone && (
-                <p style={{ fontSize: '13px', color: '#4B5563', marginBottom: '3px' }}>
+                <p style={{ fontSize: "13px", color: "#4B5563", marginBottom: "3px" }}>
                   Phone: {currentCompany.companyPhone}
                 </p>
               )}
               {currentCompany?.companyAddress && (
-                <p style={{ fontSize: '13px', color: '#4B5563', marginBottom: '10px' }}>
+                <p style={{ fontSize: "13px", color: "#4B5563", marginBottom: "10px" }}>
                   Address: {currentCompany.companyAddress}
                 </p>
               )}
-              <div style={{ borderBottom: '3px solid #165946', margin: '10px auto', width: '100%' }}></div>
+              <div style={{ borderBottom: "3px solid #165946", margin: "10px auto", width: "100%" }}></div>
             </div>
-            <h2 style={{ fontSize: '20px', fontWeight: 'bold', color: '#1F2937', textAlign: 'center', marginBottom: '15px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <h2
+              style={{
+                fontSize: "20px",
+                fontWeight: "bold",
+                color: "#1F2937",
+                textAlign: "center",
+                marginBottom: "15px",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}
+            >
               Tenant Statement
             </h2>
-            {/* Tenant Details Section */}
-            <div style={{ 
-              backgroundColor: '#F9FAFB', 
-              border: '2px solid #E5E7EB', 
-              borderRadius: '8px', 
-              padding: '15px', 
-              marginBottom: '20px' 
-            }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 'bold', color: '#165946', marginBottom: '12px', borderBottom: '1px solid #D1D5DB', paddingBottom: '6px' }}>
+            <div
+              style={{
+                backgroundColor: "#F9FAFB",
+                border: "2px solid #E5E7EB",
+                borderRadius: "8px",
+                padding: "15px",
+                marginBottom: "20px",
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: "14px",
+                  fontWeight: "bold",
+                  color: "#165946",
+                  marginBottom: "12px",
+                  borderBottom: "1px solid #D1D5DB",
+                  paddingBottom: "6px",
+                }}
+              >
                 TENANT INFORMATION
               </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                 <div>
-                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#6B7280', marginBottom: '3px' }}>Tenant Name</p>
-                  <p style={{ fontSize: '13px', fontWeight: '600', color: '#1F2937' }}>{tenant?.tenantName || tenant?.name || '-'}</p>
+                  <p style={{ fontSize: "11px", fontWeight: "bold", color: "#6B7280", marginBottom: "3px" }}>
+                    Tenant Name
+                  </p>
+                  <p style={{ fontSize: "13px", fontWeight: "600", color: "#1F2937" }}>
+                    {tenant?.tenantName || tenant?.name || "-"}
+                  </p>
                 </div>
                 <div>
-                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#6B7280', marginBottom: '3px' }}>Unit Number</p>
-                  <p style={{ fontSize: '13px', fontWeight: '600', color: '#1F2937' }}>{resolveTenantUnitNumber(tenant)}</p>
+                  <p style={{ fontSize: "11px", fontWeight: "bold", color: "#6B7280", marginBottom: "3px" }}>
+                    Unit Number
+                  </p>
+                  <p style={{ fontSize: "13px", fontWeight: "600", color: "#1F2937" }}>
+                    {resolveTenantUnitNumber(tenant)}
+                  </p>
                 </div>
                 <div>
-                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#6B7280', marginBottom: '3px' }}>Property</p>
-                  <p style={{ fontSize: '13px', fontWeight: '600', color: '#1F2937' }}>{resolveTenantPropertyName(tenant)}</p>
+                  <p style={{ fontSize: "11px", fontWeight: "bold", color: "#6B7280", marginBottom: "3px" }}>
+                    Property
+                  </p>
+                  <p style={{ fontSize: "13px", fontWeight: "600", color: "#1F2937" }}>
+                    {resolveTenantPropertyName(tenant)}
+                  </p>
                 </div>
                 <div>
-                  <p style={{ fontSize: '11px', fontWeight: 'bold', color: '#6B7280', marginBottom: '3px' }}>Monthly Rent</p>
-                  <p style={{ fontSize: '13px', fontWeight: '600', color: '#1F2937' }}>
+                  <p style={{ fontSize: "11px", fontWeight: "bold", color: "#6B7280", marginBottom: "3px" }}>
+                    Monthly Rent
+                  </p>
+                  <p style={{ fontSize: "13px", fontWeight: "600", color: "#1F2937" }}>
                     Ksh {(tenantLease?.rentAmount || tenant?.rent || 0).toLocaleString()}
                   </p>
                 </div>
@@ -2045,9 +2050,7 @@ const TenantStatement = () => {
             </div>
           </div>
 
-          {/* Header Section - Sticky */}
           <div className="sticky top-0 z-10 bg-white rounded-lg shadow-lg border border-slate-200 mb-6 p-4 no-print">
-            {/* Back and Action Buttons */}
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <button
@@ -2058,8 +2061,7 @@ const TenantStatement = () => {
                   Back to Tenants
                 </button>
               </div>
-              {/* Show Print and Download buttons only in Statement tab */}
-              {activeTab === 'statement' && (
+              {activeTab === "statement" && (
                 <div className="flex gap-2">
                   <button
                     onClick={() => navigate(`/receipts/${tenantId}`)}
@@ -2086,7 +2088,6 @@ const TenantStatement = () => {
               )}
             </div>
 
-            {/* Tenant Information Card */}
             <div className="bg-slate-50 rounded-lg px-4 py-3 print-tenant-info">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
@@ -2098,23 +2099,17 @@ const TenantStatement = () => {
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">
-                    Phone
-                  </p>
+                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">Phone</p>
                   <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">{tenant?.phone || "-"}</p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">
-                    Unit
-                  </p>
+                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">Unit</p>
                   <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">
                     {resolveTenantUnitNumber(tenant)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">
-                    Property
-                  </p>
+                  <p className="text-[10px] font-bold text-gray-600 uppercase tracking-tight">Property</p>
                   <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">
                     {resolveTenantPropertyName(tenant)}
                   </p>
@@ -2122,7 +2117,6 @@ const TenantStatement = () => {
               </div>
             </div>
 
-            {/* Tab Navigation */}
             <div className="tabs-container bg-white rounded-lg shadow-md border border-slate-200 mt-4 overflow-hidden">
               <div className="flex border-b border-gray-200 overflow-x-auto">
                 {tabs.map((tab) => (
@@ -2143,106 +2137,88 @@ const TenantStatement = () => {
             </div>
           </div>
 
-          {/* Scrollable Content Area */}
-          <div className="space-y-4 mt-6">
-            {renderContent()}
-          </div>
+          <div className="space-y-4 mt-6">{renderContent()}</div>
         </div>
       </div>
 
-      {/* Print Styles */}
       <style>{`
         @media print {
           @page {
             margin: 0.75in;
             size: A4;
           }
-          
+
           body {
             background: white !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
-          
-          /* Hide all navigation and system tabs */
+
           .fixed {
             display: none !important;
           }
-          
-          /* Reset padding added for fixed elements */
+
           .pt-36 {
             padding-top: 0 !important;
           }
-          
+
           .pt-4 {
             padding-top: 0 !important;
           }
-          
-          /* Hide bottom module tabs */
+
           .pb-20 {
             padding-bottom: 0 !important;
           }
-          
-          /* Show print-only header */
+
           .print-only-header {
             display: block !important;
             page-break-after: avoid;
           }
-          
-          /* Hide all buttons */
+
           button {
             display: none !important;
           }
-          
-          /* Hide checkboxes */
+
           input[type="checkbox"] {
             display: none !important;
           }
-          
-          /* Hide elements with no-print class */
+
           .no-print {
             display: none !important;
           }
-          
-          /* Hide the entire tab navigation container */
+
           .tabs-container {
             display: none !important;
           }
-          
-          /* Hide the flex container inside tabs-container */
+
           .tabs-container .flex {
             display: none !important;
           }
-          
-          /* Hide filter section */
+
           .filter-section {
             display: none !important;
           }
-          
-          /* Hide tab content wrapper, only show statement content */
+
           .tab-content {
             display: none !important;
           }
-          
+
           .statement-tab {
             display: block !important;
           }
-          
-          /* Hide action buttons bar */
+
           .bg-gray-50 {
             display: none !important;
           }
-          
-          /* Print optimizations */
+
           .bg-gradient-to-br {
             background: white !important;
           }
-          
+
           .shadow-sm, .shadow-md, .shadow-lg {
             box-shadow: none !important;
           }
-          
-          /* Style tenant info card for print */
+
           .print-tenant-info {
             background: white !important;
             border: 2px solid #E5E7EB !important;
@@ -2250,54 +2226,47 @@ const TenantStatement = () => {
             margin-bottom: 20px !important;
             page-break-after: avoid;
           }
-          
+
           .print-tenant-info p {
             font-size: 12px !important;
           }
-          
-          /* Optimize transaction table for printing */
+
           .transaction-table {
             height: auto !important;
             break-inside: avoid;
           }
-          
+
           .transaction-table tbody {
             page-break-inside: avoid;
           }
-          
+
           .transaction-table tr {
             page-break-inside: avoid;
             page-break-after: auto;
           }
-          
-          /* Hide action buttons and back button area */
+
           .flex.items-center.justify-between {
             display: none !important;
           }
-          
-          /* Optimize colors for print */
+
           .bg-blue-600, .bg-green-600, .bg-orange-600, .bg-red-600 {
             background-color: white !important;
             border: 1px solid #000 !important;
           }
-          
-          /* Make text darker for better print readability */
+
           .text-gray-600, .text-gray-700 {
             color: #000 !important;
           }
-          
-          /* Card styling for print */
+
           .bg-white {
             border: 1px solid #E5E7EB !important;
           }
-          
-          /* Summary cards styling */
+
           .bg-blue-50, .bg-orange-50, .bg-green-50 {
             background: white !important;
             border: 2px solid #165946 !important;
           }
-          
-          /* Footer spacing */
+
           .print-footer {
             display: block !important;
             margin-top: 40px;
@@ -2310,10 +2279,9 @@ const TenantStatement = () => {
         }
       `}</style>
 
-      {/* Invoice Creation Modal */}
       <InvoiceCreationModal
         isOpen={showInvoiceModal}
-        periods={selectedSchedules.map(idx => billingScheduleData[idx])}
+        periods={selectedSchedules.map((idx) => billingScheduleData[idx])}
         onConfirm={handleConfirmInvoiceCreation}
         onCancel={() => setShowInvoiceModal(false)}
       />

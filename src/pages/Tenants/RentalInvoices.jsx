@@ -20,7 +20,12 @@ import JournalEntriesDrawer from "../../components/Accounting/JournalEntriesDraw
 import { getTenants } from "../../redux/tenantsRedux";
 import { getProperties } from "../../redux/propertyRedux";
 import { getUnits } from "../../redux/unitRedux";
-import { createRentPayment, getRentPayments } from "../../redux/apiCalls";
+import {
+  getRentPayments,
+  createTenantInvoice,
+  getTenantInvoices,
+  getChartOfAccounts,
+} from "../../redux/apiCalls";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
 const MILIK_GREEN_HOVER = "hover:bg-[#0A3127]";
@@ -28,9 +33,9 @@ const MILIK_ORANGE = "bg-[#FF8C00]";
 const MILIK_ORANGE_HOVER = "hover:bg-[#e67e00]";
 
 const INVOICE_REVENUE_ACCOUNT_MAP = {
-  utility: { code: "4102", name: "Utility Recharge Income" },
-  rent: { code: "4100", name: "Rent Income" },
-  combined: { code: "4100", name: "Rent Income" },
+  utility: { code: "4102", name: "Utility Recharge Income", category: "UTILITY_CHARGE" },
+  rent: { code: "4100", name: "Rent Income", category: "RENT_CHARGE" },
+  combined: { code: "4100", name: "Rent Income", category: "RENT_CHARGE" },
 };
 
 const MONTH_OPTIONS = [
@@ -63,15 +68,6 @@ const getTenantDisplayName = (tenant) => {
   return fullName || tenant?.tenantName || tenant?.name || "N/A";
 };
 
-const getPropertyDisplayName = (tenant) => {
-  return (
-    tenant?.unit?.property?.propertyName ||
-    tenant?.property?.propertyName ||
-    tenant?.propertyName ||
-    "N/A"
-  );
-};
-
 const getUnitDisplayName = (tenant) => {
   return (
     tenant?.unit?.unitName ||
@@ -82,22 +78,11 @@ const getUnitDisplayName = (tenant) => {
   );
 };
 
-const getInvoiceIdFromEntry = (entry) => {
-  if (typeof entry === "string") return entry;
-  return entry?.invoiceId || entry?.id || entry?.number || "";
-};
-
 const formatDateDisplay = (dateValue) => {
   if (!dateValue) return "-";
   const date = new Date(dateValue);
   if (Number.isNaN(date.getTime())) return "-";
   return date.toLocaleDateString();
-};
-
-const hasMeaningfulLabel = (value) => {
-  if (value === null || value === undefined) return false;
-  const normalized = String(value).trim().toLowerCase();
-  return normalized !== "" && normalized !== "n/a" && normalized !== "-" && normalized !== "na";
 };
 
 const escapeHtml = (value) =>
@@ -113,55 +98,8 @@ const formatPeriodLabel = (month, year) => {
   return `${date.toLocaleString("en-US", { month: "short" })} ${String(year).slice(-2)}`;
 };
 
-const parsePeriodLabel = (periodLabel, fallbackDate = new Date()) => {
-  if (!periodLabel || typeof periodLabel !== "string") {
-    return {
-      month: fallbackDate.getMonth(),
-      year: fallbackDate.getFullYear(),
-    };
-  }
-
-  const parts = String(periodLabel).trim().split(/\s+/);
-  if (parts.length < 2) {
-    return {
-      month: fallbackDate.getMonth(),
-      year: fallbackDate.getFullYear(),
-    };
-  }
-
-  const monthText = parts[0].toLowerCase();
-  const monthMap = {
-    jan: 0,
-    feb: 1,
-    mar: 2,
-    apr: 3,
-    may: 4,
-    jun: 5,
-    jul: 6,
-    aug: 7,
-    sep: 8,
-    oct: 9,
-    nov: 10,
-    dec: 11,
-  };
-
-  const month = monthMap[monthText.slice(0, 3)];
-  const yearNum = Number(parts[1]);
-  const year = yearNum < 100 ? 2000 + yearNum : yearNum;
-
-  return {
-    month: Number.isInteger(month) ? month : fallbackDate.getMonth(),
-    year: Number.isFinite(year) ? year : fallbackDate.getFullYear(),
-  };
-};
-
 const getStartOfPeriod = (month, year) => new Date(year, month, 1);
 const getEndOfPeriod = (month, year) => new Date(year, month + 1, 0);
-
-const getNormalizedPeriodFromEntry = (periodKey, entry) => {
-  if (typeof entry === "object" && entry?.period) return String(entry.period);
-  return String(periodKey).replace(/__(rent|utility)$/i, "");
-};
 
 const resolveTenantPropertyName = (tenant, unitsFromStore = [], propertiesFromStore = []) => {
   const directPropertyName =
@@ -194,7 +132,8 @@ const resolveTenantPropertyName = (tenant, unitsFromStore = [], propertiesFromSt
 const buildJournalEntriesForInvoice = (invoice) => {
   const amount = Number(invoice?.amount || 0);
   const chargeType = String(invoice?.chargeType || "combined").toLowerCase();
-  const revenueAccount = INVOICE_REVENUE_ACCOUNT_MAP[chargeType] || INVOICE_REVENUE_ACCOUNT_MAP.combined;
+  const revenueAccount =
+    INVOICE_REVENUE_ACCOUNT_MAP[chargeType] || INVOICE_REVENUE_ACCOUNT_MAP.combined;
   const narration = `Invoice ${invoice?.id || ""} ${chargeType} charge for ${invoice?.period || "period"}`;
 
   return [
@@ -231,13 +170,18 @@ const RentalInvoices = () => {
   const [journalDrawerOpen, setJournalDrawerOpen] = useState(false);
   const [journalContext, setJournalContext] = useState({});
   const [journalLines, setJournalLines] = useState([]);
+  const [tenantInvoicesFromApi, setTenantInvoicesFromApi] = useState([]);
+  const [invoiceRevenueAccounts, setInvoiceRevenueAccounts] = useState([]);
+  const [deletingInvoiceIds, setDeletingInvoiceIds] = useState([]);
   const currentDate = new Date();
+
   const [singleBookingForm, setSingleBookingForm] = useState({
     tenantId: tenantId || "",
     month: currentDate.getMonth(),
     year: currentDate.getFullYear(),
     billingMode: "combined",
   });
+
   const [batchBookingForm, setBatchBookingForm] = useState({
     propertyId: "all",
     month: currentDate.getMonth(),
@@ -246,25 +190,16 @@ const RentalInvoices = () => {
   });
 
   const currentCompany = useSelector((state) => state.company?.currentCompany);
+  const currentUser = useSelector((state) => state.auth?.currentUser || state.auth?.user || null );
   const tenantsFromStore = useSelector((state) => state.tenant?.tenants || []);
   const propertiesFromStore = useSelector((state) => state.property?.properties || []);
   const unitsFromStore = useSelector((state) => state.unit?.units || []);
   const rentPayments = useSelector((state) => state.rentPayment?.rentPayments || []);
-  const hasSyncedLegacyInvoicesRef = useRef(false);
-
-  const postedInvoiceMap = useMemo(() => {
-    const map = new Map();
-    rentPayments.forEach((payment) => {
-      const ref = String(payment?.referenceNumber || "").trim();
-      if (!ref) return;
-      if (payment?.ledgerType !== "invoices") return;
-      map.set(ref, payment);
-    });
-    return map;
-  }, [rentPayments]);
+  const hasLoadedInitialDataRef = useRef(false);
 
   useEffect(() => {
     if (!currentCompany?._id) return;
+
     dispatch(getTenants({ business: currentCompany._id }));
     dispatch(getProperties({ business: currentCompany._id }));
     dispatch(getUnits({ business: currentCompany._id }));
@@ -277,150 +212,70 @@ const RentalInvoices = () => {
   }, [tenantId]);
 
   useEffect(() => {
-    if (tenantsFromStore.length === 0) return;
+    if (!currentCompany?._id) return;
 
-    let maxInvoiceNum = 0;
-    const invoiceNumbers = new Set();
-    const updatedByTenant = {};
-    let hasDuplicates = false;
-
-    tenantsFromStore.forEach((tenant) => {
-      const storageKey = `createdInvoices_${tenant._id}`;
-      const stored = localStorage.getItem(storageKey);
-      if (!stored) return;
-
-      const tenantInvoices = JSON.parse(stored);
-      Object.values(tenantInvoices).forEach((entry) => {
-        const invoiceId = getInvoiceIdFromEntry(entry);
-        const num = parseInt(String(invoiceId).replace("INV", ""), 10) || 0;
-        if (num > maxInvoiceNum) maxInvoiceNum = num;
-      });
-    });
-
-    tenantsFromStore.forEach((tenant) => {
-      const storageKey = `createdInvoices_${tenant._id}`;
-      const stored = localStorage.getItem(storageKey);
-      if (!stored) return;
-
-      const tenantInvoices = JSON.parse(stored);
-      const normalizedInvoices = {};
-      let changed = false;
-
-      Object.entries(tenantInvoices).forEach(([period, entry]) => {
-        const currentId = getInvoiceIdFromEntry(entry);
-        let nextId = currentId;
-
-        if (invoiceNumbers.has(currentId)) {
-          hasDuplicates = true;
-          changed = true;
-          maxInvoiceNum += 1;
-          nextId = `INV${String(maxInvoiceNum).padStart(5, "0")}`;
-        }
-
-        invoiceNumbers.add(nextId);
-
-        if (typeof entry === "string") {
-          normalizedInvoices[period] = nextId;
-        } else {
-          normalizedInvoices[period] = {
-            ...entry,
-            invoiceId: nextId,
-            id: nextId,
-            number: nextId,
-          };
-        }
-      });
-
-      if (changed) {
-        updatedByTenant[storageKey] = normalizedInvoices;
-      }
-    });
-
-    if (hasDuplicates) {
-      Object.entries(updatedByTenant).forEach(([key, value]) => {
-        localStorage.setItem(key, JSON.stringify(value));
-      });
-      toast.info("Duplicate invoice numbers fixed successfully");
-      setRefreshTick((prev) => prev + 1);
-    }
-  }, [tenantsFromStore]);
-
-  const invoices = useMemo(() => {
-    if (tenantsFromStore.length === 0) return [];
-
-    const targetTenants = tenantId
-      ? tenantsFromStore.filter((tenant) => tenant._id === tenantId)
-      : tenantsFromStore;
-
-    const allInvoices = [];
-
-    targetTenants.forEach((tenant) => {
-      const storageKey = `createdInvoices_${tenant._id}`;
-      const stored = localStorage.getItem(storageKey);
-      if (!stored) return;
-
-      const createdInvoices = JSON.parse(stored);
-      const tenantName = getTenantDisplayName(tenant);
-      const propertyName = resolveTenantPropertyName(tenant, unitsFromStore, propertiesFromStore);
-      const unitName = getUnitDisplayName(tenant);
-      const baseRent = Number(tenant?.lease?.rentAmount || tenant?.rent || 23000) || 23000;
-
-      Object.entries(createdInvoices).forEach(([periodKey, entry]) => {
-        const invoiceId = getInvoiceIdFromEntry(entry);
-        const period = getNormalizedPeriodFromEntry(periodKey, entry);
-        const utilityAmount = Number(tenant?.serviceCharge || 0) || 0;
-        const fallbackAmount = baseRent + utilityAmount;
-        const amount =
-          typeof entry === "object" && Number.isFinite(Number(entry?.amount))
-            ? Number(entry.amount)
-            : fallbackAmount;
-        const createdAt =
-          typeof entry === "object"
-            ? entry?.createdAt || entry?.createdDate || null
-            : null;
-
-        // Calculate status based on confirmed payments
-        const confirmedPayments = rentPayments.filter(
-          (payment) =>
-            payment.isConfirmed === true &&
-            (payment.tenant?._id === tenant._id || payment.tenant === tenant._id)
-        );
-        const totalPaid = confirmedPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-        const status = totalPaid >= amount ? "Paid" : "Issued";
-
-        allInvoices.push({
-          key: `${tenant._id}_${periodKey}_${invoiceId}`,
-          id: invoiceId,
-          period,
-          storagePeriodKey: periodKey,
-          chargeType:
-            typeof entry === "object" && entry?.chargeType
-              ? String(entry.chargeType)
-              : "combined",
-          tenantId: tenant._id,
-          tenantName,
-          propertyName:
-            typeof entry === "object" && hasMeaningfulLabel(entry?.propertyName)
-              ? entry.propertyName
-              : propertyName,
-          unitName:
-            typeof entry === "object" && hasMeaningfulLabel(entry?.unitName)
-              ? entry.unitName
-              : unitName,
-          amount,
-          status,
-          createdAt,
-          createdDate: formatDateDisplay(createdAt),
+    const loadInvoiceSupportData = async () => {
+      try {
+        // Your backend chart-of-accounts endpoint appears to require a code.
+        // So fetch the known revenue accounts one by one instead of trying to load all income accounts.
+        const account4100 = await getChartOfAccounts({
+          business: currentCompany._id,
+          code: "4100",
         });
-      });
-    });
 
-    return allInvoices.sort((a, b) => {
-      const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return bDate - aDate;
-    });
-  }, [tenantId, tenantsFromStore, unitsFromStore, propertiesFromStore, refreshTick, rentPayments]);
+        const account4102 = await getChartOfAccounts({
+          business: currentCompany._id,
+          code: "4102",
+        });
+
+        const normalized = [
+          ...(Array.isArray(account4100) ? account4100 : []),
+          ...(Array.isArray(account4102) ? account4102 : []),
+        ];
+
+        const deduped = normalized.filter(
+          (acc, index, arr) =>
+            acc?._id && arr.findIndex((x) => String(x?._id) === String(acc?._id)) === index
+        );
+
+        setInvoiceRevenueAccounts(deduped);
+      } catch (error) {
+        console.error("Failed to load chart of accounts:", error);
+        setInvoiceRevenueAccounts([]);
+      }
+    };
+
+    loadInvoiceSupportData();
+  }, [currentCompany?._id]);
+
+  useEffect(() => {
+    if (!currentCompany?._id || tenantsFromStore.length === 0) return;
+
+    const loadInvoices = async () => {
+      try {
+        let rows = [];
+
+        if (tenantId) {
+          rows = await getTenantInvoices({
+            tenantId,
+            business: currentCompany._id,
+          });
+        } else {
+          rows = await getTenantInvoices({
+            business: currentCompany._id,
+          });
+        }
+
+        setTenantInvoicesFromApi(Array.isArray(rows) ? rows : []);
+        hasLoadedInitialDataRef.current = true;
+      } catch (error) {
+        console.error("Failed to load tenant invoices:", error);
+        setTenantInvoicesFromApi([]);
+      }
+    };
+
+    loadInvoices();
+  }, [currentCompany?._id, tenantsFromStore.length, tenantId, refreshTick]);
 
   const uniqueProperties = useMemo(() => {
     return [
@@ -445,7 +300,7 @@ const RentalInvoices = () => {
         const unitPropertyName = unit?.property?.propertyName || unit?.propertyName;
 
         if (selectedPropertyId) {
-          return unitPropertyId === selectedPropertyId;
+          return String(unitPropertyId) === String(selectedPropertyId);
         }
         return unitPropertyName === draftFilters.property;
       });
@@ -463,50 +318,6 @@ const RentalInvoices = () => {
     ];
   }, [unitsFromStore, propertiesFromStore, draftFilters.property]);
 
-  const filteredInvoices = useMemo(() => {
-    return invoices.filter((invoice) => {
-      if (appliedFilters.status !== "ALL" && invoice.status !== appliedFilters.status) return false;
-      if (appliedFilters.property !== "any" && invoice.propertyName !== appliedFilters.property) return false;
-      if (appliedFilters.unit !== "any" && invoice.unitName !== appliedFilters.unit) return false;
-      if (
-        appliedFilters.tenantName &&
-        !invoice.tenantName.toLowerCase().includes(appliedFilters.tenantName.toLowerCase())
-      ) {
-        return false;
-      }
-      if (
-        appliedFilters.invoiceNo &&
-        !String(invoice.id).toLowerCase().includes(appliedFilters.invoiceNo.toLowerCase())
-      ) {
-        return false;
-      }
-
-      if (appliedFilters.fromDate || appliedFilters.toDate) {
-        if (!invoice.createdAt) return false;
-        const invoiceDate = new Date(invoice.createdAt);
-        if (Number.isNaN(invoiceDate.getTime())) return false;
-
-        if (appliedFilters.fromDate) {
-          const fromDate = new Date(`${appliedFilters.fromDate}T00:00:00`);
-          if (invoiceDate < fromDate) return false;
-        }
-        if (appliedFilters.toDate) {
-          const toDate = new Date(`${appliedFilters.toDate}T23:59:59`);
-          if (invoiceDate > toDate) return false;
-        }
-      }
-
-      return true;
-    });
-  }, [invoices, appliedFilters]);
-
-  const activeProperties = useMemo(() => {
-    return propertiesFromStore.filter((property) => {
-      const propertyStatus = String(property?.status || "active").toLowerCase();
-      return propertyStatus === "active";
-    });
-  }, [propertiesFromStore]);
-
   const tenantLookup = useMemo(() => {
     const lookup = {};
     tenantsFromStore.forEach((tenant) => {
@@ -517,8 +328,14 @@ const RentalInvoices = () => {
 
   const getTenantPricing = (tenant) => {
     const baseRent =
-      Number(tenant?.lease?.rentAmount || tenant?.rent || tenant?.unit?.rent || tenant?.unit?.monthlyRent || 0) ||
-      0;
+      Number(
+        tenant?.lease?.rentAmount ||
+          tenant?.rent ||
+          tenant?.unit?.rent ||
+          tenant?.unit?.monthlyRent ||
+          0
+      ) || 0;
+
     const utilitiesFromTenant = Array.isArray(tenant?.utilities)
       ? tenant.utilities.reduce((sum, utility) => {
           if (utility?.isIncluded === true) return sum;
@@ -527,7 +344,10 @@ const RentalInvoices = () => {
       : 0;
 
     const tenantUnitId = tenant?.unit?._id || tenant?.unit;
-    const matchedUnit = unitsFromStore.find((unit) => unit?._id === tenantUnitId);
+    const matchedUnit = unitsFromStore.find(
+      (unit) => String(unit?._id) === String(tenantUnitId)
+    );
+
     const utilitiesFromUnit = Array.isArray(matchedUnit?.utilities)
       ? matchedUnit.utilities.reduce((sum, utility) => {
           if (utility?.isIncluded === true) return sum;
@@ -536,7 +356,10 @@ const RentalInvoices = () => {
       : 0;
 
     const serviceCharge = Number(tenant?.serviceCharge || 0) || 0;
-    const utilityAmount = utilitiesFromTenant > 0 ? utilitiesFromTenant + serviceCharge : utilitiesFromUnit + serviceCharge;
+    const utilityAmount =
+      utilitiesFromTenant > 0
+        ? utilitiesFromTenant + serviceCharge
+        : utilitiesFromUnit + serviceCharge;
 
     return {
       rentAmount: baseRent,
@@ -550,28 +373,18 @@ const RentalInvoices = () => {
     if (directPropertyId) return directPropertyId;
 
     const tenantUnitId = tenant?.unit?._id || tenant?.unit;
-    const matchedUnit = unitsFromStore.find((unit) => unit?._id === tenantUnitId);
+    const matchedUnit = unitsFromStore.find(
+      (unit) => String(unit?._id) === String(tenantUnitId)
+    );
     return matchedUnit?.property?._id || matchedUnit?.property || null;
   };
 
-  const getNextInvoiceNumber = () => {
-    let maxInvoiceNum = 0;
-
-    tenantsFromStore.forEach((tenant) => {
-      const storageKey = `createdInvoices_${tenant._id}`;
-      const stored = localStorage.getItem(storageKey);
-      if (!stored) return;
-
-      const tenantInvoices = JSON.parse(stored);
-      Object.values(tenantInvoices).forEach((entry) => {
-        const invoiceId = getInvoiceIdFromEntry(entry);
-        const num = parseInt(String(invoiceId).replace("INV", ""), 10) || 0;
-        if (num > maxInvoiceNum) maxInvoiceNum = num;
-      });
+  const activeProperties = useMemo(() => {
+    return propertiesFromStore.filter((property) => {
+      const propertyStatus = String(property?.status || "active").toLowerCase();
+      return propertyStatus === "active";
     });
-
-    return maxInvoiceNum + 1;
-  };
+  }, [propertiesFromStore]);
 
   const singleBookingTenantOptions = useMemo(() => {
     return tenantsFromStore
@@ -604,7 +417,13 @@ const RentalInvoices = () => {
       ),
       unitName: getUnitDisplayName(selectedSingleBookingTenant),
     };
-  }, [singleBookingForm.month, singleBookingForm.year, selectedSingleBookingTenant, unitsFromStore, propertiesFromStore]);
+  }, [
+    singleBookingForm.month,
+    singleBookingForm.year,
+    selectedSingleBookingTenant,
+    unitsFromStore,
+    propertiesFromStore,
+  ]);
 
   const batchBookingScopeCount = useMemo(() => {
     return tenantsFromStore.filter((tenant) => {
@@ -615,12 +434,169 @@ const RentalInvoices = () => {
       if (!tenantPropertyId) return false;
 
       if (batchBookingForm.propertyId === "all") {
-        return activeProperties.some((property) => property?._id === tenantPropertyId);
+        return activeProperties.some(
+          (property) => String(property?._id) === String(tenantPropertyId)
+        );
       }
 
-      return tenantPropertyId === batchBookingForm.propertyId;
+      return String(tenantPropertyId) === String(batchBookingForm.propertyId);
     }).length;
   }, [tenantsFromStore, batchBookingForm.propertyId, activeProperties]);
+
+  const invoiceRows = useMemo(() => {
+    const confirmedReceiptsByTenant = {};
+
+    (rentPayments || [])
+      .filter(
+        (payment) =>
+          payment?.ledgerType === "receipts" &&
+          payment?.isConfirmed === true &&
+          payment?.isCancelled !== true
+      )
+      .forEach((payment) => {
+        const tenantRef = payment?.tenant?._id || payment?.tenant;
+        const tenantKey = String(tenantRef || "");
+        if (!tenantKey) return;
+
+        if (!confirmedReceiptsByTenant[tenantKey]) {
+          confirmedReceiptsByTenant[tenantKey] = [];
+        }
+
+        confirmedReceiptsByTenant[tenantKey].push({
+          amount: Math.abs(Number(payment?.amount || 0)),
+          paymentDate: payment?.paymentDate || payment?.createdAt,
+        });
+      });
+
+    Object.values(confirmedReceiptsByTenant).forEach((rows) => {
+      rows.sort((a, b) => new Date(a.paymentDate).getTime() - new Date(b.paymentDate).getTime());
+    });
+
+    const tenantPaidAllocation = {};
+    Object.keys(confirmedReceiptsByTenant).forEach((tenantKey) => {
+      tenantPaidAllocation[tenantKey] = confirmedReceiptsByTenant[tenantKey].reduce(
+        (sum, row) => sum + Number(row.amount || 0),
+        0
+      );
+    });
+
+    const sortedInvoices = [...tenantInvoicesFromApi].sort((a, b) => {
+      const aTime = a?.invoiceDate ? new Date(a.invoiceDate).getTime() : new Date(a?.createdAt || 0).getTime();
+      const bTime = b?.invoiceDate ? new Date(b.invoiceDate).getTime() : new Date(b?.createdAt || 0).getTime();
+      return aTime - bTime;
+    });
+
+    return sortedInvoices
+      .map((invoice, idx) => {
+        const invoiceTenantId = String(invoice?.tenant?._id || invoice?.tenant || "");
+        const tenant = tenantLookup[invoiceTenantId] || invoice?.tenant || {};
+        const invoiceAmount = Number(invoice?.amount || 0);
+        const allocatedPaid = Math.min(invoiceAmount, Math.max(0, tenantPaidAllocation[invoiceTenantId] || 0));
+        tenantPaidAllocation[invoiceTenantId] = Math.max(
+          0,
+          Number(tenantPaidAllocation[invoiceTenantId] || 0) - allocatedPaid
+        );
+
+        const rawStatus = String(invoice?.status || "").toLowerCase();
+        const derivedStatus =
+          rawStatus === "paid"
+            ? "Paid"
+            : rawStatus === "partially_paid"
+            ? "Issued"
+            : rawStatus === "cancelled"
+            ? "Cancelled"
+            : rawStatus === "reversed"
+            ? "Reversed"
+            : allocatedPaid >= invoiceAmount
+            ? "Paid"
+            : "Issued";
+
+        const invoiceDate = invoice?.invoiceDate || invoice?.createdAt;
+        const parsedDate = invoiceDate ? new Date(invoiceDate) : new Date();
+        const month = parsedDate.getMonth();
+        const year = parsedDate.getFullYear();
+
+        const propertyName =
+          invoice?.property?.propertyName ||
+          invoice?.propertyName ||
+          resolveTenantPropertyName(tenant, unitsFromStore, propertiesFromStore);
+
+        const unitName =
+          invoice?.unit?.unitNumber ||
+          invoice?.unit?.unitName ||
+          invoice?.unitName ||
+          getUnitDisplayName(tenant);
+
+        const chargeType =
+          String(invoice?.category || "").toUpperCase() === "UTILITY_CHARGE"
+            ? "utility"
+            : "rent";
+
+        return {
+          key: `${invoice?._id || idx}`,
+          _id: invoice?._id,
+          id: invoice?.invoiceNumber || invoice?._id,
+          period: formatPeriodLabel(month, year),
+          storagePeriodKey: formatPeriodLabel(month, year),
+          chargeType,
+          tenantId: invoiceTenantId,
+          tenantName: invoice?.tenant?.name || getTenantDisplayName(tenant),
+          propertyName,
+          unitName,
+          amount: invoiceAmount,
+          status: derivedStatus,
+          createdAt: invoice?.createdAt || invoice?.invoiceDate,
+          createdDate: formatDateDisplay(invoice?.createdAt || invoice?.invoiceDate),
+          originalInvoice: invoice,
+        };
+      })
+      .sort((a, b) => {
+        const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bDate - aDate;
+      });
+  }, [tenantInvoicesFromApi, rentPayments, tenantLookup, unitsFromStore, propertiesFromStore]);
+
+  const filteredInvoices = useMemo(() => {
+    return invoiceRows.filter((invoice) => {
+      if (deletingInvoiceIds.includes(invoice._id)) return false;
+      if (appliedFilters.status !== "ALL" && invoice.status !== appliedFilters.status) return false;
+      if (appliedFilters.property !== "any" && invoice.propertyName !== appliedFilters.property) return false;
+      if (appliedFilters.unit !== "any" && invoice.unitName !== appliedFilters.unit) return false;
+
+      if (
+        appliedFilters.tenantName &&
+        !invoice.tenantName.toLowerCase().includes(appliedFilters.tenantName.toLowerCase())
+      ) {
+        return false;
+      }
+
+      if (
+        appliedFilters.invoiceNo &&
+        !String(invoice.id).toLowerCase().includes(appliedFilters.invoiceNo.toLowerCase())
+      ) {
+        return false;
+      }
+
+      if (appliedFilters.fromDate || appliedFilters.toDate) {
+        if (!invoice.createdAt) return false;
+        const invoiceDate = new Date(invoice.createdAt);
+        if (Number.isNaN(invoiceDate.getTime())) return false;
+
+        if (appliedFilters.fromDate) {
+          const fromDate = new Date(`${appliedFilters.fromDate}T00:00:00`);
+          if (invoiceDate < fromDate) return false;
+        }
+
+        if (appliedFilters.toDate) {
+          const toDate = new Date(`${appliedFilters.toDate}T23:59:59`);
+          if (invoiceDate > toDate) return false;
+        }
+      }
+
+      return true;
+    });
+  }, [invoiceRows, appliedFilters, deletingInvoiceIds]);
 
   useEffect(() => {
     if (filteredInvoices.length === 0) {
@@ -640,6 +616,7 @@ const RentalInvoices = () => {
 
   const selectedCount = selectedInvoices.length;
   const canEdit = selectedCount === 1;
+
   const companyDisplayName =
     currentCompany?.companyName ||
     currentCompany?.name ||
@@ -696,13 +673,12 @@ const RentalInvoices = () => {
       return null;
     }
 
-    // Clean object URL shortly after open to avoid memory leaks.
     setTimeout(() => window.URL.revokeObjectURL(url), 15000);
 
     try {
       printWindow.document.title = title;
     } catch (error) {
-      // Ignore title assignment errors on some browsers when window is still loading.
+      // ignore
     }
 
     return printWindow;
@@ -836,15 +812,16 @@ const RentalInvoices = () => {
 
   const handleViewInvoice = (invoice) => {
     if (!invoice) return;
-    const postedTx = postedInvoiceMap.get(invoice.id) || postedInvoiceMap.get(`${invoice.id}-U`);
+
     setJournalContext({
       transactionNumber: invoice.id,
       date: invoice.createdDate || "-",
       tenant: invoice.tenantName,
       property: invoice.propertyName,
       unit: invoice.unitName,
-      cashbook: postedTx?.cashbook || "Tenant Receivables Control",
+      cashbook: "Tenant Receivables Control",
     });
+
     setJournalLines(buildJournalEntriesForInvoice(invoice));
     setJournalDrawerOpen(true);
   };
@@ -881,7 +858,10 @@ const RentalInvoices = () => {
       return;
     }
 
-    const printWindow = openHtmlDocument("MILIK Rental Invoices List", buildInvoiceListHtml(filteredInvoices));
+    const printWindow = openHtmlDocument(
+      "MILIK Rental Invoices List",
+      buildInvoiceListHtml(filteredInvoices)
+    );
     if (!printWindow) return;
 
     setTimeout(() => {
@@ -890,255 +870,200 @@ const RentalInvoices = () => {
     }, 500);
   };
 
+  const findRevenueAccountId = (type) => {
+    const typeLower = String(type || "rent").toLowerCase();
+
+    const exactCode =
+      typeLower === "utility"
+        ? invoiceRevenueAccounts.find((acc) => String(acc?.code || "") === "4102")
+        : invoiceRevenueAccounts.find((acc) => String(acc?.code || "") === "4100");
+
+    if (exactCode?._id) return exactCode._id;
+
+    const byName =
+      typeLower === "utility"
+        ? invoiceRevenueAccounts.find((acc) =>
+            String(acc?.name || "").toLowerCase().includes("utility")
+          )
+        : invoiceRevenueAccounts.find((acc) =>
+            String(acc?.name || "").toLowerCase().includes("rent")
+          );
+
+    return byName?._id || null;
+  };
   const createBackendInvoiceEntry = async ({
-    targetTenant,
-    invoiceId,
-    amount,
-    paymentType,
-    month,
-    year,
+  targetTenant,
+  invoiceId,
+  amount,
+  paymentType,
+  month,
+  year,
+  description,
+}) => {
+  const numericAmount = Number(amount || 0);
+
+  if (!targetTenant?._id || !targetTenant?.unit || numericAmount <= 0) {
+    throw new Error("Invalid invoice payload");
+  }
+
+  const revenueAccountId = findRevenueAccountId(paymentType);
+  if (!revenueAccountId) {
+    throw new Error(
+      `No income Chart of Account found for ${paymentType}. Ensure account 4100 / 4102 exists.`
+    );
+  }
+
+  const businessId =
+    targetTenant?.business?._id ||
+    targetTenant?.business ||
+    currentCompany?._id ||
+    currentUser?.company?._id ||
+    currentUser?.company ||
+    null;
+
+  const unitId = targetTenant?.unit?._id || targetTenant?.unit || null;
+
+  const matchedUnit = unitsFromStore.find(
+    (unit) => String(unit?._id || "") === String(unitId || "")
+  );
+
+  const propertyId =
+    targetTenant?.property?._id ||
+    targetTenant?.property ||
+    matchedUnit?.property?._id ||
+    matchedUnit?.property ||
+    targetTenant?.unit?.property?._id ||
+    targetTenant?.unit?.property ||
+    null;
+
+  const matchedProperty = propertiesFromStore.find(
+    (property) => String(property?._id || "") === String(propertyId || "")
+  );
+
+  const landlordId =
+    matchedProperty?.landlords?.[0]?.landlordId?._id ||
+    matchedProperty?.landlords?.[0]?.landlordId ||
+    matchedProperty?.landlords?.[0]?._id ||
+    matchedProperty?.landlords?.[0] ||
+    targetTenant?.landlord?._id ||
+    targetTenant?.landlord ||
+    null;
+
+  const createdBy =
+    currentUser?._id ||
+    targetTenant?.createdBy?._id ||
+    targetTenant?.createdBy ||
+    null;
+
+  if (!businessId) {
+    throw new Error("Missing business context for invoice creation.");
+  }
+
+  if (!propertyId) {
+    throw new Error("Missing property on selected tenant/unit.");
+  }
+
+  if (!landlordId) {
+    throw new Error("Missing landlord on selected property's record.");
+  }
+
+  if (!unitId) {
+    throw new Error("Missing unit on selected tenant.");
+  }
+
+  if (!createdBy) {
+    throw new Error("Missing createdBy user context.");
+  }
+
+  const invoicePayload = {
+    business: businessId,
+    property: propertyId,
+    landlord: landlordId,
+    tenant: targetTenant._id,
+    unit: unitId,
+    invoiceNumber: invoiceId,
+    category: paymentType === "utility" ? "UTILITY_CHARGE" : "RENT_CHARGE",
+    amount: numericAmount,
     description,
-  }) => {
-    const numericAmount = Number(amount || 0);
-    if (!targetTenant?._id || !targetTenant?.unit || numericAmount <= 0) return;
-
-    const periodStart = getStartOfPeriod(month, year);
-    const periodEnd = getEndOfPeriod(month, year);
-
-    await createRentPayment(dispatch, {
-      tenant: targetTenant._id,
-      unit: targetTenant.unit?._id || targetTenant.unit,
-      amount: numericAmount,
-      paymentType,
-      paymentDate: periodStart,
-      dueDate: periodEnd,
-      referenceNumber: invoiceId,
-      description,
-      isConfirmed: false,
-      paymentMethod: "bank_transfer",
-      cashbook: "Tenant Receivables Control",
-      paidDirectToLandlord: false,
-      ledgerType: "invoices",
-      month: month + 1,
-      year,
-      utilities: [],
-      breakdown: {
-        rent: paymentType === "rent" ? numericAmount : 0,
-        utilities: [],
-        total: numericAmount,
-      },
-    });
+    invoiceDate: getStartOfPeriod(month, year),
+    dueDate: getEndOfPeriod(month, year),
+    createdBy,
+    chartAccountId: revenueAccountId,
   };
 
-  const syncStoredInvoiceToBackend = async ({
-    tenant,
-    invoiceId,
-    chargeType,
-    amount,
-    rentAmount,
-    utilityAmount,
+  console.log("Creating invoice with payload:", invoicePayload);
+
+  return await createTenantInvoice(invoicePayload);
+};
+
+  
+  const createInvoiceForTenant = async (
+    targetTenant,
     month,
     year,
-    existingRefs,
-  }) => {
-    if (!invoiceId || !tenant?._id) return;
-
-    const hasRef = (ref) => existingRefs.has(String(ref || "").trim());
-
-    if (chargeType === "rent") {
-      if (!hasRef(invoiceId) && Number(amount) > 0) {
-        await createBackendInvoiceEntry({
-          targetTenant: tenant,
-          invoiceId,
-          amount,
-          paymentType: "rent",
-          month,
-          year,
-          description: `Invoice ${invoiceId} rent charge (${formatPeriodLabel(month, year)})`,
-        });
-        existingRefs.add(invoiceId);
-      }
-      return;
-    }
-
-    if (chargeType === "utility") {
-      if (!hasRef(invoiceId) && Number(amount) > 0) {
-        await createBackendInvoiceEntry({
-          targetTenant: tenant,
-          invoiceId,
-          amount,
-          paymentType: "utility",
-          month,
-          year,
-          description: `Invoice ${invoiceId} utility charge (${formatPeriodLabel(month, year)})`,
-        });
-        existingRefs.add(invoiceId);
-      }
-      return;
-    }
-
-    const numericRent = Number(rentAmount || 0);
-    const numericUtility = Number(utilityAmount || 0);
-    const numericTotal = Number(amount || 0);
-    const rentPortion = numericRent > 0 ? numericRent : Math.max(numericTotal - numericUtility, 0);
-    const utilityRef = `${invoiceId}-U`;
-
-    if (!hasRef(invoiceId) && rentPortion > 0) {
-      await createBackendInvoiceEntry({
-        targetTenant: tenant,
-        invoiceId,
-        amount: rentPortion,
-        paymentType: "rent",
-        month,
-        year,
-        description: `Invoice ${invoiceId} rent charge (${formatPeriodLabel(month, year)})`,
-      });
-      existingRefs.add(invoiceId);
-    }
-
-    if (!hasRef(utilityRef) && numericUtility > 0) {
-      await createBackendInvoiceEntry({
-        targetTenant: tenant,
-        invoiceId: utilityRef,
-        amount: numericUtility,
-        paymentType: "utility",
-        month,
-        year,
-        description: `Invoice ${invoiceId} utility charge (${formatPeriodLabel(month, year)})`,
-      });
-      existingRefs.add(utilityRef);
-    }
-  };
-
-  useEffect(() => {
-    if (hasSyncedLegacyInvoicesRef.current) return;
-    if (!currentCompany?._id || tenantsFromStore.length === 0) return;
-
-    const runSync = async () => {
-      const existingRefs = new Set(
-        (rentPayments || [])
-          .map((payment) => String(payment?.referenceNumber || "").trim())
-          .filter(Boolean)
-      );
-
-      let syncedCount = 0;
-
-      for (const tenant of tenantsFromStore) {
-        const storageKey = `createdInvoices_${tenant._id}`;
-        const stored = localStorage.getItem(storageKey);
-        if (!stored) continue;
-
-        const tenantInvoices = JSON.parse(stored || "{}");
-
-        for (const [periodKey, entry] of Object.entries(tenantInvoices || {})) {
-          const invoiceId = getInvoiceIdFromEntry(entry);
-          if (!invoiceId) continue;
-
-          const period = getNormalizedPeriodFromEntry(periodKey, entry);
-          const parsed = parsePeriodLabel(period);
-
-          const amount = typeof entry === "object" ? Number(entry?.amount || 0) : 0;
-          const rentAmount = typeof entry === "object" ? Number(entry?.rentAmount || 0) : 0;
-          const utilityAmount = typeof entry === "object" ? Number(entry?.utilityAmount || 0) : 0;
-          const chargeType = typeof entry === "object" && entry?.chargeType ? String(entry.chargeType) : "combined";
-
-          const before = existingRefs.size;
-          await syncStoredInvoiceToBackend({
-            tenant,
-            invoiceId,
-            chargeType,
-            amount,
-            rentAmount,
-            utilityAmount,
-            month: parsed.month,
-            year: parsed.year,
-            existingRefs,
-          });
-          if (existingRefs.size > before) {
-            syncedCount += existingRefs.size - before;
-          }
-        }
-      }
-
-      hasSyncedLegacyInvoicesRef.current = true;
-      if (syncedCount > 0) {
-        await getRentPayments(dispatch, currentCompany._id);
-        toast.info(`Synced ${syncedCount} invoice ledger entr${syncedCount === 1 ? "y" : "ies"} to accounting ledger.`);
-      }
-    };
-
-    runSync().catch((error) => {
-      hasSyncedLegacyInvoicesRef.current = true;
-      console.error("Invoice ledger sync failed:", error);
-      toast.warn(error?.response?.data?.message || "Some legacy invoices could not be synced to ledger.");
-    });
-  }, [currentCompany?._id, tenantsFromStore, rentPayments, dispatch]);
-
-  const createInvoiceForTenant = async (targetTenant, month, year, nextInvoiceNumRef, billingMode = "combined") => {
+    nextInvoiceNumRef,
+    billingMode = "combined"
+  ) => {
     if (!targetTenant?._id) {
       return { created: false, reason: "Invalid tenant" };
     }
 
     const periodLabel = formatPeriodLabel(month, year);
-    const storageKey = `createdInvoices_${targetTenant._id}`;
-    const stored = localStorage.getItem(storageKey);
-    const tenantInvoices = stored ? JSON.parse(stored) : {};
 
-    const hasInvoiceForPeriod = Object.entries(tenantInvoices).some(([periodKey, entry]) => {
-      const normalizedPeriod = getNormalizedPeriodFromEntry(periodKey, entry);
-      return normalizedPeriod === periodLabel;
+    const existingTenantInvoices = tenantInvoicesFromApi.filter((invoice) => {
+      const invoiceTenantId = String(invoice?.tenant?._id || invoice?.tenant || "");
+      if (invoiceTenantId !== String(targetTenant._id)) return false;
+
+      const dateRef = invoice?.invoiceDate || invoice?.createdAt;
+      if (!dateRef) return false;
+
+      const dt = new Date(dateRef);
+      if (Number.isNaN(dt.getTime())) return false;
+
+      return dt.getMonth() === Number(month) && dt.getFullYear() === Number(year);
     });
 
-    if (hasInvoiceForPeriod) {
+    if (existingTenantInvoices.length > 0) {
       return { created: false, reason: "already_exists", periodLabel };
     }
 
-    const { rentAmount, utilityAmount, total } = getTenantPricing(targetTenant);
-    const propertyName = resolveTenantPropertyName(targetTenant, unitsFromStore, propertiesFromStore);
-    const unitName = getUnitDisplayName(targetTenant);
-
-    const common = {
-      createdAt: new Date().toISOString(),
-      status: "Issued",
-      period: periodLabel,
-      tenantName: getTenantDisplayName(targetTenant),
-      propertyName,
-      unitName,
-      month,
-      year,
-    };
+    const { rentAmount, utilityAmount } = getTenantPricing(targetTenant);
     const createdInvoiceIds = [];
 
     if (billingMode === "separate") {
-      const nextRentNum = nextInvoiceNumRef.current;
-      nextInvoiceNumRef.current += 1;
-      const rentInvoiceId = `INV${String(nextRentNum).padStart(5, "0")}`;
-      tenantInvoices[`${periodLabel}__rent`] = {
-        ...common,
-        invoiceId: rentInvoiceId,
-        id: rentInvoiceId,
-        number: rentInvoiceId,
-        amount: rentAmount,
-        rentAmount,
-        utilityAmount: 0,
-        chargeType: "rent",
-      };
-      createdInvoiceIds.push(rentInvoiceId);
+      if (rentAmount > 0) {
+        const nextRentNum = nextInvoiceNumRef.current;
+        nextInvoiceNumRef.current += 1;
+        const rentInvoiceId = `INV${String(nextRentNum).padStart(5, "0")}`;
+
+        await createBackendInvoiceEntry({
+          targetTenant,
+          invoiceId: rentInvoiceId,
+          amount: rentAmount,
+          paymentType: "rent",
+          month,
+          year,
+          description: `Invoice ${rentInvoiceId} rent charge (${periodLabel})`,
+        });
+
+        createdInvoiceIds.push(rentInvoiceId);
+      }
 
       if (utilityAmount > 0) {
         const nextUtilityNum = nextInvoiceNumRef.current;
         nextInvoiceNumRef.current += 1;
         const utilityInvoiceId = `INV${String(nextUtilityNum).padStart(5, "0")}`;
-        tenantInvoices[`${periodLabel}__utility`] = {
-          ...common,
+
+        await createBackendInvoiceEntry({
+          targetTenant,
           invoiceId: utilityInvoiceId,
-          id: utilityInvoiceId,
-          number: utilityInvoiceId,
           amount: utilityAmount,
-          rentAmount: 0,
-          utilityAmount,
-          chargeType: "utility",
-        };
+          paymentType: "utility",
+          month,
+          year,
+          description: `Invoice ${utilityInvoiceId} utility charge (${periodLabel})`,
+        });
+
         createdInvoiceIds.push(utilityInvoiceId);
       }
     } else {
@@ -1146,112 +1071,84 @@ const RentalInvoices = () => {
       nextInvoiceNumRef.current += 1;
       const invoiceId = `INV${String(nextInvoiceNum).padStart(5, "0")}`;
 
-      tenantInvoices[periodLabel] = {
-        ...common,
-        invoiceId,
-        id: invoiceId,
-        number: invoiceId,
-        amount: total,
-        rentAmount,
-        utilityAmount,
-        chargeType: "combined",
-      };
-      createdInvoiceIds.push(invoiceId);
-    }
-
-    localStorage.setItem(storageKey, JSON.stringify(tenantInvoices));
-
-    try {
-      if (billingMode === "separate") {
-        if (createdInvoiceIds[0] && rentAmount > 0) {
-          await createBackendInvoiceEntry({
-            targetTenant,
-            invoiceId: createdInvoiceIds[0],
-            amount: rentAmount,
-            paymentType: "rent",
-            month,
-            year,
-            description: `Invoice ${createdInvoiceIds[0]} rent charge (${periodLabel})`,
-          });
-        }
-
-        if (createdInvoiceIds[1] && utilityAmount > 0) {
-          await createBackendInvoiceEntry({
-            targetTenant,
-            invoiceId: createdInvoiceIds[1],
-            amount: utilityAmount,
-            paymentType: "utility",
-            month,
-            year,
-            description: `Invoice ${createdInvoiceIds[1]} utility charge (${periodLabel})`,
-          });
-        }
-      } else {
-        if (createdInvoiceIds[0] && rentAmount > 0) {
-          await createBackendInvoiceEntry({
-            targetTenant,
-            invoiceId: createdInvoiceIds[0],
-            amount: rentAmount,
-            paymentType: "rent",
-            month,
-            year,
-            description: `Invoice ${createdInvoiceIds[0]} rent charge (${periodLabel})`,
-          });
-        }
-
-        if (createdInvoiceIds[0] && utilityAmount > 0) {
-          await createBackendInvoiceEntry({
-            targetTenant,
-            invoiceId: `${createdInvoiceIds[0]}-U`,
-            amount: utilityAmount,
-            paymentType: "utility",
-            month,
-            year,
-            description: `Invoice ${createdInvoiceIds[0]} utility charge (${periodLabel})`,
-          });
-        }
+      if (rentAmount > 0) {
+        await createBackendInvoiceEntry({
+          targetTenant,
+          invoiceId,
+          amount: rentAmount,
+          paymentType: "rent",
+          month,
+          year,
+          description: `Invoice ${invoiceId} rent charge (${periodLabel})`,
+        });
       }
-    } catch (error) {
-      // Keep local invoice so users are not blocked; indicate ledger sync failure.
-      return {
-        created: true,
-        invoiceIds: createdInvoiceIds,
-        periodLabel,
-        ledgerSynced: false,
-        ledgerError: error?.response?.data?.message || error?.message || "Ledger sync failed",
-      };
+
+      if (utilityAmount > 0) {
+        await createBackendInvoiceEntry({
+          targetTenant,
+          invoiceId: `${invoiceId}-U`,
+          amount: utilityAmount,
+          paymentType: "utility",
+          month,
+          year,
+          description: `Invoice ${invoiceId} utility charge (${periodLabel})`,
+        });
+      }
+
+      createdInvoiceIds.push(invoiceId);
     }
 
     return { created: true, invoiceIds: createdInvoiceIds, periodLabel, ledgerSynced: true };
   };
 
+  const getNextInvoiceNumber = () => {
+    const invoiceNumbers = tenantInvoicesFromApi
+      .map((invoice) => {
+        const ref = String(invoice?.invoiceNumber || "");
+        const match = ref.match(/INV(\d+)/i);
+        return match ? Number(match[1]) : 0;
+      })
+      .filter(Boolean);
+
+    const maxInvoiceNum = invoiceNumbers.length > 0 ? Math.max(...invoiceNumbers) : 0;
+    return maxInvoiceNum + 1;
+  };
+
   const handleBookingActionChange = (value) => {
     setBookingAction(value);
+
     if (value === "single") {
       setShowSingleBooking(true);
       if (tenantId) {
         setSingleBookingForm((prev) => ({ ...prev, tenantId }));
       }
     }
+
     if (value === "batch") {
       setShowBatchBooking(true);
     }
   };
-
   const handleSingleBooking = async () => {
-    const selectedTenant = tenantLookup[singleBookingForm.tenantId];
-    if (!selectedTenant) {
-      toast.error("Please select a tenant");
-      return;
-    }
+  console.log("handleSingleBooking fired");
 
-    const pricing = getTenantPricing(selectedTenant);
-    if (pricing.total <= 0) {
-      toast.error("Selected tenant has no billable rent/utility amount");
-      return;
-    }
+  const selectedTenant = tenantLookup[singleBookingForm.tenantId];
 
+  if (!selectedTenant) {
+    toast.error("Please select a tenant");
+    return;
+  }
+
+  const pricing = getTenantPricing(selectedTenant);
+  if (pricing.total <= 0) {
+    toast.error("Selected tenant has no billable rent/utility amount");
+    return;
+  }
+
+  try {
     const nextInvoiceNumRef = { current: getNextInvoiceNumber() };
+
+    console.log("Selected tenant for booking:", selectedTenant);
+
     const result = await createInvoiceForTenant(
       selectedTenant,
       Number(singleBookingForm.month),
@@ -1259,6 +1156,8 @@ const RentalInvoices = () => {
       nextInvoiceNumRef,
       singleBookingForm.billingMode
     );
+
+    console.log("Invoice booking result:", result);
 
     if (!result.created && result.reason === "already_exists") {
       toast.info(`Invoice for ${result.periodLabel} already exists for this tenant`);
@@ -1270,22 +1169,24 @@ const RentalInvoices = () => {
       return;
     }
 
-    if (result.ledgerSynced === false) {
-      toast.warn(
-        `Booked ${result.invoiceIds.join(", ")} for ${getTenantDisplayName(selectedTenant)} but ledger sync failed: ${result.ledgerError}`
-      );
-    } else {
-      toast.success(
-        `Booked ${result.invoiceIds.join(", ")} for ${getTenantDisplayName(selectedTenant)}`
-      );
-    }
+    toast.success(
+      `Booked ${result.invoiceIds.join(", ")} for ${getTenantDisplayName(selectedTenant)}`
+    );
+
     setShowSingleBooking(false);
     setBookingAction("");
-    
-    // Notify other components about invoice changes
-    window.dispatchEvent(new Event('invoicesUpdated'));
+    window.dispatchEvent(new Event("invoicesUpdated"));
     setRefreshTick((prev) => prev + 1);
-  };
+  } catch (error) {
+    console.error("Single booking failed:", error);
+    toast.error(
+      error?.response?.data?.error ||
+      error?.response?.data?.message ||
+      error?.message ||
+      "Failed to create invoice"
+    );
+  }
+};
 
   const handleBatchBooking = async () => {
     const selectedPropertyId = batchBookingForm.propertyId;
@@ -1296,15 +1197,16 @@ const RentalInvoices = () => {
       const tenantStatus = String(tenant?.status || "active").toLowerCase();
       if (tenantStatus !== "active") return false;
 
+      const tenantPropertyId = getTenantPropertyId(tenant);
+      if (!tenantPropertyId) return false;
+
       if (selectedPropertyId === "all") {
-        const tenantPropertyId = getTenantPropertyId(tenant);
-        if (!tenantPropertyId) return false;
-        const matchedProperty = activeProperties.find((property) => property?._id === tenantPropertyId);
-        return Boolean(matchedProperty);
+        return activeProperties.some(
+          (property) => String(property?._id) === String(tenantPropertyId)
+        );
       }
 
-      const tenantPropertyId = getTenantPropertyId(tenant);
-      return tenantPropertyId === selectedPropertyId;
+      return String(tenantPropertyId) === String(selectedPropertyId);
     });
 
     if (eligibleTenants.length === 0) {
@@ -1312,44 +1214,46 @@ const RentalInvoices = () => {
       return;
     }
 
-    const nextInvoiceNumRef = { current: getNextInvoiceNumber() };
     let createdCount = 0;
     let skippedCount = 0;
-    let syncFailedCount = 0;
 
-    for (const tenant of eligibleTenants) {
-      const result = await createInvoiceForTenant(
-        tenant,
-        month,
-        year,
-        nextInvoiceNumRef,
-        batchBookingForm.billingMode
-      );
-      if (result.created) {
-        createdCount += 1;
-        if (result.ledgerSynced === false) syncFailedCount += 1;
-      } else if (result.reason === "already_exists") {
-        skippedCount += 1;
+    try {
+      const nextInvoiceNumRef = { current: getNextInvoiceNumber() };
+
+      for (const tenant of eligibleTenants) {
+        const result = await createInvoiceForTenant(
+          tenant,
+          month,
+          year,
+          nextInvoiceNumRef,
+          batchBookingForm.billingMode
+        );
+
+        if (result.created) {
+          createdCount += 1;
+        } else if (result.reason === "already_exists") {
+          skippedCount += 1;
+        }
       }
-    }
 
-    if (createdCount === 0 && skippedCount > 0) {
-      toast.info(`No new invoices created. ${skippedCount} already existed.`);
-      return;
-    }
+      if (createdCount === 0 && skippedCount > 0) {
+        toast.info(`No new invoices created. ${skippedCount} already existed.`);
+        return;
+      }
 
-    const summary = `Batch booking complete: ${createdCount} created${skippedCount > 0 ? `, ${skippedCount} skipped` : ""}`;
-    if (syncFailedCount > 0) {
-      toast.warn(`${summary}, ${syncFailedCount} with ledger sync issues`);
-    } else {
-      toast.success(summary);
+      toast.success(
+        `Batch booking complete: ${createdCount} created${
+          skippedCount > 0 ? `, ${skippedCount} skipped` : ""
+        }`
+      );
+
+      setShowBatchBooking(false);
+      setBookingAction("");
+      window.dispatchEvent(new Event("invoicesUpdated"));
+      setRefreshTick((prev) => prev + 1);
+    } catch (error) {
+      toast.error(error?.response?.data?.error || error?.message || "Batch booking failed");
     }
-    setShowBatchBooking(false);
-    setBookingAction("");
-    
-    // Notify other components about invoice changes
-    window.dispatchEvent(new Event('invoicesUpdated'));
-    setRefreshTick((prev) => prev + 1);
   };
 
   const handleEditSelected = () => {
@@ -1362,7 +1266,7 @@ const RentalInvoices = () => {
     if (!selectedInvoice) return;
 
     navigate(`/tenant/${selectedInvoice.tenantId}/statement`);
-    toast.info(`Open tenant statement to edit ${selectedInvoice.id}`);
+    toast.info(`Open tenant statement to review ${selectedInvoice.id}`);
   };
 
   const handleDeleteSelected = () => {
@@ -1372,38 +1276,33 @@ const RentalInvoices = () => {
     }
 
     const selectedRows = filteredInvoices.filter((inv) => selectedInvoices.includes(inv.key));
+    const undeletable = selectedRows.filter((invoice) => invoice.status === "Paid");
 
-    selectedRows.forEach((invoice) => {
-      const storageKey = `createdInvoices_${invoice.tenantId}`;
-      const stored = localStorage.getItem(storageKey);
-      if (!stored) return;
+    if (undeletable.length > 0) {
+      toast.warn("Paid invoices cannot be deleted from this screen.");
+      return;
+    }
 
-      const tenantInvoices = JSON.parse(stored);
-      delete tenantInvoices[invoice.storagePeriodKey || invoice.period];
-      localStorage.setItem(storageKey, JSON.stringify(tenantInvoices));
-    });
+    setDeletingInvoiceIds((prev) => [
+      ...prev,
+      ...selectedRows.map((row) => row._id).filter(Boolean),
+    ]);
 
-    toast.success(`${selectedRows.length} invoice(s) deleted`);
-    window.dispatchEvent(new Event('invoicesUpdated'));
+    toast.success(`${selectedRows.length} invoice(s) removed from the list view`);
+    window.dispatchEvent(new Event("invoicesUpdated"));
     setSelectedInvoices([]);
     setSelectAll(false);
-    setRefreshTick((prev) => prev + 1);
   };
 
   const handleDeleteSingle = (invoice) => {
-    const storageKey = `createdInvoices_${invoice.tenantId}`;
-    const stored = localStorage.getItem(storageKey);
-    if (!stored) return;
+    if (invoice.status === "Paid") {
+      toast.warn("Paid invoices cannot be deleted from this screen.");
+      return;
+    }
 
-    const tenantInvoices = JSON.parse(stored);
-    delete tenantInvoices[invoice.storagePeriodKey || invoice.period];
-    localStorage.setItem(storageKey, JSON.stringify(tenantInvoices));
-    
-    // Notify other components about invoice changes
-    window.dispatchEvent(new Event('invoicesUpdated'));
-    
-    toast.success(`Invoice ${invoice.id} deleted`);
-    setRefreshTick((prev) => prev + 1);
+    setDeletingInvoiceIds((prev) => [...prev, invoice._id].filter(Boolean));
+    window.dispatchEvent(new Event("invoicesUpdated"));
+    toast.success(`Invoice ${invoice.id} removed from the list view`);
   };
 
   const handleViewTenantStatement = (targetTenantId) => {
@@ -1437,11 +1336,15 @@ const RentalInvoices = () => {
               </div>
               <div className="bg-green-50 border border-green-200 rounded p-2.5">
                 <p className="text-[11px] text-green-600 font-semibold">Total Amount</p>
-                <p className="text-xl font-bold text-green-900 leading-tight">KES {totalAmount.toLocaleString()}</p>
+                <p className="text-xl font-bold text-green-900 leading-tight">
+                  KES {totalAmount.toLocaleString()}
+                </p>
               </div>
               <div className="bg-orange-50 border border-orange-200 rounded p-2.5">
                 <p className="text-[11px] text-orange-600 font-semibold">Pending Amount</p>
-                <p className="text-xl font-bold text-orange-900 leading-tight">KES {pendingAmount.toLocaleString()}</p>
+                <p className="text-xl font-bold text-orange-900 leading-tight">
+                  KES {pendingAmount.toLocaleString()}
+                </p>
               </div>
             </div>
           </div>
@@ -1662,8 +1565,12 @@ const RentalInvoices = () => {
                           />
                         </td>
                         <td className="px-3 py-2 text-blue-700 font-bold">{invoice.id}</td>
-                        {!tenantId && <td className="px-3 py-2 text-slate-900 font-bold">{invoice.tenantName}</td>}
-                        {!tenantId && <td className="px-3 py-2 text-slate-900 font-semibold">{invoice.propertyName}</td>}
+                        {!tenantId && (
+                          <td className="px-3 py-2 text-slate-900 font-bold">{invoice.tenantName}</td>
+                        )}
+                        {!tenantId && (
+                          <td className="px-3 py-2 text-slate-900 font-semibold">{invoice.propertyName}</td>
+                        )}
                         <td className="px-3 py-2 text-slate-900 font-semibold">{invoice.unitName}</td>
                         <td className="px-3 py-2 text-orange-700 font-semibold">{invoice.period}</td>
                         <td className="px-3 py-2">
@@ -1679,6 +1586,8 @@ const RentalInvoices = () => {
                             className={`inline-flex px-2 py-0.5 rounded text-[10px] font-semibold ${
                               invoice.status === "Paid"
                                 ? "bg-green-100 text-green-700"
+                                : invoice.status === "Cancelled" || invoice.status === "Reversed"
+                                ? "bg-slate-100 text-slate-700"
                                 : "bg-orange-100 text-orange-700"
                             }`}
                           >

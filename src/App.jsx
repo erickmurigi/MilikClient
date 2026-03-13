@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { getCompanySuccess } from "./redux/companiesRedux";
+import { getCompanies } from "./redux/apiCalls";
 import useInactivityLogout from "./hooks/useInactivityLogout";
 import "./App.css";
 
@@ -64,18 +65,60 @@ function App() {
   // Track inactivity and auto-logout after 10 minutes
   useInactivityLogout();
 
-  // Initialize company from logged-in user on mount/rehydration
+  // Initialize company from logged-in user on mount/rehydration for normal users
   useEffect(() => {
-    if (currentUser?.company && !currentCompany) {
+    if (currentUser?.company?._id && !currentCompany) {
       dispatch(getCompanySuccess(currentUser.company));
+      localStorage.setItem("milik_active_company_id", currentUser.company._id);
     }
+  }, [currentUser, currentCompany, dispatch]);
+
+  // Persist active company choice
+  useEffect(() => {
+    if (currentCompany?._id) {
+      localStorage.setItem("milik_active_company_id", currentCompany._id);
+    }
+  }, [currentCompany]);
+
+  // For system admin users, auto-load and select a real company if none is active
+  useEffect(() => {
+    let cancelled = false;
+
+    const initializeSystemAdminCompany = async () => {
+      if (!currentUser?.isSystemAdmin || currentCompany?._id) return;
+
+      try {
+        const response = await dispatch(getCompanies({ page: 1, limit: 1000 }));
+
+        const companies = Array.isArray(response?.companies)
+          ? response.companies
+          : Array.isArray(response)
+          ? response
+          : [];
+
+        if (cancelled || companies.length === 0) return;
+
+        const preferredCompanyId = localStorage.getItem("milik_active_company_id");
+        const preferredCompany =
+          companies.find((company) => company._id === preferredCompanyId) || companies[0];
+
+        if (preferredCompany?._id) {
+          dispatch(getCompanySuccess(preferredCompany));
+        }
+      } catch (error) {
+        console.error("Failed to initialize active company for system admin:", error);
+      }
+    };
+
+    initializeSystemAdminCompany();
+
+    return () => {
+      cancelled = true;
+    };
   }, [currentUser, currentCompany, dispatch]);
 
   return (
     <BrowserRouter>
-      {/* Global Start Menu (must be inside BrowserRouter for useNavigate) */}
-     
-
       <Routes>
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="/home" element={<Home />} />

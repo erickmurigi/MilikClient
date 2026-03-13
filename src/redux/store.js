@@ -51,7 +51,13 @@ const Encryptor = createTransform(
     (outboundState) => decrypt(outboundState),
   );
 
-const peristConfig = {key:"root",version:1,storage, transforms: [Encryptor],}
+const peristConfig = {
+  key:"root",
+  version:2,
+  storage,
+  transforms: [Encryptor],
+  blacklist: ["landlord"],
+}
 
 
 const rootReducer = combineReducers({

@@ -1,15 +1,20 @@
-// pages/Tenants/AddTenant.jsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../../components/Layout/DashboardLayout";
-import { FaSave, FaTimes, FaChevronDown, FaSpinner, FaCalculator, FaPlus, FaTrash } from "react-icons/fa";
+import {
+  FaSave,
+  FaTimes,
+  FaChevronDown,
+  FaSpinner,
+  FaCalculator,
+  FaPlus,
+  FaTrash,
+} from "react-icons/fa";
 import { toast } from "react-toastify";
-// TODO: Import tenant Redux actions when available
-// import { createTenant } from "../../redux/tenantsRedux";
 import { getProperties } from "../../redux/propertyRedux";
 import { getUnits } from "../../redux/unitRedux";
-import { createTenant } from "../../redux/tenantsRedux";
+import { createTenant, getTenants } from "../../redux/tenantsRedux";
 
 // Milik theme constants
 const MILIK_GREEN_BG = "bg-[#0B3B2E]";
@@ -18,6 +23,13 @@ const MILIK_ORANGE_BG = "bg-[#FF8C00]";
 const MILIK_ORANGE_BG_HOVER = "hover:bg-[#e67e00]";
 const MILIK_ORANGE_RING = "focus:ring-orange-500/30";
 const MILIK_ORANGE_BORDER_FOCUS = "focus:border-orange-600";
+
+const normalizeId = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value._id) return String(value._id);
+  return String(value);
+};
 
 /**
  * Custom dropdown with Milik styling
@@ -83,7 +95,11 @@ function MilikSelect({
         ].join(" ")}
       >
         <span className="text-sm font-semibold truncate">
-          {selectedItem ? getLabel(selectedItem) : <span className="text-slate-400">{placeholder}</span>}
+          {selectedItem ? (
+            getLabel(selectedItem)
+          ) : (
+            <span className="text-slate-400">{placeholder}</span>
+          )}
         </span>
         <FaChevronDown className="text-slate-600" />
       </button>
@@ -129,17 +145,15 @@ function MilikSelect({
 const AddTenant = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  
+
   const { currentCompany } = useSelector((state) => state.company);
-  const { isFetching: loading } = useSelector((state) => state.tenant || { isFetching: false });
+  const { isFetching: loading } = useSelector(
+    (state) => state.tenant || { isFetching: false }
+  );
   const properties = useSelector((state) => state.property?.properties || []);
   const units = useSelector((state) => state.unit?.units || []);
 
-  // Generate next tenant code (TT + 4 digits)
-  const generateNextTenantCode = () => {
-    // Backend will auto-generate if field is empty
-    return "";
-  };
+  const generateNextTenantCode = () => "";
 
   const [formData, setFormData] = useState({
     tenantCode: generateNextTenantCode(),
@@ -156,7 +170,7 @@ const AddTenant = () => {
     status: "active",
     emergencyContactName: "",
     emergencyContactPhone: "",
-    emergencyContactRelationship: "",
+    emergencyContactRelationship: "Family",
     utilities: [],
   });
 
@@ -165,7 +179,6 @@ const AddTenant = () => {
   const [availableUnits, setAvailableUnits] = useState([]);
   const [additionalUtilities, setAdditionalUtilities] = useState([]);
 
-  // Fetch properties and units on mount
   useEffect(() => {
     if (currentCompany?._id) {
       dispatch(getProperties({ business: currentCompany._id }));
@@ -173,78 +186,74 @@ const AddTenant = () => {
     }
   }, [dispatch, currentCompany]);
 
-  // Load available units when property is selected
   useEffect(() => {
-    if (formData.property) {
-      // Filter units by selected property
-      const propertyUnits = units.filter(u => u.property === formData.property || u.property?._id === formData.property);
-      // Filter vacant units only
-      const vacant = propertyUnits.filter(u => u.status === 'vacant');
-      setAvailableUnits(vacant);
-      // Reset unit selection when property changes
-      setFormData(prev => ({ ...prev, unit: "", utilities: [] }));
-      setAdditionalUtilities([]);
-    } else {
+    if (!formData.property) {
       setAvailableUnits([]);
-      setFormData(prev => ({ ...prev, unit: "", utilities: [] }));
+      setFormData((prev) => ({ ...prev, unit: "", utilities: [] }));
       setAdditionalUtilities([]);
+      return;
     }
+
+    const propertyUnits = units.filter((u) => {
+      const unitPropertyId = normalizeId(u.property?._id || u.property);
+      return unitPropertyId === normalizeId(formData.property);
+    });
+
+    const vacant = propertyUnits.filter((u) => {
+      const status = String(u.status || "").toLowerCase();
+      return status === "vacant" && u.isVacant !== false;
+    });
+
+    setAvailableUnits(vacant);
+    setFormData((prev) => ({ ...prev, unit: "", utilities: [], rent: "" }));
+    setAdditionalUtilities([]);
   }, [formData.property, units]);
 
-  // Load utilities when unit is selected
   useEffect(() => {
-    if (formData.unit && availableUnits.length > 0) {
-      const selectedUnit = availableUnits.find((u) => u._id === formData.unit);
-      if (selectedUnit) {
-        // Auto-populate rent from unit
-        const mappedUtilities = (selectedUnit.utilities || []).map((util) => {
-          let utilityLabel = "Unknown Utility";
-          let utilityValue = "";
-          
-          // Case 1: utility is a populated object (from .populate())
-          if (util.utility && typeof util.utility === 'object' && !Array.isArray(util.utility)) {
-            utilityValue = util.utility._id || "";
-            utilityLabel = util.utility.name || util.utility.utilityName || "Unknown Utility";
-          }
-          // Case 2: utility is a non-empty string
-          else if (util.utility && typeof util.utility === 'string' && util.utility.trim() !== '') {
-            utilityValue = util.utility;
-            utilityLabel = util.utility;
-          }
-          // Case 3: utility field is missing/null/undefined/empty - use fallback
-          else {
-            utilityValue = "";
-            utilityLabel = "Unknown Utility";
-          }
-          
-          return {
-            utility: utilityValue,
-            utilityLabel: utilityLabel,
-            isIncluded: util.isIncluded,
-            unitCharge: util.unitCharge || 0,
-          };
-        });
-        
-        setFormData((prev) => ({
-          ...prev,
-          rent: selectedUnit.rent || "",
-          utilities: mappedUtilities,
-        }));
+    if (!formData.unit || availableUnits.length === 0) return;
+
+    const selectedUnit = availableUnits.find(
+      (u) => normalizeId(u._id) === normalizeId(formData.unit)
+    );
+
+    if (!selectedUnit) return;
+
+    const mappedUtilities = (selectedUnit.utilities || []).map((util) => {
+      let utilityLabel = "Unknown Utility";
+      let utilityValue = "";
+
+      if (util.utility && typeof util.utility === "object" && !Array.isArray(util.utility)) {
+        utilityValue = util.utility._id || "";
+        utilityLabel = util.utility.name || util.utility.utilityName || "Unknown Utility";
+      } else if (util.utility && typeof util.utility === "string" && util.utility.trim() !== "") {
+        utilityValue = util.utility;
+        utilityLabel = util.utility;
       }
-    }
+
+      return {
+        utility: utilityValue,
+        utilityLabel,
+        isIncluded: util.isIncluded,
+        unitCharge: util.unitCharge || 0,
+      };
+    });
+
+    setFormData((prev) => ({
+      ...prev,
+      rent: selectedUnit.rent || "",
+      utilities: mappedUtilities,
+    }));
   }, [formData.unit, availableUnits]);
 
-  // Input/label classes for consistency
   const inputClass =
     "w-full px-3 py-2 text-sm border border-slate-300 rounded-md shadow-sm transition-all duration-200 ease-out hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-600";
-  
+
   const labelClass = "block text-sm font-bold text-slate-800 mb-1 tracking-tight";
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    
-    // Clear errors
+
     if (fieldErrors[name]) {
       setFieldErrors((prev) => ({ ...prev, [name]: "" }));
     }
@@ -253,14 +262,12 @@ const AddTenant = () => {
     }
   };
 
-  // Calculate prorated rent if start date is not the 1st
   const calculateProratedRent = () => {
     if (!formData.moveInDate || !formData.rent) return null;
 
     const startDate = new Date(formData.moveInDate);
     const day = startDate.getDate();
-
-    if (day === 1) return null; // No proration needed
+    if (day === 1) return null;
 
     const month = startDate.getMonth();
     const year = startDate.getFullYear();
@@ -278,46 +285,21 @@ const AddTenant = () => {
     };
   };
 
-  // Calculate prorated utilities if start date is not the 1st
-  const calculateProratedUtilities = () => {
-    if (!formData.moveInDate || formData.utilities.length === 0) return null;
-
-    const startDate = new Date(formData.moveInDate);
-    const day = startDate.getDate();
-
-    if (day === 1) return null; // No proration needed
-
-    const month = startDate.getMonth();
-    const year = startDate.getFullYear();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const remainingDays = daysInMonth - day + 1;
-
-    return formData.utilities.map(util => {
-      const monthlyCharge = parseFloat(util.unitCharge) || 0;
-      const dailyRate = monthlyCharge / daysInMonth;
-      const proratedCharge = dailyRate * remainingDays;
-      return {
-        utility: util,
-        dailyRate,
-        proratedCharge,
-      };
-    });
-  };
-
   const proratedInfo = calculateProratedRent();
-  const proratedUtilitiesInfo = calculateProratedUtilities();
 
-  // Additional Utilities Management (for utilities not on the unit)
   const addAdditionalUtility = () => {
-    setAdditionalUtilities(prev => [...prev, { utility: "", unitCharge: "", isIncluded: false }]);
+    setAdditionalUtilities((prev) => [
+      ...prev,
+      { utility: "", unitCharge: "", isIncluded: false },
+    ]);
   };
 
   const removeAdditionalUtility = (index) => {
-    setAdditionalUtilities(prev => prev.filter((_, i) => i !== index));
+    setAdditionalUtilities((prev) => prev.filter((_, i) => i !== index));
   };
 
   const updateAdditionalUtility = (index, field, value) => {
-    setAdditionalUtilities(prev => {
+    setAdditionalUtilities((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
       return updated;
@@ -327,33 +309,21 @@ const AddTenant = () => {
   const validateForm = () => {
     const errors = {};
 
-    if (!formData.name?.trim()) {
-      errors.name = "Tenant name is required";
-    }
-    if (!formData.phone?.trim()) {
-      errors.phone = "Phone number is required";
-    }
-    if (!formData.idNumber?.trim()) {
-      errors.idNumber = "ID number is required";
-    }
-    if (!formData.property?.trim()) {
-      errors.property = "Property is required";
-    }
-    if (!formData.unit?.trim()) {
-      errors.unit = "Unit is required";
-    }
-    if (!formData.moveInDate) {
-      errors.moveInDate = "Move-in date is required (billing anchor)";
-    }
+    if (!formData.name?.trim()) errors.name = "Tenant name is required";
+    if (!formData.phone?.trim()) errors.phone = "Phone number is required";
+    if (!formData.idNumber?.trim()) errors.idNumber = "ID number is required";
+    if (!formData.property?.trim()) errors.property = "Property is required";
+    if (!formData.unit?.trim()) errors.unit = "Unit is required";
+    if (!formData.moveInDate) errors.moveInDate = "Move-in date is required (billing anchor)";
     if (!formData.rent || parseFloat(formData.rent) <= 0) {
       errors.rent = "Valid monthly rent is required";
     }
-    if (!formData.paymentMethod) {
-      errors.paymentMethod = "Payment method is required";
-    }
+    if (!formData.paymentMethod) errors.paymentMethod = "Payment method is required";
+
     if (formData.leaseType === "fixed" && !formData.moveOutDate) {
       errors.moveOutDate = "Move-out date is required for fixed-term leases";
     }
+
     if (formData.leaseType === "fixed" && formData.moveInDate && formData.moveOutDate) {
       const moveIn = new Date(formData.moveInDate);
       const moveOut = new Date(formData.moveOutDate);
@@ -363,27 +333,27 @@ const AddTenant = () => {
     }
 
     setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
+    return errors;
   };
 
-  // Redux-integrated submit handler
   const handleSubmit = async (e) => {
     e.preventDefault();
     setGeneralError("");
+
     const errors = validateForm();
     if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
       toast.error("Please fix validation errors");
       return;
     }
+
     try {
       const payload = {
         ...formData,
         rent: parseFloat(formData.rent),
-        business: currentCompany._id,
+        business: currentCompany?._id,
         utilities: [
           ...formData.utilities,
-          ...additionalUtilities.filter(u => u.utility)
+          ...additionalUtilities.filter((u) => u.utility),
         ],
         emergencyContact: {
           name: formData.emergencyContactName || "",
@@ -391,14 +361,19 @@ const AddTenant = () => {
           relationship: formData.emergencyContactRelationship || "Family",
         },
       };
-      await dispatch(createTenant(payload)).unwrap();
-      toast.success("Tenant created successfully!");
+
+      const result = await dispatch(createTenant(payload)).unwrap();
+      toast.success(result?.message || "Tenant created successfully!");
+
       setAdditionalUtilities([]);
-      // Refresh tenants list
-      dispatch(getTenants({ business: currentCompany._id }));
+      dispatch(getTenants({ business: currentCompany?._id }));
       navigate("/tenants");
     } catch (err) {
-      const errorMsg = err?.message || "Failed to create tenant";
+      const errorMsg =
+        err?.message ||
+        err?.error ||
+        err?.data?.message ||
+        "Failed to create tenant";
       setGeneralError(errorMsg);
       toast.error(errorMsg);
     }
@@ -412,7 +387,6 @@ const AddTenant = () => {
     <DashboardLayout>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 py-6 px-4 sm:px-6 lg:px-8">
         <div className="max-w-5xl mx-auto">
-          {/* Header */}
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
               Tenant Details
@@ -431,12 +405,9 @@ const AddTenant = () => {
           <form onSubmit={handleSubmit}>
             <div className="bg-white shadow-sm rounded-lg border border-slate-200 overflow-hidden">
               <div className="p-6 space-y-6">
-                {/* Tenant Code (Optional) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className={labelClass}>
-                      Tenant Code (Optional)
-                    </label>
+                    <label className={labelClass}>Tenant Code (Optional)</label>
                     <input
                       type="text"
                       name="tenantCode"
@@ -451,7 +422,6 @@ const AddTenant = () => {
                   </div>
                 </div>
 
-                {/* Tenant Information */}
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 mb-4 border-b-2 border-orange-500 pb-2">
                     👤 Tenant Information
@@ -467,7 +437,7 @@ const AddTenant = () => {
                         value={formData.name}
                         onChange={handleInputChange}
                         placeholder="John Doe"
-                        className={`${inputClass} ${fieldErrors.name ? 'border-red-500' : ''}`}
+                        className={`${inputClass} ${fieldErrors.name ? "border-red-500" : ""}`}
                       />
                       {fieldErrors.name && (
                         <p className="mt-1 text-xs text-red-600">{fieldErrors.name}</p>
@@ -484,7 +454,7 @@ const AddTenant = () => {
                         value={formData.phone}
                         onChange={handleInputChange}
                         placeholder="+254 712 345 678"
-                        className={`${inputClass} ${fieldErrors.phone ? 'border-red-500' : ''}`}
+                        className={`${inputClass} ${fieldErrors.phone ? "border-red-500" : ""}`}
                       />
                       {fieldErrors.phone && (
                         <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p>
@@ -492,22 +462,22 @@ const AddTenant = () => {
                     </div>
 
                     <div>
-                      <label className={labelClass}>
-                        ID Number
-                      </label>
+                      <label className={labelClass}>ID Number</label>
                       <input
                         type="text"
                         name="idNumber"
                         value={formData.idNumber}
                         onChange={handleInputChange}
                         placeholder="12345678"
-                        className={inputClass}
+                        className={`${inputClass} ${fieldErrors.idNumber ? "border-red-500" : ""}`}
                       />
+                      {fieldErrors.idNumber && (
+                        <p className="mt-1 text-xs text-red-600">{fieldErrors.idNumber}</p>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Property & Unit Selection */}
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 mb-4 border-b-2 border-green-500 pb-2">
                     🏢 Property & Unit
@@ -525,7 +495,7 @@ const AddTenant = () => {
                           setFieldErrors((prev) => ({ ...prev, property: "" }));
                         }
                       }}
-                      getLabel={(p) => p.propertyName || "Unknown"}
+                      getLabel={(p) => p.propertyName || p.name || "Unknown"}
                       getValue={(p) => p._id}
                       error={fieldErrors.property}
                     />
@@ -537,7 +507,6 @@ const AddTenant = () => {
                       items={availableUnits}
                       value={formData.unit}
                       onChange={(val) => {
-                        // Just set the unit value - let the useEffect handle populating rent and utilities
                         setFormData((prev) => ({ ...prev, unit: val }));
                         if (fieldErrors.unit) {
                           setFieldErrors((prev) => ({ ...prev, unit: "" }));
@@ -551,7 +520,6 @@ const AddTenant = () => {
                   </div>
                 </div>
 
-                {/* Billing Information (CRITICAL) */}
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 mb-4 border-b-2 border-blue-500 pb-2">
                     💰 Billing Information
@@ -566,13 +534,11 @@ const AddTenant = () => {
                         name="moveInDate"
                         value={formData.moveInDate}
                         onChange={handleInputChange}
-                        className={`${inputClass} ${fieldErrors.moveInDate ? 'border-red-500' : ''}`}
+                        className={`${inputClass} ${fieldErrors.moveInDate ? "border-red-500" : ""}`}
                       />
                       {fieldErrors.moveInDate && (
                         <p className="mt-1 text-xs text-red-600">{fieldErrors.moveInDate}</p>
                       )}
-                      <p className="mt-1 text-xs text-orange-600 font-semibold">
-                      </p>
                     </div>
 
                     <div>
@@ -587,18 +553,15 @@ const AddTenant = () => {
                         placeholder="30000"
                         step="0.01"
                         min="0"
-                        className={`${inputClass} ${fieldErrors.rent ? 'border-red-500' : ''}`}
+                        className={`${inputClass} ${fieldErrors.rent ? "border-red-500" : ""}`}
                       />
                       {fieldErrors.rent && (
                         <p className="mt-1 text-xs text-red-600">{fieldErrors.rent}</p>
                       )}
                     </div>
 
-                    {/* Utilities Quick View */}
                     <div>
-                      <label className={labelClass}>
-                        Utilities & Charges (Ksh)
-                      </label>
+                      <label className={labelClass}>Utilities & Charges (Ksh)</label>
                       <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-3 min-h-10 max-h-32 overflow-y-auto">
                         {formData.utilities && formData.utilities.length > 0 ? (
                           <div className="space-y-1">
@@ -606,8 +569,12 @@ const AddTenant = () => {
                               const charge = parseFloat(util.unitCharge) || 0;
                               return (
                                 <div key={idx} className="text-xs flex justify-between items-center">
-                                  <span className="text-green-700 font-medium">{util.utilityLabel}:</span>
-                                  <span className="text-green-900 font-bold">Ksh {charge.toFixed(2)}</span>
+                                  <span className="text-green-700 font-medium">
+                                    {util.utilityLabel}:
+                                  </span>
+                                  <span className="text-green-900 font-bold">
+                                    Ksh {charge.toFixed(2)}
+                                  </span>
                                 </div>
                               );
                             })}
@@ -618,22 +585,24 @@ const AddTenant = () => {
                       </div>
                     </div>
 
-                    {/* Total Monthly Bill */}
                     <div>
-                      <label className={labelClass}>
-                        Total Monthly Bill (Ksh)
-                      </label>
+                      <label className={labelClass}>Total Monthly Bill (Ksh)</label>
                       <div className="bg-gradient-to-br from-orange-100 to-red-50 border-2 border-orange-400 rounded-lg p-3 min-h-10 flex items-center justify-center">
                         <div className="text-center">
                           <p className="text-2xl font-black text-orange-900">
-                            {(parseFloat(formData.rent || 0) + (formData.utilities?.reduce((sum, u) => sum + (parseFloat(u.unitCharge) || 0), 0) || 0)).toFixed(2)}
+                            {(
+                              parseFloat(formData.rent || 0) +
+                              (formData.utilities?.reduce(
+                                (sum, u) => sum + (parseFloat(u.unitCharge) || 0),
+                                0
+                              ) || 0)
+                            ).toFixed(2)}
                           </p>
                           <p className="text-xs text-orange-700 mt-0.5">Rent + Utilities</p>
                         </div>
                       </div>
                     </div>
 
-                    {/* Payment Method */}
                     <div className="md:col-span-4 md:col-start-1">
                       <label className={labelClass}>
                         Payment Method <span className="text-red-500">*</span>
@@ -642,7 +611,7 @@ const AddTenant = () => {
                         name="paymentMethod"
                         value={formData.paymentMethod}
                         onChange={handleInputChange}
-                        className={`${inputClass} ${fieldErrors.paymentMethod ? 'border-red-500' : ''}`}
+                        className={`${inputClass} ${fieldErrors.paymentMethod ? "border-red-500" : ""}`}
                       >
                         <option value="">Select Payment Method</option>
                         <option value="bank_transfer">Bank Transfer</option>
@@ -684,13 +653,10 @@ const AddTenant = () => {
                         <option value="at_will">At Will</option>
                         <option value="fixed">Fixed Term</option>
                       </select>
-                      <p className="mt-1 text-xs text-gray-600">
-                        At Will / Fixed Term
-                      </p>
+                      <p className="mt-1 text-xs text-gray-600">At Will / Fixed Term</p>
                     </div>
                   </div>
 
-                  {/* Move-Out Date for Fixed Leases */}
                   {formData.leaseType === "fixed" && (
                     <div className="mt-4">
                       <label className={labelClass}>
@@ -701,9 +667,7 @@ const AddTenant = () => {
                         name="moveOutDate"
                         value={formData.moveOutDate}
                         onChange={handleInputChange}
-                        className={`w-full px-3 py-2 text-sm border border-slate-300 rounded-md shadow-sm transition-all duration-200 ease-out hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-600 ${
-                          fieldErrors.moveOutDate ? 'border-red-500' : ''
-                        }`}
+                        className={`${inputClass} ${fieldErrors.moveOutDate ? "border-red-500" : ""}`}
                       />
                       {fieldErrors.moveOutDate && (
                         <p className="mt-1 text-xs text-red-600">{fieldErrors.moveOutDate}</p>
@@ -711,7 +675,6 @@ const AddTenant = () => {
                     </div>
                   )}
 
-                  {/* Prorated Rent Calculation Preview */}
                   {proratedInfo && (
                     <div className="mt-4 bg-orange-50 border border-orange-200 rounded-lg p-4">
                       <div className="flex items-start gap-2">
@@ -721,9 +684,20 @@ const AddTenant = () => {
                             Prorated Rent Calculation (First Month)
                           </h4>
                           <div className="text-xs text-orange-800 space-y-1">
-                            <p>• Days in month: <span className="font-bold">{proratedInfo.daysInMonth}</span></p>
-                            <p>• Remaining days (including start date): <span className="font-bold">{proratedInfo.remainingDays}</span></p>
-                            <p>• Daily rate: <span className="font-bold">Ksh {proratedInfo.dailyRate.toFixed(2)}</span></p>
+                            <p>
+                              • Days in month:{" "}
+                              <span className="font-bold">{proratedInfo.daysInMonth}</span>
+                            </p>
+                            <p>
+                              • Remaining days (including start date):{" "}
+                              <span className="font-bold">{proratedInfo.remainingDays}</span>
+                            </p>
+                            <p>
+                              • Daily rate:{" "}
+                              <span className="font-bold">
+                                Ksh {proratedInfo.dailyRate.toFixed(2)}
+                              </span>
+                            </p>
                             <p className="pt-1 border-t border-orange-300">
                               <span className="font-bold text-orange-900">
                                 First month bill: Ksh {proratedInfo.proratedAmount.toFixed(2)}
@@ -736,7 +710,6 @@ const AddTenant = () => {
                   )}
                 </div>
 
-                {/* ✨ CREATIVE: Add Additional Utilities (Not on Unit) */}
                 <div className="bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50 border-2 border-dashed border-indigo-300 rounded-xl p-6 space-y-4 shadow-sm">
                   <div className="flex items-center justify-between">
                     <div>
@@ -744,7 +717,7 @@ const AddTenant = () => {
                         ➕ Additional Utilities (Optional)
                       </h3>
                       <p className="text-xs text-indigo-700 mt-1">
-                        Add utilities not included in the unit. These will be tracked as extra charges for this tenant.
+                        Add utilities not included in the unit.
                       </p>
                     </div>
                     <button
@@ -759,7 +732,6 @@ const AddTenant = () => {
                   {additionalUtilities.length === 0 ? (
                     <div className="text-center py-8 text-indigo-600">
                       <p className="text-sm font-medium">No additional utilities added yet</p>
-                      <p className="text-xs text-indigo-500 mt-1">Click "Add Utility" to include extra utilities for this tenant</p>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -772,7 +744,14 @@ const AddTenant = () => {
                             <MilikSelect
                               label="Utility Type"
                               placeholder="Select"
-                              items={["Water", "Garbage", "Electricity", "Service Charge", "Security", "Others"]}
+                              items={[
+                                "Water",
+                                "Garbage",
+                                "Electricity",
+                                "Service Charge",
+                                "Security",
+                                "Others",
+                              ]}
                               value={util.utility}
                               onChange={(val) => updateAdditionalUtility(idx, "utility", val)}
                               getLabel={(x) => x}
@@ -786,7 +765,9 @@ const AddTenant = () => {
                             <input
                               type="number"
                               value={util.unitCharge}
-                              onChange={(e) => updateAdditionalUtility(idx, "unitCharge", e.target.value)}
+                              onChange={(e) =>
+                                updateAdditionalUtility(idx, "unitCharge", e.target.value)
+                              }
                               placeholder="0.00"
                               min="0"
                               step="0.01"
@@ -800,7 +781,9 @@ const AddTenant = () => {
                               <input
                                 type="checkbox"
                                 checked={util.isIncluded}
-                                onChange={(e) => updateAdditionalUtility(idx, "isIncluded", e.target.checked)}
+                                onChange={(e) =>
+                                  updateAdditionalUtility(idx, "isIncluded", e.target.checked)
+                                }
                                 className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                 disabled={loading}
                               />
@@ -831,37 +814,15 @@ const AddTenant = () => {
                       ))}
                     </div>
                   )}
-
-                  {additionalUtilities.length > 0 && (
-                    <div className="bg-indigo-100 border border-indigo-300 rounded-lg p-4 mt-4">
-                      <p className="text-xs font-semibold text-indigo-900 mb-2">💡 Summary:</p>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
-                        {additionalUtilities.map((util, idx) => (
-                          <div key={idx} className="flex items-center justify-between">
-                            <span className="text-indigo-700 font-medium">{util.utility}:</span>
-                            <span className="text-indigo-900 font-bold">Ksh {(parseFloat(util.unitCharge) || 0).toFixed(2)}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="border-t border-indigo-300 mt-2 pt-2">
-                        <p className="text-right text-indigo-900 font-bold">
-                          Total Extra: Ksh {additionalUtilities.reduce((sum, u) => sum + (parseFloat(u.unitCharge) || 0), 0).toFixed(2)}
-                        </p>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
-                {/* Emergency Contact */}
                 <div>
                   <h3 className="text-lg font-bold text-slate-900 mb-4 border-b-2 border-purple-500 pb-2">
                     📞 Emergency Contact
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                      <label className={labelClass}>
-                        Emergency Contact Name
-                      </label>
+                      <label className={labelClass}>Emergency Contact Name</label>
                       <input
                         type="text"
                         name="emergencyContactName"
@@ -873,9 +834,7 @@ const AddTenant = () => {
                     </div>
 
                     <div>
-                      <label className={labelClass}>
-                        Emergency Contact Phone
-                      </label>
+                      <label className={labelClass}>Emergency Contact Phone</label>
                       <input
                         type="tel"
                         name="emergencyContactPhone"
@@ -887,9 +846,7 @@ const AddTenant = () => {
                     </div>
 
                     <div>
-                      <label className={labelClass}>
-                        Relationship
-                      </label>
+                      <label className={labelClass}>Relationship</label>
                       <select
                         name="emergencyContactRelationship"
                         value={formData.emergencyContactRelationship}
@@ -909,7 +866,6 @@ const AddTenant = () => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-3">
                 <button
                   type="button"

@@ -16,11 +16,13 @@ export const landlordSlice = createSlice({
         },
         getLandlordsSuccess: (state, action) => {
             state.isFetching = false
-            state.landlords = action.payload
+            state.error = false
+            state.landlords = Array.isArray(action.payload) ? action.payload : []
         },
         getLandlordsFailure: (state) => {
             state.isFetching = false
             state.error = true
+            state.landlords = []
         },
 
         // Create landlord
@@ -30,7 +32,8 @@ export const landlordSlice = createSlice({
         },
         createLandlordSuccess: (state, action) => {
             state.isFetching = false
-            state.landlords.push(action.payload)
+            state.error = false
+            state.landlords.unshift(action.payload)
         },
         createLandlordFailure: (state) => {
             state.isFetching = false
@@ -44,6 +47,7 @@ export const landlordSlice = createSlice({
         },
         updateLandlordSuccess: (state, action) => {
             state.isFetching = false
+            state.error = false
             const index = state.landlords.findIndex((item) => item._id === action.payload._id)
             if (index !== -1) {
                 state.landlords[index] = action.payload
@@ -61,10 +65,8 @@ export const landlordSlice = createSlice({
         },
         deleteLandlordSuccess: (state, action) => {
             state.isFetching = false
-            state.landlords.splice(
-                state.landlords.findIndex((item) => item._id === action.payload),
-                1
-            )
+            state.error = false
+            state.landlords = state.landlords.filter((item) => item._id !== action.payload)
         },
         deleteLandlordFailure: (state) => {
             state.isFetching = false

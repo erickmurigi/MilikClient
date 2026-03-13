@@ -1,11 +1,21 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FaBook, FaSearch, FaLayerGroup, FaPlus, FaEdit, FaTrash } from "react-icons/fa";
-import { useDispatch, useSelector } from "react-redux";
+import {
+  FaBook,
+  FaSearch,
+  FaLayerGroup,
+  FaPlus,
+  FaEdit,
+  FaTrash,
+  FaSyncAlt,
+  FaFolderOpen,
+  FaCheckSquare,
+  FaSquare,
+} from "react-icons/fa";
+import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import DashboardLayout from "../../components/Layout/DashboardLayout";
-import { getRentPayments } from "../../redux/apiCalls";
-
-const CUSTOM_ACCOUNTS_STORAGE_KEY = "milik_custom_coa_accounts";
+import { getChartOfAccounts } from "../../redux/apiCalls";
+import { adminRequests } from "../../utils/requestMethods";
 
 const ACCOUNT_GROUPS = [
   {
@@ -13,535 +23,676 @@ const ACCOUNT_GROUPS = [
     label: "Assets",
     color: "bg-emerald-50 border-emerald-200",
     tag: "text-emerald-700 bg-emerald-100",
-    accounts: [
-      { code: "1100", name: "Cash on Hand", type: "Current Asset", isSystem: true, isPosting: true },
-      { code: "1110", name: "Bank Accounts", type: "Current Asset", isSystem: true, isPosting: true },
-      { code: "1130", name: "M-Pesa Collections", type: "Current Asset", isSystem: true, isPosting: true },
-      { code: "1200", name: "Tenant Receivables", type: "Current Asset", isSystem: true, isPosting: true },
-      {
-        code: "1210",
-        name: "Landlord Advances Recoverable",
-        type: "Current Asset",
-        isSystem: true,
-        isPosting: true,
-      },
-      { code: "1220", name: "Utility Recoverables", type: "Current Asset", isSystem: true, isPosting: true },
-      { code: "1230", name: "Deposit Held", type: "Current Asset", isSystem: true, isPosting: true },
-    ],
   },
   {
     key: "liabilities",
     label: "Liabilities",
     color: "bg-rose-50 border-rose-200",
     tag: "text-rose-700 bg-rose-100",
-    accounts: [
-      { code: "2100", name: "Security Deposits Payable", type: "Current Liability", isSystem: true, isPosting: true },
-      { code: "2110", name: "Landlord Payables", type: "Current Liability", isSystem: true, isPosting: true },
-      { code: "2120", name: "Accrued Expenses", type: "Current Liability", isSystem: true, isPosting: true },
-      { code: "2130", name: "Unallocated Receipts", type: "Current Liability", isSystem: true, isPosting: true },
-      { code: "2140", name: "Tax Payables", type: "Current Liability", isSystem: true, isPosting: true },
-    ],
   },
   {
     key: "equity",
     label: "Equity",
     color: "bg-violet-50 border-violet-200",
     tag: "text-violet-700 bg-violet-100",
-    accounts: [
-      { code: "3100", name: "Owner's Equity", type: "Equity", isSystem: true, isPosting: true },
-      { code: "3200", name: "Retained Earnings", type: "Equity", isSystem: true, isPosting: true },
-    ],
   },
   {
     key: "income",
     label: "Income",
     color: "bg-blue-50 border-blue-200",
     tag: "text-blue-700 bg-blue-100",
-    accounts: [
-      { code: "4100", name: "Rent Income", type: "Operating Income", isSystem: true, isPosting: true },
-      { code: "4101", name: "Service Charge Income", type: "Operating Income", isSystem: true, isPosting: true },
-      { code: "4102", name: "Utility Recharge Income", type: "Operating Income", isSystem: true, isPosting: true },
-      {
-        code: "4103",
-        name: "Penalty / Late Fee Income",
-        type: "Operating Income",
-        isSystem: true,
-        isPosting: true,
-      },
-      { code: "4200", name: "Management Fee Income", type: "Operating Income", isSystem: true, isPosting: true },
-      { code: "4210", name: "Commission Income", type: "Operating Income", isSystem: true, isPosting: true },
-      { code: "4300", name: "Other Property Income", type: "Other Income", isSystem: true, isPosting: true },
-    ],
   },
   {
     key: "expenses",
     label: "Expenses",
     color: "bg-amber-50 border-amber-200",
     tag: "text-amber-700 bg-amber-100",
-    accounts: [
-      { code: "5100", name: "Maintenance Expense", type: "Operating Expense", isSystem: true, isPosting: true },
-      { code: "5101", name: "Repairs Expense", type: "Operating Expense", isSystem: true, isPosting: true },
-      { code: "5102", name: "Cleaning Expense", type: "Operating Expense", isSystem: true, isPosting: true },
-      { code: "5103", name: "Security Expense", type: "Operating Expense", isSystem: true, isPosting: true },
-      { code: "5104", name: "Utility Expense", type: "Operating Expense", isSystem: true, isPosting: true },
-      { code: "5200", name: "Management Expense", type: "Operating Expense", isSystem: true, isPosting: true },
-      { code: "5201", name: "Bank Charges", type: "Operating Expense", isSystem: true, isPosting: true },
-      { code: "5202", name: "Legal / Compliance Expense", type: "Operating Expense", isSystem: true, isPosting: true },
-    ],
   },
 ];
 
 const blankForm = {
   code: "",
   name: "",
-  type: "",
+  type: "asset",
   group: "assets",
+  subGroup: "",
+  parentAccount: "",
+  isHeader: false,
   isPosting: true,
 };
 
+const normalizeGroup = (value = "", type = "") => {
+  const v = String(value || "").toLowerCase();
+  if (["assets", "liabilities", "equity", "income", "expenses"].includes(v)) return v;
+
+  const t = String(type || "").toLowerCase();
+  if (t === "asset") return "assets";
+  if (t === "liability") return "liabilities";
+  if (t === "equity") return "equity";
+  if (t === "income") return "income";
+  if (t === "expense") return "expenses";
+  return "assets";
+};
+
+const classLabel = (account) => {
+  if (account?.subGroup) return account.subGroup;
+  const type = String(account?.type || "").toLowerCase();
+  if (type === "asset") return "Current Asset";
+  if (type === "liability") return "Current Liability";
+  if (type === "equity") return "Equity";
+  if (type === "income") return "Operating Income";
+  if (type === "expense") return "Operating Expense";
+  return "-";
+};
+
+const formatMoney = (value) => {
+  const amount = Number(value || 0);
+  return new Intl.NumberFormat("en-KE", {
+    style: "currency",
+    currency: "KES",
+    maximumFractionDigits: 2,
+  }).format(amount);
+};
+
 const ChartOfAccounts = () => {
-  const dispatch = useDispatch();
   const currentCompany = useSelector((state) => state.company?.currentCompany);
-  const rentPayments = useSelector((state) => state.rentPayment?.rentPayments || []);
 
+  const [accounts, setAccounts] = useState([]);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [selectedIds, setSelectedIds] = useState([]);
   const [showForm, setShowForm] = useState(false);
-  const [editingCode, setEditingCode] = useState(null);
+  const [editingAccountId, setEditingAccountId] = useState(null);
   const [formData, setFormData] = useState(blankForm);
-  const [customAccounts, setCustomAccounts] = useState([]);
 
-  useEffect(() => {
-    if (!currentCompany?._id) return;
-    getRentPayments(dispatch, currentCompany._id);
-  }, [dispatch, currentCompany?._id]);
+  const businessId = currentCompany?._id || "";
 
-  useEffect(() => {
+  const loadAccounts = async () => {
+    if (!businessId) return;
+
+    setLoading(true);
     try {
-      const raw = localStorage.getItem(CUSTOM_ACCOUNTS_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : {};
-      const byCompany = Array.isArray(parsed?.[currentCompany?._id]) ? parsed[currentCompany._id] : [];
-      setCustomAccounts(byCompany);
+      const rows = await getChartOfAccounts({ business: businessId });
+      setAccounts(Array.isArray(rows) ? rows : []);
     } catch (error) {
-      console.error("Failed to load custom accounts", error);
-      setCustomAccounts([]);
+      console.error("Failed to load chart of accounts", error);
+      toast.error(
+        error?.response?.data?.error ||
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to load chart of accounts"
+      );
+      setAccounts([]);
+    } finally {
+      setLoading(false);
     }
-  }, [currentCompany?._id]);
-
-  const persistCustomAccounts = (next) => {
-    // Removed localStorage usage. Only use setCustomAccounts.
-    setCustomAccounts(next);
   };
 
-  const cashbookAccounts = useMemo(() => {
-    const confirmedManagerReceipts = (rentPayments || []).filter((payment) => {
-      if (!payment?.isConfirmed) return false;
-      return !payment?.paidDirectToLandlord;
+  useEffect(() => {
+    loadAccounts();
+  }, [businessId]);
+
+  useEffect(() => {
+    const handleRefresh = () => loadAccounts();
+    window.addEventListener("invoicesUpdated", handleRefresh);
+    return () => window.removeEventListener("invoicesUpdated", handleRefresh);
+  }, [businessId]);
+
+  const normalizedSearch = search.trim().toLowerCase();
+
+  const filteredAccounts = useMemo(() => {
+    if (!normalizedSearch) return accounts;
+
+    return accounts.filter((account) => {
+      const haystack = [
+        account.code,
+        account.name,
+        account.type,
+        account.group,
+        account.subGroup,
+        account.parentAccount?.name,
+        account.parentAccount?.code,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return haystack.includes(normalizedSearch);
     });
-
-    const names = Array.from(
-      new Set(confirmedManagerReceipts.map((payment) => String(payment?.cashbook || "").trim()).filter(Boolean))
-    );
-
-    return names.map((name, index) => ({
-      code: `11CB${String(index + 1).padStart(2, "0")}`,
-      name: `${name}`,
-      type: "Current Asset",
-      isSystem: true,
-      isPosting: true,
-      source: "cashbook",
-      cashbookName: name,
-      group: "assets",
-    }));
-  }, [rentPayments]);
-
-  const accountBalances = useMemo(() => {
-    const balances = {
-      "1100": 0,
-      "1110": 0,
-      "1130": 0,
-      "1200": 0,
-      "4100": 0,
-      "4102": 0,
-    };
-
-    const cashbookCodeByName = {};
-    cashbookAccounts.forEach((account) => {
-      cashbookCodeByName[account.cashbookName] = account.code;
-      balances[account.code] = 0;
-    });
-
-    const resolveBaseCashbookCode = (cashbook) => {
-      const value = String(cashbook || "").toLowerCase();
-      if (value.includes("bank")) return "1110";
-      if (value.includes("m-pesa") || value.includes("mpesa") || value.includes("mobile")) return "1130";
-      if (value.includes("cash")) return "1100";
-      return "1110";
-    };
-
-    (rentPayments || []).forEach((payment) => {
-      const amount = Number(payment?.amount || 0);
-      if (!amount) return;
-
-      // Only receipts should be here
-      if (payment?.isConfirmed && !payment?.paidDirectToLandlord) {
-        const cashbookName = String(payment?.cashbook || "").trim();
-        const dynamicCashbookCode = cashbookCodeByName[cashbookName];
-        const baseCode = resolveBaseCashbookCode(cashbookName);
-
-        if (dynamicCashbookCode) {
-          balances[dynamicCashbookCode] += amount;
-        }
-        balances[baseCode] += amount;
-        balances["1200"] -= amount;
-      }
-    });
-
-    return balances;
-  }, [cashbookAccounts, rentPayments]);
+  }, [accounts, normalizedSearch]);
 
   const groupedAccounts = useMemo(() => {
-    const customByGroup = customAccounts.reduce((acc, account) => {
-      const groupKey = account.group || "assets";
-      if (!acc[groupKey]) acc[groupKey] = [];
-      acc[groupKey].push({ ...account, isSystem: false });
-      return acc;
-    }, {});
+    return ACCOUNT_GROUPS.map((group) => ({
+      ...group,
+      accounts: filteredAccounts
+        .filter((account) => normalizeGroup(account.group, account.type) === group.key)
+        .sort((a, b) => String(a.code || "").localeCompare(String(b.code || ""))),
+    }));
+  }, [filteredAccounts]);
 
-    return ACCOUNT_GROUPS.map((group) => {
-      const baseAccounts = group.accounts;
-      const dynamicCashbookForGroup = group.key === "assets" ? cashbookAccounts : [];
-      const customForGroup = customByGroup[group.key] || [];
+  const parentOptions = useMemo(() => {
+    return accounts
+      .slice()
+      .sort((a, b) => String(a.code || "").localeCompare(String(b.code || "")));
+  }, [accounts]);
 
-      return {
-        ...group,
-        accounts: [...baseAccounts, ...dynamicCashbookForGroup, ...customForGroup],
-      };
-    });
-  }, [cashbookAccounts, customAccounts]);
+  const totalAccounts = accounts.length;
+  const totalBalance = accounts.reduce((sum, account) => sum + Number(account.balance || 0), 0);
 
-  const normalized = search.trim().toLowerCase();
+  const selectedAccounts = useMemo(() => {
+    const selectedSet = new Set(selectedIds);
+    return accounts.filter((account) => selectedSet.has(account._id));
+  }, [accounts, selectedIds]);
 
-  const filteredGroups = useMemo(() => {
-    if (!normalized) return groupedAccounts;
-
-    return groupedAccounts
-      .map((group) => ({
-        ...group,
-        accounts: group.accounts.filter((account) => {
-          const hay = `${account.code} ${account.name} ${account.type} ${group.label}`.toLowerCase();
-          return hay.includes(normalized);
-        }),
-      }))
-      .filter((group) => group.accounts.length > 0);
-  }, [groupedAccounts, normalized]);
-
-  const totalAccounts = groupedAccounts.reduce((sum, group) => sum + group.accounts.length, 0);
-
-  const formatMoney = (value) => {
-    const amount = Number(value || 0);
-    return new Intl.NumberFormat("en-KE", {
-      style: "currency",
-      currency: "KES",
-      maximumFractionDigits: 2,
-    }).format(amount);
-  };
-
-  const openAddForm = () => {
-    setEditingCode(null);
+  const openCreateModal = () => {
+    setEditingAccountId(null);
     setFormData(blankForm);
     setShowForm(true);
   };
 
-  const openEditForm = (account) => {
-    setEditingCode(account.code);
+  const openEditModal = () => {
+    if (selectedAccounts.length !== 1) {
+      toast.info("Select one account to edit.");
+      return;
+    }
+
+    const account = selectedAccounts[0];
+    setEditingAccountId(account._id);
     setFormData({
-      code: account.code,
-      name: account.name,
-      type: account.type,
-      group: account.group || "assets",
-      isPosting: account.isPosting !== false,
+      code: account.code || "",
+      name: account.name || "",
+      type: account.type || "asset",
+      group: normalizeGroup(account.group, account.type),
+      subGroup: account.subGroup || "",
+      parentAccount: account.parentAccount?._id || account.parentAccount || "",
+      isHeader: Boolean(account.isHeader),
+      isPosting: account.isHeader ? false : account.isPosting !== false,
     });
     setShowForm(true);
   };
 
-  const handleSaveAccount = () => {
-    const code = String(formData.code || "").trim();
-    const name = String(formData.name || "").trim();
-    const type = String(formData.type || "").trim();
-    const group = String(formData.group || "assets");
+  const closeModal = () => {
+    setShowForm(false);
+    setEditingAccountId(null);
+    setFormData(blankForm);
+  };
 
-    if (!code || !name || !type || !group) {
-      toast.error("Code, account name, class, and group are required.");
+  const toggleSelect = (accountId) => {
+    setSelectedIds((prev) =>
+      prev.includes(accountId) ? prev.filter((id) => id !== accountId) : [...prev, accountId]
+    );
+  };
+
+  const toggleSelectAllInGroup = (groupAccounts) => {
+    const ids = groupAccounts.map((a) => a._id);
+    const allSelected = ids.every((id) => selectedIds.includes(id));
+
+    if (allSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)));
+    } else {
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...ids])));
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!businessId) {
+      toast.error("Select a company first.");
       return;
     }
 
-    const systemCodes = new Set(groupedAccounts.flatMap((groupItem) => groupItem.accounts.map((a) => a.code)));
-    const codeExists = systemCodes.has(code) && code !== editingCode;
-    if (codeExists) {
-      toast.error("Account code already exists. Use a unique code.");
+    if (!formData.code.trim() || !formData.name.trim() || !formData.type) {
+      toast.error("Code, account name and type are required.");
       return;
     }
 
     const payload = {
-      code,
-      name,
-      type,
-      group,
-      isPosting: formData.isPosting !== false,
-      createdAt: new Date().toISOString(),
+      business: businessId,
+      code: formData.code.trim().toUpperCase(),
+      name: formData.name.trim(),
+      type: formData.type,
+      group: normalizeGroup(formData.group, formData.type),
+      subGroup: formData.subGroup.trim(),
+      parentAccount: formData.parentAccount || null,
+      isHeader: Boolean(formData.isHeader),
+      isPosting: formData.isHeader ? false : Boolean(formData.isPosting),
     };
 
-    let next = [];
-    if (editingCode) {
-      next = customAccounts.map((account) => (account.code === editingCode ? payload : account));
-      toast.success("Posting account updated");
-    } else {
-      next = [...customAccounts, payload];
-      toast.success("Posting account added");
-    }
+    setSaving(true);
+    try {
+      if (editingAccountId) {
+        await adminRequests.put(`/chart-of-accounts/${editingAccountId}`, payload);
+        toast.success("Account updated successfully.");
+      } else {
+        await adminRequests.post("/chart-of-accounts", payload);
+        toast.success("Account created successfully.");
+      }
 
-    persistCustomAccounts(next);
-    setShowForm(false);
-    setEditingCode(null);
-    setFormData(blankForm);
+      closeModal();
+      setSelectedIds([]);
+      await loadAccounts();
+    } catch (error) {
+      console.error("Failed to save chart account", error);
+      toast.error(
+        error?.response?.data?.error ||
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to save chart account"
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteAccount = (accountCode) => {
-    const next = customAccounts.filter((account) => account.code !== accountCode);
-    persistCustomAccounts(next);
-    toast.success("Posting account removed");
+  const handleDeleteSelected = async () => {
+    if (selectedAccounts.length === 0) {
+      toast.info("Select at least one account to delete.");
+      return;
+    }
+
+    const names = selectedAccounts.map((a) => `${a.code} ${a.name}`).join(", ");
+    const confirmed = window.confirm(`Delete selected account(s)?\n\n${names}`);
+    if (!confirmed) return;
+
+    setSaving(true);
+    try {
+      for (const account of selectedAccounts) {
+        await adminRequests.delete(`/chart-of-accounts/${account._id}`, {
+          data: { business: businessId },
+        });
+      }
+
+      toast.success("Selected account(s) deleted.");
+      setSelectedIds([]);
+      await loadAccounts();
+    } catch (error) {
+      console.error("Failed to delete chart account", error);
+      toast.error(
+        error?.response?.data?.error ||
+          error?.response?.data?.message ||
+          error?.message ||
+          "Failed to delete chart account"
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <DashboardLayout>
-      <div className="p-6 min-h-screen bg-slate-50">
-        <div className="max-w-7xl mx-auto space-y-4">
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                  <FaBook className="text-[#0B3B2E]" /> Chart of Accounts
-                </h1>
-                <p className="text-sm text-slate-600 mt-1">
-                  Property-management chart with live receipt/invoice balances and cashbook-aware posting accounts.
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="text-sm text-slate-700 font-semibold">
-                  Total Accounts: <span className="text-[#0B3B2E]">{totalAccounts}</span>
-                </div>
-                <button
-                  onClick={openAddForm}
-                  className="px-3 py-2 text-sm rounded-lg font-semibold text-white bg-[#0B3B2E] hover:bg-[#082d24] flex items-center gap-2"
-                >
-                  <FaPlus /> Add Posting Account
-                </button>
-              </div>
+      <div className="min-h-screen bg-slate-50">
+        <div className="px-4 md:px-6 py-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold text-slate-900 flex items-center gap-2">
+                <FaBook className="text-[#0B3B2E]" />
+                Chart of Accounts
+              </h1>
+              <p className="text-sm text-slate-600 mt-1">
+                Auto-populated company chart with real balances and full CRUD controls.
+              </p>
             </div>
 
-            <div className="mt-4 relative">
-              <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full md:w-[420px] pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm"
-                placeholder="Search account code, name, class, or group"
-              />
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={loadAccounts}
+                className="px-4 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2"
+              >
+                <FaSyncAlt />
+                Refresh
+              </button>
+
+              <button
+                onClick={openCreateModal}
+                className="px-4 py-2 rounded-lg bg-[#0B3B2E] hover:bg-[#082d24] text-white text-sm font-semibold flex items-center gap-2"
+              >
+                <FaPlus />
+                Add Account
+              </button>
+
+              <button
+                onClick={openEditModal}
+                disabled={selectedAccounts.length !== 1}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 ${
+                  selectedAccounts.length === 1
+                    ? "bg-amber-500 hover:bg-amber-600 text-white"
+                    : "bg-slate-200 text-slate-500 cursor-not-allowed"
+                }`}
+              >
+                <FaEdit />
+                Edit Selected
+              </button>
+
+              <button
+                onClick={handleDeleteSelected}
+                disabled={selectedAccounts.length === 0}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 ${
+                  selectedAccounts.length > 0
+                    ? "bg-rose-600 hover:bg-rose-700 text-white"
+                    : "bg-slate-200 text-slate-500 cursor-not-allowed"
+                }`}
+              >
+                <FaTrash />
+                Delete Selected
+              </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {filteredGroups.map((group) => (
-              <section key={group.key} className={`border rounded-xl ${group.color} overflow-hidden`}>
-                <div className="px-4 py-3 bg-white/60 border-b border-slate-200 flex items-center justify-between">
-                  <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <FaLayerGroup className="text-slate-600" />
-                    {group.label}
-                  </h2>
-                  <span className={`px-2 py-1 rounded text-[11px] font-semibold ${group.tag}`}>
-                    {group.accounts.length} accounts
-                  </span>
-                </div>
+          <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="text-xs uppercase tracking-wide text-slate-500">Total Accounts</div>
+              <div className="mt-2 text-2xl font-bold text-slate-900">{totalAccounts}</div>
+            </div>
 
-                <div className="overflow-x-auto bg-white">
-                  <table className="w-full text-sm">
-                    <thead className="bg-[#0B3B2E] text-white">
-                      <tr>
-                        <th className="text-left px-3 py-2 font-semibold">Code</th>
-                        <th className="text-left px-3 py-2 font-semibold">Account Name</th>
-                        <th className="text-left px-3 py-2 font-semibold">Class</th>
-                        <th className="text-right px-3 py-2 font-semibold">Balance</th>
-                        <th className="text-right px-3 py-2 font-semibold">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.accounts.map((account, idx) => (
-                        <tr key={`${group.key}-${account.code}-${idx}`} className={idx % 2 === 0 ? "bg-white" : "bg-slate-50"}>
-                          <td className="px-3 py-2 font-mono text-slate-800">{account.code}</td>
-                          <td className="px-3 py-2 font-semibold text-slate-900">
-                            <div className="flex items-center gap-2">
-                              <span>{account.name}</span>
-                              {account.source === "cashbook" && (
-                                <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-semibold">
-                                  Cashbook
-                                </span>
-                              )}
-                              {account.isPosting && (
-                                <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-semibold">
-                                  Posting
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-slate-600">{account.type}</td>
-                          <td className="px-3 py-2 text-right font-mono text-slate-900">
-                            {formatMoney(accountBalances[account.code] || 0)}
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            {account.isSystem ? (
-                              <span className="text-[11px] text-slate-400">System</span>
-                            ) : (
-                              <div className="inline-flex items-center gap-2">
-                                <button
-                                  onClick={() => openEditForm(account)}
-                                  className="text-blue-600 hover:text-blue-800"
-                                  title="Edit account"
-                                >
-                                  <FaEdit size={13} />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteAccount(account.code)}
-                                  className="text-red-600 hover:text-red-800"
-                                  title="Delete account"
-                                >
-                                  <FaTrash size={13} />
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-            ))}
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="text-xs uppercase tracking-wide text-slate-500">Groups</div>
+              <div className="mt-2 text-2xl font-bold text-slate-900 flex items-center gap-2">
+                <FaLayerGroup className="text-[#0B3B2E]" />
+                {ACCOUNT_GROUPS.length}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="text-xs uppercase tracking-wide text-slate-500">Net Total Balance</div>
+              <div className="mt-2 text-2xl font-bold text-slate-900">{formatMoney(totalBalance)}</div>
+            </div>
           </div>
 
-          {filteredGroups.length === 0 && (
-            <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-slate-500">
-              No accounts found for your search.
+          <div className="mt-5 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
+              <div className="relative w-full lg:max-w-xl">
+                <FaSearch className="absolute left-3 top-3 text-slate-400" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by code, account name, class, subgroup, or parent"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0B3B2E]"
+                />
+              </div>
+
+              <div className="text-sm text-slate-600 flex items-center gap-2">
+                <FaFolderOpen className="text-[#0B3B2E]" />
+                {selectedAccounts.length} selected
+              </div>
+            </div>
+          </div>
+
+          {loading && (
+            <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+              Loading chart of accounts...
             </div>
           )}
-        </div>
-      </div>
 
-      {showForm && (
-        <div className="fixed inset-0 z-[120] bg-black/30 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-xl border border-slate-200 shadow-2xl">
-            <div className="px-5 py-4 border-b border-slate-200">
-              <h3 className="text-lg font-bold text-slate-900">
-                {editingCode ? "Edit Posting Account" : "Add Posting Account"}
-              </h3>
-              <p className="text-xs text-slate-500 mt-1">Posting accounts support compact journal and ledger drill-downs.</p>
-            </div>
+          <div className="mt-5 grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {groupedAccounts.map((group) => {
+              const groupIds = group.accounts.map((a) => a._id);
+              const allGroupSelected =
+                groupIds.length > 0 && groupIds.every((id) => selectedIds.includes(id));
 
-            <div className="p-5 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <label className="text-sm text-slate-700">
-                  Account Code
-                  <input
-                    value={formData.code}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, code: e.target.value }))}
-                    className="mt-1 w-full px-3 py-2 rounded border border-slate-300"
-                    placeholder="e.g. 1115"
-                    disabled={Boolean(editingCode)}
-                  />
-                </label>
+              return (
+                <div key={group.key} className={`rounded-xl border ${group.color} overflow-hidden`}>
+                  <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between bg-white/70">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => toggleSelectAllInGroup(group.accounts)}
+                        className="text-slate-700 hover:text-slate-900"
+                        title="Select group"
+                      >
+                        {allGroupSelected ? <FaCheckSquare /> : <FaSquare />}
+                      </button>
+                      <div className="font-bold text-slate-900">{group.label}</div>
+                    </div>
 
-                <label className="text-sm text-slate-700">
-                  Group
-                  <select
-                    value={formData.group}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, group: e.target.value }))}
-                    className="mt-1 w-full px-3 py-2 rounded border border-slate-300"
-                  >
-                    <option value="assets">Assets</option>
-                    <option value="liabilities">Liabilities</option>
-                    <option value="equity">Equity</option>
-                    <option value="income">Income</option>
-                    <option value="expenses">Expenses</option>
-                  </select>
-                </label>
-                <label className="text-sm text-slate-700 block">
-  Sub Account Type
-  <select
-    value={formData.subAccountType}
-    onChange={e => setFormData(prev => ({ ...prev, subAccountType: e.target.value }))}
-    className="mt-1 w-full px-3 py-2 rounded border border-slate-300"
-  >
-    <option value="">Select Sub Account</option>
-    <option value="cashbook">Cashbook</option>
-    <option value="current_asset">Current Asset</option>
-    <option value="current_liability">Current Liability</option>
-    <option value="equity">Equity</option>
-    <option value="income">Income</option>
-    <option value="expense">Expense</option>
-  </select>
-</label>
-              </div>
+                    <span className={`text-xs px-2 py-1 rounded-full font-semibold ${group.tag}`}>
+                      {group.accounts.length} accounts
+                    </span>
+                  </div>
 
-              <label className="text-sm text-slate-700 block">
-                Account Name
-                <input
-                  value={formData.name}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded border border-slate-300"
-                  placeholder="e.g. Agency Float Collections"
-                />
-              </label>
-
-              <label className="text-sm text-slate-700 block">
-                Class
-                <input
-                  value={formData.type}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, type: e.target.value }))}
-                  className="mt-1 w-full px-3 py-2 rounded border border-slate-300"
-                  placeholder="e.g. Current Asset"
-                />
-              </label>
-
-              <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={formData.isPosting !== false}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, isPosting: e.target.checked }))}
-                />
-                Posting Account
-              </label>
-            </div>
-
-            <div className="px-5 py-4 border-t border-slate-200 flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setShowForm(false);
-                  setEditingCode(null);
-                  setFormData(blankForm);
-                }}
-                className="px-3 py-2 rounded border border-slate-300 text-slate-700 hover:bg-slate-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveAccount}
-                className="px-3 py-2 rounded bg-[#0B3B2E] text-white hover:bg-[#082d24]"
-              >
-                Save Account
-              </button>
-            </div>
+                  <div className="overflow-x-auto bg-white">
+                    <table className="w-full min-w-[760px] text-sm">
+                      <thead className="bg-[#0B3B2E] text-white">
+                        <tr>
+                          <th className="text-left px-4 py-3 w-[44px]"></th>
+                          <th className="text-left px-4 py-3">Code</th>
+                          <th className="text-left px-4 py-3">Account Name</th>
+                          <th className="text-left px-4 py-3">Class</th>
+                          <th className="text-left px-4 py-3">Parent</th>
+                          <th className="text-right px-4 py-3">Balance</th>
+                          <th className="text-right px-4 py-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.accounts.length === 0 ? (
+                          <tr>
+                            <td colSpan="7" className="px-4 py-6 text-center text-slate-500">
+                              No accounts found.
+                            </td>
+                          </tr>
+                        ) : (
+                          group.accounts.map((account) => {
+                            const selected = selectedIds.includes(account._id);
+                            return (
+                              <tr key={account._id} className="border-b border-slate-100 hover:bg-slate-50">
+                                <td className="px-4 py-3">
+                                  <button
+                                    onClick={() => toggleSelect(account._id)}
+                                    className="text-slate-700 hover:text-slate-900"
+                                  >
+                                    {selected ? <FaCheckSquare /> : <FaSquare />}
+                                  </button>
+                                </td>
+                                <td className="px-4 py-3 font-mono text-slate-900">{account.code}</td>
+                                <td className="px-4 py-3">
+                                  <div
+                                    className="font-medium text-slate-900"
+                                    style={{ paddingLeft: `${Number(account.level || 0) * 18}px` }}
+                                  >
+                                    {account.name}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-slate-600">{classLabel(account)}</td>
+                                <td className="px-4 py-3 text-slate-600">
+                                  {account.parentAccount
+                                    ? `${account.parentAccount.code} - ${account.parentAccount.name}`
+                                    : "-"}
+                                </td>
+                                <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                                  {formatMoney(account.balance || 0)}
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <div className="inline-flex gap-2 flex-wrap justify-end">
+                                    {account.isSystem && (
+                                      <span className="inline-flex text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">
+                                        System
+                                      </span>
+                                    )}
+                                    {account.isHeader ? (
+                                      <span className="inline-flex text-[11px] px-2 py-0.5 rounded bg-blue-100 text-blue-700 font-semibold">
+                                        Header
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex text-[11px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 font-semibold">
+                                        Posting
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-      )}
+
+        {showForm && (
+          <div className="fixed inset-0 z-[120] bg-black/40 flex items-center justify-center p-4">
+            <div className="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl border border-slate-200 bg-white">
+              <div className="bg-[#0B3B2E] px-6 py-4 text-white">
+                <h3 className="text-lg font-bold">
+                  {editingAccountId ? "Edit Chart Account" : "Add Chart Account"}
+                </h3>
+                <p className="text-sm text-emerald-100 mt-1">
+                  Maintain your MILIK chart structure with clean parent-child account setup.
+                </p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="p-6 space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label className="block">
+                    <span className="text-sm font-semibold text-slate-700">Account Code</span>
+                    <input
+                      value={formData.code}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, code: e.target.value }))}
+                      className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0B3B2E]"
+                      placeholder="e.g. 1115"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-semibold text-slate-700">Account Name</span>
+                    <input
+                      value={formData.name}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+                      className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0B3B2E]"
+                      placeholder="e.g. Agency Float Collections"
+                    />
+                  </label>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <label className="block">
+                    <span className="text-sm font-semibold text-slate-700">Type</span>
+                    <select
+                      value={formData.type}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          type: e.target.value,
+                          group: normalizeGroup(prev.group, e.target.value),
+                        }))
+                      }
+                      className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0B3B2E]"
+                    >
+                      <option value="asset">Asset</option>
+                      <option value="liability">Liability</option>
+                      <option value="equity">Equity</option>
+                      <option value="income">Income</option>
+                      <option value="expense">Expense</option>
+                    </select>
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-semibold text-slate-700">Group</span>
+                    <select
+                      value={formData.group}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, group: e.target.value }))}
+                      className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0B3B2E]"
+                    >
+                      <option value="assets">Assets</option>
+                      <option value="liabilities">Liabilities</option>
+                      <option value="equity">Equity</option>
+                      <option value="income">Income</option>
+                      <option value="expenses">Expenses</option>
+                    </select>
+                  </label>
+
+                  <label className="block">
+                    <span className="text-sm font-semibold text-slate-700">Sub Group</span>
+                    <input
+                      value={formData.subGroup}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, subGroup: e.target.value }))}
+                      className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0B3B2E]"
+                      placeholder="e.g. Cashbooks"
+                    />
+                  </label>
+                </div>
+
+                <label className="block">
+                  <span className="text-sm font-semibold text-slate-700">Parent Account</span>
+                  <select
+                    value={formData.parentAccount}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, parentAccount: e.target.value }))}
+                    className="mt-1 w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#0B3B2E]"
+                  >
+                    <option value="">None</option>
+                    {parentOptions
+                      .filter((account) => account._id !== editingAccountId)
+                      .map((account) => (
+                        <option key={account._id} value={account._id}>
+                          {account.code} - {account.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label className="flex items-center justify-between rounded-xl border border-slate-300 px-4 py-3">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-800">Header Account</div>
+                      <div className="text-xs text-slate-500">Use for grouping children, not direct posting.</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={formData.isHeader}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          isHeader: e.target.checked,
+                          isPosting: e.target.checked ? false : prev.isPosting,
+                        }))
+                      }
+                    />
+                  </label>
+
+                  <label className="flex items-center justify-between rounded-xl border border-slate-300 px-4 py-3">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-800">Posting Account</div>
+                      <div className="text-xs text-slate-500">Receives ledger entries directly.</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={formData.isPosting}
+                      disabled={formData.isHeader}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          isPosting: e.target.checked,
+                        }))
+                      }
+                    />
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-700 font-semibold hover:bg-slate-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="px-5 py-2.5 rounded-xl bg-[#FF8C00] hover:bg-[#e67e00] text-white font-semibold shadow-sm disabled:opacity-60"
+                  >
+                    {saving ? "Saving..." : editingAccountId ? "Save Changes" : "Create Account"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
     </DashboardLayout>
   );
 };

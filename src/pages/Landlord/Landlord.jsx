@@ -128,10 +128,16 @@ const Landlords = () => {
     []
   );
 
-  // Fetch landlords from backend on mount
+  // Fetch landlords from backend on mount / company change
   useEffect(() => {
-    dispatch(getLandlords());
-  }, [dispatch]);
+    dispatch(
+      getLandlords(
+        currentCompany?._id
+          ? { company: currentCompany._id }
+          : {}
+      )
+    );
+  }, [dispatch, currentCompany?._id]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -147,6 +153,12 @@ const Landlords = () => {
   useEffect(() => {
     setSelectAll(false);
   }, [currentPage]);
+
+  // Drop any selected ids that no longer exist after refresh/delete
+  useEffect(() => {
+    const validIds = new Set(landlords.map((l) => l._id));
+    setSelectedLandlords((prev) => prev.filter((id) => validIds.has(id)));
+  }, [landlords]);
 
   const normalize = (v) => String(v ?? "").toLowerCase().trim();
 
@@ -181,6 +193,14 @@ const Landlords = () => {
     setSelectAll(false);
     setCurrentPage(1);
     setActionMenuOpen(false);
+
+    dispatch(
+      getLandlords(
+        currentCompany?._id
+          ? { company: currentCompany._id }
+          : {}
+      )
+    );
   };
 
   const onFilterEnter = (e) => {
@@ -344,6 +364,13 @@ const Landlords = () => {
           for (const id of selectedLandlords) {
             await dispatch(deleteLandlord(id));
           }
+          await dispatch(
+            getLandlords(
+              currentCompany?._id
+                ? { company: currentCompany._id }
+                : {}
+            )
+          );
           setSelectedLandlords([]);
           setSelectAll(false);
           setCurrentPage(1);
@@ -353,7 +380,7 @@ const Landlords = () => {
           setConfirmDialog({
             isOpen: true,
             title: "Delete Failed",
-            message: err?.message || "Failed to delete landlord(s)",
+            message: err?.response?.data?.message || err?.message || "Failed to delete landlord(s)",
             confirmText: "OK",
             cancelText: "Close",
             isDangerous: false,
@@ -399,6 +426,13 @@ const Landlords = () => {
           for (const landlord of toArchive) {
             await dispatch(updateLandlord(landlord._id, { status: "Archived" }));
           }
+          await dispatch(
+            getLandlords(
+              currentCompany?._id
+                ? { company: currentCompany._id }
+                : {}
+            )
+          );
           setSelectedLandlords([]);
           setSelectAll(false);
           setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
@@ -453,6 +487,13 @@ const Landlords = () => {
           for (const landlord of toRestore) {
             await dispatch(updateLandlord(landlord._id, { status: "Active" }));
           }
+          await dispatch(
+            getLandlords(
+              currentCompany?._id
+                ? { company: currentCompany._id }
+                : {}
+            )
+          );
           setSelectedLandlords([]);
           setSelectAll(false);
           setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
@@ -939,7 +980,18 @@ const Landlords = () => {
                 </thead>
 
                 <tbody>
-                  {currentLandlords.length > 0 ? (
+                  {isFetching ? (
+                    <tr>
+                      <td
+                        colSpan={columns.length + 1}
+                        className="px-3 py-4 text-center text-gray-500 border border-gray-200 bg-white"
+                      >
+                        <div className="flex flex-col items-center justify-center py-8">
+                          <div className="text-lg font-bold text-gray-400 mb-2">Loading landlords...</div>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : currentLandlords.length > 0 ? (
                     currentLandlords.map((landlord, index) => (
                       <tr
                         key={landlord._id}

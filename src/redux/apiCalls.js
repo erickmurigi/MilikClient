@@ -1,9 +1,3 @@
-// Create payment voucher (generic, for compatibility)
-export const createPaymentVoucher = async (voucherData) => {
-  // Use the same endpoint as createLandlordPayment
-  const res = await adminRequests.post("/payment-vouchers", voucherData);
-  return res.data;
-};
 /* eslint-disable no-undef */
 import {adminRequests} from "../utils/requestMethods"
 import { clearClientSessionStorage } from "../utils/sessionCleanup";
@@ -257,6 +251,13 @@ import {
 
 import { createPrinterFailure, createPrinterStart, createPrinterSuccess, deletePrinterFailure, deletePrinterStart, deletePrinterSuccess, getPrintersFailure, getPrintersStart, getPrintersSuccess } from "./printerRedux"
 
+// Create payment voucher (generic, for compatibility)
+export const createPaymentVoucher = async (voucherData) => {
+  // Use the same endpoint as createLandlordPayment
+  const res = await adminRequests.post("/payment-vouchers", voucherData);
+  return res.data;
+};
+
 //requests actions
 import {getRequestsFailure, getRequestsStart, getRequestsSuccess,
     createRequestStart, createRequestFailure, createRequestSuccess,
@@ -307,12 +308,54 @@ const transformUserData = (data) => {
   return data;
 };
 
+// Switch company context
+export const switchCompany = async (dispatch, companyId) => {
+  dispatch({ type: "SWITCH_COMPANY_START" });
+  try {
+    const res = await adminRequests.post("/auth/switch-company", { companyId });
+    dispatch({ type: "SWITCH_COMPANY_SUCCESS", payload: res.data });
+    localStorage.setItem('milik_token', res.data.token);
+    localStorage.setItem('milik_user', JSON.stringify(res.data.user));
+    return res.data;
+  } catch (err) {
+    dispatch({ type: "SWITCH_COMPANY_FAILURE" });
+    throw err;
+  }
+};
+
 // Ensure list reducers always receive an array regardless of API response wrapper.
 const extractList = (payload) => {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.data)) return payload.data;
   if (Array.isArray(payload?.items)) return payload.items;
   return [];
+};
+
+const getStoredUser = () => {
+  try {
+    const raw = localStorage.getItem("milik_user");
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    return null;
+  }
+};
+
+const resolveCompanyId = (query = {}, getState) => {
+  if (query?.company) return query.company;
+
+  const state = typeof getState === "function" ? getState() : {};
+  const companyFromState = state?.company?.currentCompany?._id;
+  if (companyFromState) return companyFromState;
+
+  const authUser = state?.auth?.currentUser || state?.auth?.user;
+  if (authUser?.company?._id) return authUser.company._id;
+  if (typeof authUser?.company === "string") return authUser.company;
+
+  const storedUser = getStoredUser();
+  if (storedUser?.company?._id) return storedUser.company._id;
+  if (typeof storedUser?.company === "string") return storedUser.company;
+
+  return null;
 };
 
 // Get all users for a company
@@ -410,16 +453,31 @@ export const toggleUserLock = (id) => async (dispatch) => {
 // ========== LANDLORDS SECTION ==========
 
 // Get all landlords
-export const getLandlords = (query = {}) => async (dispatch) => {
+export const getLandlords = (query = {}) => async (dispatch, getState) => {
   dispatch(getLandlordsStart());
   try {
     const params = new URLSearchParams();
+
     if (query.search) params.append('search', query.search);
     if (query.status) params.append('status', query.status);
-    if (query.company) params.append('company', query.company);
-    
-    const res = await adminRequests.get(`/landlords?${params.toString()}`);
-    const landlords = Array.isArray(res.data) ? res.data : (res.data.data || []);
+
+    const companyId = resolveCompanyId(query, getState);
+    if (companyId) {
+      params.append('company', companyId);
+    }
+
+    const queryString = params.toString();
+    const res = await adminRequests.get(`/landlords${queryString ? `?${queryString}` : ""}`);
+
+    let landlords = [];
+    if (Array.isArray(res.data)) {
+      landlords = res.data;
+    } else if (Array.isArray(res.data?.data)) {
+      landlords = res.data.data;
+    } else if (res.data?.success && !Array.isArray(res.data?.data)) {
+      landlords = [];
+    }
+
     dispatch(getLandlordsSuccess(landlords));
     return landlords;
   } catch (err) {
@@ -1359,15 +1417,18 @@ export const getExpenseSummary = async (business, startDate = null, endDate = nu
 };
 
 // Get property expenses
-export const getPropertyExpenses = async (propertyId, startDate = null, endDate = null) => {
+export const getPropertyExpenses = async (propertyId, business = null, startDate = null, endDate = null) => {
   try {
     let url = `/propertyexpenses/property/${propertyId}`;
-    if (startDate || endDate) {
-      url += '?';
-      if (startDate) url += `startDate=${startDate}`;
-      if (endDate) url += `${startDate ? '&' : ''}endDate=${endDate}`;
-    }
-    
+    const params = new URLSearchParams();
+
+    if (business) params.append("business", business);
+    if (startDate) params.append("startDate", startDate);
+    if (endDate) params.append("endDate", endDate);
+
+    const query = params.toString();
+    if (query) url += `?${query}`;
+
     const res = await adminRequests.get(url);
     return res.data;
   } catch (err) {
@@ -1767,3 +1828,37 @@ export const createSuperAdmin = (adminData) => async (dispatch) => {
     throw err;
   }
 };
+
+// Get tenant invoices
+export const getTenantInvoices = async ({ tenantId = null, business = null, status = null } = {}) => {
+  const params = new URLSearchParams();
+
+  if (tenantId) params.append("tenant", tenantId);
+  if (business) params.append("business", business);
+  if (status) params.append("status", status);
+
+  const query = params.toString();
+  const res = await adminRequests.get(`/tenant-invoices${query ? `?${query}` : ""}`);
+  return extractList(res.data);
+};
+
+// Get chart of accounts
+export const getChartOfAccounts = async (params = {}) => {
+  const search = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== null && value !== undefined && value !== "") {
+      search.append(key, value);
+    }
+  });
+
+  const query = search.toString();
+  const res = await adminRequests.get(`/chart-of-accounts${query ? `?${query}` : ""}`);
+  return extractList(res.data);
+};
+
+// Create tenant invoice
+export async function createTenantInvoice(invoicePayload) {
+  const res = await adminRequests.post("/tenant-invoices", invoicePayload);
+  return res.data;
+}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { useDispatch } from "react-redux";
-import { createCompany } from "../../redux/apiCalls"; 
+import { createCompany } from "../../redux/apiCalls";
+import { getCompanySuccess } from "../../redux/companiesRedux";
 import {
   FaBuilding,
   FaUsers,
@@ -95,7 +95,7 @@ const SavingAnimation = ({ isSaving, isComplete, step }) => {
                 Please wait while we set up your company configuration...
               </p>
               <div className="w-full bg-slate-200 rounded-full h-2 mb-2">
-                <div 
+                <div
                   className="bg-teal-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${progress}%` }}
                 />
@@ -103,7 +103,7 @@ const SavingAnimation = ({ isSaving, isComplete, step }) => {
               <p className="text-xs text-slate-500">{progress}% Complete</p>
             </>
           )}
-          
+
           {isComplete && (
             <>
               <div className="w-24 h-24 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center animate-bounce">
@@ -115,8 +115,8 @@ const SavingAnimation = ({ isSaving, isComplete, step }) => {
               <p className="text-sm text-slate-600 mb-6">
                 Your company has been successfully set up.
               </p>
-              <button 
-                onClick={() => window.location.href = "/system-setup"}
+              <button
+                onClick={() => window.location.href = "/system-setup/companies"}
                 className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition"
               >
                 View Companies
@@ -133,7 +133,7 @@ const SavingAnimation = ({ isSaving, isComplete, step }) => {
 const ModuleToggle = ({ label, icon: Icon, enabled, onChange, description }) => (
   <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition">
     <div className="flex items-center gap-3">
-      <div className={`p-2 rounded-lg ${enabled ? 'bg-teal-100 text-teal-700' : 'bg-slate-200 text-slate-500'}`}>
+      <div className={`p-2 rounded-lg ${enabled ? "bg-teal-100 text-teal-700" : "bg-slate-200 text-slate-500"}`}>
         <Icon className="text-sm" />
       </div>
       <div>
@@ -144,73 +144,67 @@ const ModuleToggle = ({ label, icon: Icon, enabled, onChange, description }) => 
     <button
       onClick={onChange}
       className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-        enabled ? 'bg-teal-600' : 'bg-slate-300'
+        enabled ? "bg-teal-600" : "bg-slate-300"
       }`}
     >
       <span
         className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-          enabled ? 'translate-x-6' : 'translate-x-1'
+          enabled ? "translate-x-6" : "translate-x-1"
         }`}
       />
     </button>
   </div>
 );
-// Add Company Wizard Component
+
 const AddCompanyWizard = ({ onClose, onSave }) => {
-   const dispatch = useDispatch();
+  const dispatch = useDispatch();
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState(null);
-    const [companyData, setCompanyData] = useState({
-        // same initial state as before
-        companyName: "",
-        registrationNo: "",
-        taxPIN: "",
-        taxExemptCode: "",
-        postalAddress: "",
-        country: "Kenya",
-        town: "",
-        roadStreet: "",
-        latitude: "",
-        longitude: "",
-        baseCurrency: "KES",
-        taxRegime: "VAT",
-        modules: {
-            propertyManagement: { enabled: true, required: true },
-            inventory: { enabled: false, required: false },
-            telcoDealership: { enabled: false, required: false },
-            procurement: { enabled: false, required: false },
-            hr: { enabled: false, required: false },
-            facilityManagement: { enabled: false, required: false },
-            hotelManagement: { enabled: false, required: false },
-            accounts: { enabled: true, required: true },
-            billing: { enabled: true, required: true },
-            propertySale: { enabled: false, required: false },
-            frontOffice: { enabled: false, required: false },
-            dms: { enabled: false, required: false },
-            academics: { enabled: false, required: false },
-            projectManagement: { enabled: false, required: false },
-            assetValuation: { enabled: false, required: false },
-        },
-        fiscalStartMonth: "January",
-        fiscalStartYear: new Date().getFullYear(),
-        fiscalPeriods: {
-            monthly: true,
-            quarterly: false,
-            fourMonths: false,
-            semiAnnual: false,
-        },
-        operationPeriodType: "Monthly",
-    });
 
+  const [companyData, setCompanyData] = useState({
+    companyName: "",
+    registrationNo: "",
+    taxPIN: "",
+    taxExemptCode: "",
+    postalAddress: "",
+    country: "Kenya",
+    town: "",
+    roadStreet: "",
+    latitude: "",
+    longitude: "",
+    baseCurrency: "KES",
+    taxRegime: "VAT",
+    modules: {
+      propertyManagement: { enabled: true, required: true },
+      inventory: { enabled: false, required: false },
+      telcoDealership: { enabled: false, required: false },
+      procurement: { enabled: false, required: false },
+      hr: { enabled: false, required: false },
+      facilityManagement: { enabled: false, required: false },
+      hotelManagement: { enabled: false, required: false },
+      accounts: { enabled: true, required: true },
+      billing: { enabled: true, required: true },
+      propertySale: { enabled: false, required: false },
+      frontOffice: { enabled: false, required: false },
+      dms: { enabled: false, required: false },
+      academics: { enabled: false, required: false },
+      projectManagement: { enabled: false, required: false },
+      assetValuation: { enabled: false, required: false },
+    },
+    fiscalStartMonth: "January",
+    fiscalStartYear: new Date().getFullYear(),
+    fiscalPeriods: {
+      monthly: true,
+      quarterly: false,
+      fourMonths: false,
+      semiAnnual: false,
+    },
+    operationPeriodType: "Monthly",
+  });
 
   const totalSteps = 3;
-  const steps = [
-    { number: 1, name: "General Information", icon: <FaBuilding /> },
-    { number: 2, name: "Module Configuration", icon: <FaCog /> },
-    { number: 3, name: "Fiscal Periods", icon: <FaCalendarAlt /> },
-  ];
 
   const handleNext = () => {
     if (step < totalSteps) {
@@ -226,19 +220,34 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
     }
   };
 
- const handleSave = async () => {
-  setIsSaving(true);
-  try {
-    const savedCompany = await dispatch(createCompany(companyData))
-    // unwrap() gives you the resolved value or throws on error
-    setIsComplete(true);
-    setTimeout(() => onSave(savedCompany), 2000);
-  } catch (error) {
-    setError(error.message);
-  } finally {
-    setIsSaving(false);
-  }
-};
+  const handleSave = async () => {
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const response = await dispatch(createCompany(companyData));
+      const savedCompany = response?.company || response;
+
+      if (savedCompany?._id) {
+        dispatch(getCompanySuccess(savedCompany));
+        localStorage.setItem("milik_active_company_id", savedCompany._id);
+      }
+
+      setIsComplete(true);
+
+      setTimeout(() => {
+        if (typeof onSave === "function") {
+          onSave(savedCompany);
+        } else {
+          window.location.href = "/system-setup/companies";
+        }
+      }, 2000);
+    } catch (saveError) {
+      setError(saveError?.message || "Failed to save company");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const toggleModule = (moduleKey) => {
     setCompanyData({
@@ -255,7 +264,7 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
 
   const renderStep1 = () => (
     <div className="space-y-6">
-        <StartMenu></StartMenu>
+      <StartMenu />
       {/* General Information */}
       <div>
         <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
@@ -270,7 +279,7 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
             <input
               type="text"
               value={companyData.companyName}
-              onChange={(e) => setCompanyData({...companyData, companyName: e.target.value})}
+              onChange={(e) => setCompanyData({ ...companyData, companyName: e.target.value })}
               className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-600"
               placeholder="Enter company name"
             />
@@ -280,7 +289,7 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
             <input
               type="text"
               value={companyData.registrationNo}
-              onChange={(e) => setCompanyData({...companyData, registrationNo: e.target.value})}
+              onChange={(e) => setCompanyData({ ...companyData, registrationNo: e.target.value })}
               className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-600"
               placeholder="Enter registration number"
             />
@@ -290,7 +299,7 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
             <input
               type="text"
               value={companyData.taxPIN}
-              onChange={(e) => setCompanyData({...companyData, taxPIN: e.target.value})}
+              onChange={(e) => setCompanyData({ ...companyData, taxPIN: e.target.value })}
               className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-600"
               placeholder="Enter tax PIN"
             />
@@ -300,7 +309,7 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
             <input
               type="text"
               value={companyData.taxExemptCode}
-              onChange={(e) => setCompanyData({...companyData, taxExemptCode: e.target.value})}
+              onChange={(e) => setCompanyData({ ...companyData, taxExemptCode: e.target.value })}
               className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-600"
               placeholder="Enter tax exempt code"
             />
@@ -322,7 +331,7 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
             <input
               type="text"
               value={companyData.postalAddress}
-              onChange={(e) => setCompanyData({...companyData, postalAddress: e.target.value})}
+              onChange={(e) => setCompanyData({ ...companyData, postalAddress: e.target.value })}
               className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-600"
               placeholder="Enter postal address"
             />
@@ -331,7 +340,7 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
             <label className="text-xs font-medium text-slate-700">Country</label>
             <select
               value={companyData.country}
-              onChange={(e) => setCompanyData({...companyData, country: e.target.value})}
+              onChange={(e) => setCompanyData({ ...companyData, country: e.target.value })}
               className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-600"
             >
               <option value="Kenya">Kenya</option>
@@ -345,7 +354,7 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
             <input
               type="text"
               value={companyData.town}
-              onChange={(e) => setCompanyData({...companyData, town: e.target.value})}
+              onChange={(e) => setCompanyData({ ...companyData, town: e.target.value })}
               className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-600"
               placeholder="Enter town"
             />
@@ -355,7 +364,7 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
             <input
               type="text"
               value={companyData.roadStreet}
-              onChange={(e) => setCompanyData({...companyData, roadStreet: e.target.value})}
+              onChange={(e) => setCompanyData({ ...companyData, roadStreet: e.target.value })}
               className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-600"
               placeholder="Enter road/street"
             />
@@ -365,7 +374,7 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
             <input
               type="text"
               value={companyData.latitude}
-              onChange={(e) => setCompanyData({...companyData, latitude: e.target.value})}
+              onChange={(e) => setCompanyData({ ...companyData, latitude: e.target.value })}
               className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-600"
               placeholder="Enter latitude"
             />
@@ -375,7 +384,7 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
             <input
               type="text"
               value={companyData.longitude}
-              onChange={(e) => setCompanyData({...companyData, longitude: e.target.value})}
+              onChange={(e) => setCompanyData({ ...companyData, longitude: e.target.value })}
               className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-600"
               placeholder="Enter longitude"
             />
@@ -396,7 +405,7 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
             </label>
             <select
               value={companyData.baseCurrency}
-              onChange={(e) => setCompanyData({...companyData, baseCurrency: e.target.value})}
+              onChange={(e) => setCompanyData({ ...companyData, baseCurrency: e.target.value })}
               className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-600"
             >
               <option value="KES">KES - Kenyan Shilling</option>
@@ -411,7 +420,7 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
             </label>
             <select
               value={companyData.taxRegime}
-              onChange={(e) => setCompanyData({...companyData, taxRegime: e.target.value})}
+              onChange={(e) => setCompanyData({ ...companyData, taxRegime: e.target.value })}
               className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-600"
             >
               <option value="VAT">VAT</option>
@@ -436,42 +445,42 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
               label="Property Management"
               icon={FaHome}
               enabled={companyData.modules.propertyManagement.enabled}
-              onChange={() => toggleModule('propertyManagement')}
+              onChange={() => toggleModule("propertyManagement")}
               description="Manage properties, units, and tenants"
             />
             <ModuleToggle
               label="Accounts Module"
               icon={FaWallet}
               enabled={companyData.modules.accounts.enabled}
-              onChange={() => toggleModule('accounts')}
+              onChange={() => toggleModule("accounts")}
               description="Financial accounting and reporting"
             />
             <ModuleToggle
               label="Billing/Revenue Collection"
               icon={FaMoneyBill}
               enabled={companyData.modules.billing.enabled}
-              onChange={() => toggleModule('billing')}
+              onChange={() => toggleModule("billing")}
               description="Invoice generation and payment collection"
             />
             <ModuleToggle
               label="Inventory Module"
               icon={FaShoppingCart}
               enabled={companyData.modules.inventory.enabled}
-              onChange={() => toggleModule('inventory')}
+              onChange={() => toggleModule("inventory")}
               description="Stock and inventory management"
             />
             <ModuleToggle
               label="HR Module"
               icon={FaUsersIcon}
               enabled={companyData.modules.hr.enabled}
-              onChange={() => toggleModule('hr')}
+              onChange={() => toggleModule("hr")}
               description="Human resources and payroll"
             />
             <ModuleToggle
               label="Procurement Module"
               icon={FaShoppingCart}
               enabled={companyData.modules.procurement.enabled}
-              onChange={() => toggleModule('procurement')}
+              onChange={() => toggleModule("procurement")}
               description="Purchase and supplier management"
             />
           </div>
@@ -485,42 +494,42 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
               label="Facility Management"
               icon={FaBuilding}
               enabled={companyData.modules.facilityManagement.enabled}
-              onChange={() => toggleModule('facilityManagement')}
+              onChange={() => toggleModule("facilityManagement")}
               description="Maintenance and facility operations"
             />
             <ModuleToggle
               label="Hotel/Vacation Management"
               icon={FaHotel}
               enabled={companyData.modules.hotelManagement.enabled}
-              onChange={() => toggleModule('hotelManagement')}
+              onChange={() => toggleModule("hotelManagement")}
               description="Hotel booking and room management"
             />
             <ModuleToggle
               label="Telco Dealership"
               icon={FaPhone}
               enabled={companyData.modules.telcoDealership.enabled}
-              onChange={() => toggleModule('telcoDealership')}
+              onChange={() => toggleModule("telcoDealership")}
               description="Telecom services and airtime"
             />
             <ModuleToggle
               label="Property Sale"
               icon={FaChartLine}
               enabled={companyData.modules.propertySale.enabled}
-              onChange={() => toggleModule('propertySale')}
+              onChange={() => toggleModule("propertySale")}
               description="Property sales and marketing"
             />
             <ModuleToggle
               label="Project Management"
               icon={FaProjectDiagram}
               enabled={companyData.modules.projectManagement.enabled}
-              onChange={() => toggleModule('projectManagement')}
+              onChange={() => toggleModule("projectManagement")}
               description="Project planning and tracking"
             />
             <ModuleToggle
               label="Asset Valuation"
               icon={FaChartBar}
               enabled={companyData.modules.assetValuation.enabled}
-              onChange={() => toggleModule('assetValuation')}
+              onChange={() => toggleModule("assetValuation")}
               description="Asset appraisal and valuation"
             />
           </div>
@@ -535,19 +544,19 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
             label="Front Office"
             icon={FaUserTie}
             enabled={companyData.modules.frontOffice.enabled}
-            onChange={() => toggleModule('frontOffice')}
+            onChange={() => toggleModule("frontOffice")}
           />
           <ModuleToggle
             label="DMS Module"
             icon={FaFileAlt}
             enabled={companyData.modules.dms.enabled}
-            onChange={() => toggleModule('dms')}
+            onChange={() => toggleModule("dms")}
           />
           <ModuleToggle
             label="Academics Module"
             icon={FaUsersIcon}
             enabled={companyData.modules.academics.enabled}
-            onChange={() => toggleModule('academics')}
+            onChange={() => toggleModule("academics")}
           />
         </div>
       </div>
@@ -558,7 +567,7 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
     <div className="space-y-6">
       <div>
         <h3 className="text-sm font-semibold text-slate-900 mb-3">Fiscal Period Set Up</h3>
-        
+
         {/* Book Start Month/Year */}
         <div className="bg-slate-50 p-4 rounded-lg mb-4">
           <label className="text-xs font-medium text-slate-700 block mb-2">
@@ -569,11 +578,11 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
               <label className="text-xs text-slate-600">Start Month *</label>
               <select
                 value={companyData.fiscalStartMonth}
-                onChange={(e) => setCompanyData({...companyData, fiscalStartMonth: e.target.value})}
+                onChange={(e) => setCompanyData({ ...companyData, fiscalStartMonth: e.target.value })}
                 className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-600"
               >
-                {["January", "February", "March", "April", "May", "June", 
-                  "July", "August", "September", "October", "November", "December"].map(month => (
+                {["January", "February", "March", "April", "May", "June",
+                  "July", "August", "September", "October", "November", "December"].map((month) => (
                   <option key={month} value={month}>{month}</option>
                 ))}
               </select>
@@ -583,7 +592,7 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
               <input
                 type="number"
                 value={companyData.fiscalStartYear}
-                onChange={(e) => setCompanyData({...companyData, fiscalStartYear: parseInt(e.target.value)})}
+                onChange={(e) => setCompanyData({ ...companyData, fiscalStartYear: parseInt(e.target.value) })}
                 className="w-full mt-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-200 focus:border-teal-600"
                 min="2000"
                 max="2100"
@@ -599,22 +608,24 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
           </label>
           <div className="grid grid-cols-2 gap-3">
             {[
-              { key: 'monthly', label: 'Monthly Periods' },
-              { key: 'quarterly', label: 'Quarterly Periods' },
-              { key: 'fourMonths', label: 'Four Months Periods' },
-              { key: 'semiAnnual', label: 'Semi Annual Periods' },
-            ].map(period => (
+              { key: "monthly", label: "Monthly Periods" },
+              { key: "quarterly", label: "Quarterly Periods" },
+              { key: "fourMonths", label: "Four Months Periods" },
+              { key: "semiAnnual", label: "Semi Annual Periods" },
+            ].map((period) => (
               <label key={period.key} className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={companyData.fiscalPeriods[period.key]}
-                  onChange={(e) => setCompanyData({
-                    ...companyData,
-                    fiscalPeriods: {
-                      ...companyData.fiscalPeriods,
-                      [period.key]: e.target.checked
-                    }
-                  })}
+                  onChange={(e) =>
+                    setCompanyData({
+                      ...companyData,
+                      fiscalPeriods: {
+                        ...companyData.fiscalPeriods,
+                        [period.key]: e.target.checked,
+                      },
+                    })
+                  }
                   className="rounded border-slate-300 text-teal-600 focus:ring-teal-200"
                 />
                 <span className="text-sm text-slate-700">{period.label}</span>
@@ -632,19 +643,19 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
             <label className="text-xs text-slate-600">Period Type *</label>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-2">
               {[
-                { value: 'Monthly', label: 'Monthly' },
-                { value: 'Quarterly', label: 'Quarterly' },
-                { value: 'Four months', label: 'Four months' },
-                { value: 'Bi annual', label: 'Bi annual' },
-                { value: 'Annual', label: 'Annual' },
-              ].map(period => (
+                { value: "Monthly", label: "Monthly" },
+                { value: "Quarterly", label: "Quarterly" },
+                { value: "Four months", label: "Four months" },
+                { value: "Bi annual", label: "Bi annual" },
+                { value: "Annual", label: "Annual" },
+              ].map((period) => (
                 <label key={period.value} className="flex items-center gap-2">
                   <input
                     type="radio"
                     name="operationPeriodType"
                     value={period.value}
                     checked={companyData.operationPeriodType === period.value}
-                    onChange={(e) => setCompanyData({...companyData, operationPeriodType: e.target.value})}
+                    onChange={(e) => setCompanyData({ ...companyData, operationPeriodType: e.target.value })}
                     className="text-teal-600 focus:ring-teal-200"
                   />
                   <span className="text-sm text-slate-700">{period.label}</span>
@@ -660,18 +671,17 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
         <h4 className="text-xs font-semibold text-slate-900 mb-2">Configuration Summary</h4>
         <div className="bg-teal-50 p-3 rounded-lg">
           <p className="text-xs text-teal-800">
-            <strong>Company:</strong> {companyData.companyName || 'Not set'} • 
-            <strong> Currency:</strong> {companyData.baseCurrency} • 
-            <strong> Tax Regime:</strong> {companyData.taxRegime} • 
+            <strong>Company:</strong> {companyData.companyName || "Not set"} •
+            <strong> Currency:</strong> {companyData.baseCurrency} •
+            <strong> Tax Regime:</strong> {companyData.taxRegime} •
             <strong> Fiscal Start:</strong> {companyData.fiscalStartMonth} {companyData.fiscalStartYear}
           </p>
           <p className="text-xs text-teal-600 mt-1">
-            <strong>Modules enabled:</strong> {
-              Object.entries(companyData.modules)
-                .filter(([_, m]) => m.enabled)
-                .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
-                .join(', ')
-            }
+            <strong>Modules enabled:</strong>{" "}
+            {Object.entries(companyData.modules)
+              .filter(([_, m]) => m.enabled)
+              .map(([key]) => key.replace(/([A-Z])/g, " $1").trim())
+              .join(", ")}
           </p>
         </div>
       </div>
@@ -679,79 +689,80 @@ const AddCompanyWizard = ({ onClose, onSave }) => {
   );
 
   return (
-     <>
-            <SavingAnimation isSaving={isSaving} isComplete={isComplete} step={`Step ${step} of ${totalSteps}`} />
-            
-            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-40 overflow-y-auto">
-                <div className="bg-white rounded-2xl w-full max-w-4xl mx-4 my-8">
-                    {/* Header */}
-                    <div className="p-6 border-b border-slate-200">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-slate-900">Company Set Up Wizard</h2>
-                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600">&times;</button>
-                        </div>
-                        <p className="text-sm text-slate-600 mt-1">
-                            This wizard will assist you in setting up new company.
-                        </p>
-                        {error && (
-                            <div className="mt-2 p-2 bg-red-50 text-red-700 text-sm rounded">
-                                {error}
-                            </div>
-                        )}
-                    </div>
+    <>
+      <SavingAnimation isSaving={isSaving} isComplete={isComplete} step={`Step ${step} of ${totalSteps}`} />
 
-                    {/* Progress Steps */}
-                    <div className="px-6 pt-6">
-                        {/* ... same as before ... */}
-                    </div>
-
-                    {/* Content */}
-                    <div className="p-6 max-h-[60vh] overflow-y-auto">
-                        {step === 1 && renderStep1()}
-                        {step === 2 && renderStep2()}
-                        {step === 3 && renderStep3()}
-                    </div>
-
-                    {/* Footer */}
-                    <div className="p-6 border-t border-slate-200 flex justify-between">
-                        <button
-                            onClick={handlePrevious}
-                            disabled={step === 1 || isSaving}
-                            className={`px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2
-                                ${step === 1 || isSaving ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700 hover:bg-slate-100'}`}
-                        >
-                            <FaArrowLeft /> Previous
-                        </button>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={onClose}
-                                disabled={isSaving}
-                                className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleNext}
-                                disabled={isSaving}
-                                className="px-4 py-2 text-sm font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2"
-                            >
-                                {isSaving ? (
-                                    <>
-                                        <FaSpinner className="animate-spin" /> Saving...
-                                    </>
-                                ) : step === totalSteps ? (
-                                    'Save Configuration'
-                                ) : (
-                                    <>
-                                        Next <FaArrowRight />
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-40 overflow-y-auto">
+        <div className="bg-white rounded-2xl w-full max-w-4xl mx-4 my-8">
+          {/* Header */}
+          <div className="p-6 border-b border-slate-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-slate-900">Company Set Up Wizard</h2>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600">&times;</button>
             </div>
-        </>
-    );
+            <p className="text-sm text-slate-600 mt-1">
+              This wizard will assist you in setting up new company.
+            </p>
+            {error && (
+              <div className="mt-2 p-2 bg-red-50 text-red-700 text-sm rounded">
+                {error}
+              </div>
+            )}
+          </div>
+
+          {/* Progress Steps */}
+          <div className="px-6 pt-6">
+            {/* ... same as before ... */}
+          </div>
+
+          {/* Content */}
+          <div className="p-6 max-h-[60vh] overflow-y-auto">
+            {step === 1 && renderStep1()}
+            {step === 2 && renderStep2()}
+            {step === 3 && renderStep3()}
+          </div>
+
+          {/* Footer */}
+          <div className="p-6 border-t border-slate-200 flex justify-between">
+            <button
+              onClick={handlePrevious}
+              disabled={step === 1 || isSaving}
+              className={`px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2
+                ${step === 1 || isSaving ? "text-slate-400 cursor-not-allowed" : "text-slate-700 hover:bg-slate-100"}`}
+            >
+              <FaArrowLeft /> Previous
+            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={onClose}
+                disabled={isSaving}
+                className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleNext}
+                disabled={isSaving}
+                className="px-4 py-2 text-sm font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2"
+              >
+                {isSaving ? (
+                  <>
+                    <FaSpinner className="animate-spin" /> Saving...
+                  </>
+                ) : step === totalSteps ? (
+                  "Save Configuration"
+                ) : (
+                  <>
+                    Next <FaArrowRight />
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 };
+
 export default AddCompanyWizard;

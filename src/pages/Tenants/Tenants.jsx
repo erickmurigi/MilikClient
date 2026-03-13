@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import DashboardLayout from "../../components/Layout/DashboardLayout";
@@ -27,15 +27,28 @@ import { getTenants, deleteTenant } from "../../redux/tenantsRedux";
 import { getUnits } from "../../redux/unitRedux";
 import { getProperties } from "../../redux/propertyRedux";
 import TenantsImportModal from "../../components/Modals/TenantsImportModal";
-import { 
-  downloadTenantsTemplate, 
-  exportTenantsToExcel 
+import {
+  downloadTenantsTemplate,
+  exportTenantsToExcel,
 } from "../../utils/excelTemplates";
 import { adminRequests } from "../../utils/requestMethods";
+import { getTenantInvoices } from "../../redux/apiCalls";
 
 const MILIK_GREEN = "bg-[#0B3B2E]";
 const MILIK_ORANGE = "bg-[#FF8C00]";
 const ITEMS_PER_PAGE = 50;
+
+const normalizeId = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value._id) return String(value._id);
+  return String(value);
+};
+
+const isActiveInvoice = (invoice) => {
+  const status = String(invoice?.status || "").toLowerCase();
+  return status !== "cancelled" && status !== "reversed";
+};
 
 const Tenants = () => {
   const dispatch = useDispatch();
@@ -61,7 +74,10 @@ const Tenants = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const actionMenuRef = useRef(null);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [invoiceRefreshTick, setInvoiceRefreshTick] = useState(0); // Track invoice changes
+  const [invoiceRefreshTick, setInvoiceRefreshTick] = useState(0);
+
+  // Backend invoice cache
+  const [tenantInvoices, setTenantInvoices] = useState([]);
 
   // ===== FILTERS =====
   const [draftFilters, setDraftFilters] = useState({
@@ -80,7 +96,6 @@ const Tenants = () => {
   });
 
   // ===== EFFECTS =====
-  // Fetch tenants on mount
   useEffect(() => {
     if (currentCompany?._id) {
       dispatch(getTenants({ business: currentCompany._id }));
@@ -89,27 +104,24 @@ const Tenants = () => {
     }
   }, [dispatch, currentCompany]);
 
-  // Reset selectAll when page changes
   useEffect(() => {
     setSelectAll(false);
   }, [currentPage]);
 
-  // Listen for invoice changes (when invoices are created/deleted in other pages)
   useEffect(() => {
     const handleInvoiceChange = () => {
-      setInvoiceRefreshTick(prev => prev + 1);
+      setInvoiceRefreshTick((prev) => prev + 1);
     };
 
-    window.addEventListener('invoicesUpdated', handleInvoiceChange);
-    window.addEventListener('storage', handleInvoiceChange); // Also listen for localStorage changes
-    
+    window.addEventListener("invoicesUpdated", handleInvoiceChange);
+    window.addEventListener("storage", handleInvoiceChange);
+
     return () => {
-      window.removeEventListener('invoicesUpdated', handleInvoiceChange);
-      window.removeEventListener('storage', handleInvoiceChange);
+      window.removeEventListener("invoicesUpdated", handleInvoiceChange);
+      window.removeEventListener("storage", handleInvoiceChange);
     };
   }, []);
 
-  // Close action menu on outside click
   useEffect(() => {
     const onDocClick = (e) => {
       if (!actionMenuRef.current) return;
@@ -119,72 +131,95 @@ const Tenants = () => {
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
+  const loadInvoices = useCallback(async () => {
+    if (!currentCompany?._id) return;
+    try {
+      const rows = await getTenantInvoices({ business: currentCompany._id });
+      setTenantInvoices(Array.isArray(rows) ? rows : []);
+    } catch (error) {
+      console.error("Failed to load tenant invoices:", error);
+      setTenantInvoices([]);
+    }
+  }, [currentCompany?._id]);
+
+  useEffect(() => {
+    loadInvoices();
+  }, [loadInvoices, invoiceRefreshTick]);
+
   // ===== TRANSFORM TENANT DATA =====
-  // Helper function to resolve tenant's property name using multi-level lookup
   const resolveTenantPropertyName = (tenant, unitsFromStore = [], propertiesFromStore = []) => {
-    // Level 1: Check direct property fields
-    const directPropertyName = tenant?.unit?.property?.propertyName || tenant?.property?.propertyName || tenant?.propertyName;
+    const directPropertyName =
+      tenant?.unit?.property?.propertyName ||
+      tenant?.property?.propertyName ||
+      tenant?.propertyName;
     if (directPropertyName) return directPropertyName;
 
-    // Level 2: Unit ID → Unit record → Property
     const tenantUnitId = tenant?.unit?._id || tenant?.unit;
-    const matchedUnit = unitsFromStore.find((unit) => unit?._id === tenantUnitId);
+    const matchedUnit = unitsFromStore.find(
+      (unit) => normalizeId(unit?._id) === normalizeId(tenantUnitId)
+    );
     const propertyIdFromUnit = matchedUnit?.property?._id || matchedUnit?.property;
-    
-    // Level 3: Property ID → Property record
+
     const propertyIdFromTenant = tenant?.property?._id || tenant?.property;
     const resolvedPropertyId = propertyIdFromUnit || propertyIdFromTenant;
-    const matchedProperty = propertiesFromStore.find((property) => property?._id === resolvedPropertyId);
+    const matchedProperty = propertiesFromStore.find(
+      (property) => normalizeId(property?._id) === normalizeId(resolvedPropertyId)
+    );
 
-    return matchedUnit?.property?.propertyName || matchedProperty?.propertyName || matchedProperty?.name || "-";
+    return (
+      matchedUnit?.property?.propertyName ||
+      matchedProperty?.propertyName ||
+      matchedProperty?.name ||
+      "-"
+    );
   };
 
-  // Helper function to calculate actual balance from invoices in localStorage
-  const calculateTenantBalance = (tenantId, tenantData) => {
-    // Get all confirmed receipt payments for this tenant
-    const tenantPayments = rentPayments.filter((p) => p.tenant === tenantId || p.tenant?._id === tenantId);
-    const totalConfirmedReceipts = tenantPayments
-      .filter((p) => p.isConfirmed === true)
-      .reduce((sum, p) => sum + (p.amount || 0), 0);
+  const calculateTenantBalance = useCallback(
+    (tenantId) => {
+      const tenantIdStr = String(tenantId);
 
-    // Get actual invoices from localStorage (this is the source of truth)
-    const storageKey = `createdInvoices_${tenantId}`;
-    const stored = localStorage.getItem(storageKey);
-    let totalInvoiceAmount = 0;
+      const confirmedReceiptTotal = rentPayments
+        .filter((payment) => {
+          const paymentTenantId = normalizeId(payment?.tenant);
+          return (
+            paymentTenantId === tenantIdStr &&
+            String(payment?.ledgerType || "").toLowerCase() === "receipts" &&
+            payment?.isConfirmed === true &&
+            payment?.isCancelled !== true
+          );
+        })
+        .reduce((sum, payment) => sum + Math.abs(Number(payment?.amount || 0)), 0);
 
-    if (stored) {
-      try {
-        const invoices = JSON.parse(stored);
-        // Sum all invoice amounts (invoices use "amount" field, not "total")
-        totalInvoiceAmount = Object.values(invoices).reduce((sum, invoice) => {
-          return sum + (invoice?.amount || 0);
-        }, 0);
-      } catch (error) {
-        console.error('Error parsing invoices for tenant', tenantId, error);
-      }
-    }
+      const activeInvoiceTotal = tenantInvoices
+        .filter((invoice) => {
+          const invoiceTenantId = normalizeId(invoice?.tenant);
+          return invoiceTenantId === tenantIdStr && isActiveInvoice(invoice);
+        })
+        .reduce((sum, invoice) => sum + Number(invoice?.amount || 0), 0);
 
-    // Balance = Total Invoice Amounts - Confirmed Receipts
-    // Positive balance means tenant owes money
-    // Negative balance means tenant has overpaid (credit)
-    const balance = totalInvoiceAmount - totalConfirmedReceipts;
-    
-    return balance;
-  };
+      return activeInvoiceTotal - confirmedReceiptTotal;
+    },
+    [rentPayments, tenantInvoices]
+  );
 
   const transformedTenants = useMemo(() => {
     return (Array.isArray(tenantsData) ? tenantsData : []).map((tenant) => {
       const tenantLease = leases.find(
-        (l) => l.tenant === tenant._id || l.tenant?._id === tenant._id
+        (l) => normalizeId(l.tenant) === normalizeId(tenant._id)
       );
       const resolvedStartDate = tenantLease?.startDate || tenant.moveInDate;
       const resolvedEndDate = tenantLease?.endDate || tenant.moveOutDate;
-      const balance = calculateTenantBalance(tenant._id, tenant);
+      const balance = calculateTenantBalance(tenant._id);
+
       return {
         id: tenant._id,
         tenantCode: tenant.tenantCode || "-",
         tenantName: tenant.name || "-",
-        unitNumber: tenant.unit?.unitNumber || "-",
+        unitNumber:
+          tenant.unit?.unitNumber ||
+          tenant.unit?.unitName ||
+          tenant.unit?.name ||
+          "-",
         propertyName: resolveTenantPropertyName(tenant, units, properties),
         startDate: resolvedStartDate
           ? new Date(resolvedStartDate).toLocaleDateString()
@@ -194,20 +229,20 @@ const Tenants = () => {
           : "-",
         rent: tenant.unit?.rent
           ? `Ksh ${tenant.unit.rent.toLocaleString()}`
+          : tenantLease?.rentAmount
+          ? `Ksh ${Number(tenantLease.rentAmount).toLocaleString()}`
           : "-",
-        balance: balance,
+        balance,
         status: (tenant.status || "active").toLowerCase(),
         phone: tenant.phone || "-",
         email: tenant.email || "-",
-        accountBalance: tenant.accountBalance ?? 0,
       };
     });
-  }, [tenantsData, units, properties, rentPayments, leases, invoiceRefreshTick]);
+  }, [tenantsData, units, properties, leases, calculateTenantBalance]);
 
   // ===== FILTER TENANTS =====
   const filteredTenants = useMemo(() => {
     return transformedTenants.filter((t) => {
-      // Property filter
       if (
         appliedFilters.property !== "any" &&
         t.propertyName !== appliedFilters.property
@@ -215,7 +250,6 @@ const Tenants = () => {
         return false;
       }
 
-      // Status filter
       if (
         appliedFilters.status !== "any" &&
         t.status !== appliedFilters.status
@@ -223,7 +257,6 @@ const Tenants = () => {
         return false;
       }
 
-      // Search filter (name or phone)
       if (appliedFilters.search) {
         const searchLower = appliedFilters.search.toLowerCase();
         const matchesName = t.tenantName.toLowerCase().includes(searchLower);
@@ -231,13 +264,11 @@ const Tenants = () => {
         if (!matchesName && !matchesPhone) return false;
       }
 
-      // Tenant name filter
       if (appliedFilters.tenantName) {
         const nameLower = appliedFilters.tenantName.toLowerCase();
         if (!t.tenantName.toLowerCase().includes(nameLower)) return false;
       }
 
-      // Tenant code filter
       if (appliedFilters.tenantCode) {
         const codeLower = appliedFilters.tenantCode.toLowerCase();
         if (!t.tenantCode.toLowerCase().includes(codeLower)) return false;
@@ -247,14 +278,12 @@ const Tenants = () => {
     });
   }, [transformedTenants, appliedFilters]);
 
-  // Sort tenants by property name (for grouped display)
   const sortedFilteredTenants = useMemo(() => {
     const sorted = [...filteredTenants];
     sorted.sort((a, b) => {
       const propA = String(a.propertyName || "").toLowerCase();
       const propB = String(b.propertyName || "").toLowerCase();
       if (propA !== propB) return propA.localeCompare(propB);
-      // Secondary sort by tenant name within same property
       return String(a.tenantName || "").localeCompare(String(b.tenantName || ""));
     });
     return sorted;
@@ -409,9 +438,9 @@ const Tenants = () => {
       toast.error(`Failed to delete ${failCount} tenant(s)`);
     }
 
-    // Refresh tenant list
     if (currentCompany?._id) {
       dispatch(getTenants({ business: currentCompany._id }));
+      loadInvoices();
     }
   };
 
@@ -420,38 +449,37 @@ const Tenants = () => {
   // ---------------------------
   const handleDownloadTemplate = () => {
     downloadTenantsTemplate(units || []);
-    toast.info('Tenants import template downloaded!');
+    toast.info("Tenants import template downloaded!");
   };
 
   const handleBulkImport = async (validRecords) => {
     try {
-      const response = await adminRequests.post('/tenants/bulk-import', {
+      const response = await adminRequests.post("/tenants/bulk-import", {
         tenants: validRecords,
-        business: currentCompany._id
+        business: currentCompany._id,
       });
 
-      // Refresh tenants list
       await dispatch(getTenants({ business: currentCompany._id }));
-      
+      await loadInvoices();
+
       return response.data;
     } catch (error) {
-      console.error('Bulk import error:', error);
-      throw new Error(error.response?.data?.message || 'Failed to import tenants');
+      console.error("Bulk import error:", error);
+      throw new Error(error.response?.data?.message || "Failed to import tenants");
     }
   };
 
   const handleExportToExcel = () => {
     if (!tenantsData || tenantsData.length === 0) {
-      toast.warning('No tenants to export');
+      toast.warning("No tenants to export");
       return;
     }
     exportTenantsToExcel(tenantsData);
-    toast.info('Tenants exported successfully!');
+    toast.info("Tenants exported successfully!");
   };
 
   // ===== FILTER OPTIONS =====
   const uniqueProperties = useMemo(() => {
-    // Build from full properties list so dropdown isn't limited to current tenants only
     const propertyNames = properties
       .map((p) => p.propertyName || p.name)
       .filter(Boolean);
@@ -467,7 +495,6 @@ const Tenants = () => {
         {/* ===== FILTER BAR ===== */}
         <div className="flex-shrink-0 sticky top-0 z-30 bg-white border-b border-gray-200 px-2 pt-1">
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            {/* Property Filter */}
             <div>
               <select
                 value={draftFilters.property}
@@ -484,7 +511,6 @@ const Tenants = () => {
               </select>
             </div>
 
-            {/* Status Filter */}
             <div>
               <select
                 value={draftFilters.status}
@@ -503,7 +529,6 @@ const Tenants = () => {
               </select>
             </div>
 
-            {/* Tenant Name Filter */}
             <div>
               <input
                 type="text"
@@ -516,7 +541,6 @@ const Tenants = () => {
               />
             </div>
 
-            {/* Tenant Code Filter */}
             <div>
               <input
                 type="text"
@@ -529,7 +553,6 @@ const Tenants = () => {
               />
             </div>
 
-            {/* Search */}
             <div className="relative flex-1 min-w-[200px]">
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs" />
               <input
@@ -542,7 +565,6 @@ const Tenants = () => {
                 className="w-full pl-9 pr-3 py-1 text-xs border border-gray-300 rounded bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
               />
             </div>
-
           </div>
         </div>
 
@@ -567,7 +589,6 @@ const Tenants = () => {
               {selectedTenants.length} selected
             </span>
 
-            {/* Inline action buttons - start immediately after selected count */}
             <button
               onClick={handleEditTenant}
               className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs font-medium flex items-center gap-1 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
@@ -577,8 +598,7 @@ const Tenants = () => {
               <FaEdit size={10} />
               <span>Edit</span>
             </button>
-            
-            {/* Actions Dropdown */}
+
             <div className="relative" ref={actionMenuRef}>
               <button
                 onClick={() => setActionMenuOpen(!actionMenuOpen)}
@@ -588,7 +608,7 @@ const Tenants = () => {
                 <FaEllipsisV size={10} />
                 <span>Actions</span>
               </button>
-              
+
               {actionMenuOpen && (
                 <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                   <div className="py-1">
@@ -695,7 +715,6 @@ const Tenants = () => {
         {/* ===== TENANTS TABLE ===== */}
         <div className="flex-1 min-h-0 overflow-auto px-2 py-1">
           <table className="w-full border-collapse">
-            {/* Table Header */}
             <thead>
               <tr className={`${MILIK_GREEN} text-white text-xs`}>
                 <th className="px-2 py-1.5 text-center font-bold border-r border-gray-400 w-6">
@@ -743,17 +762,14 @@ const Tenants = () => {
               </tr>
             </thead>
 
-            {/* Table Body */}
             <tbody>
               {currentTenants.length > 0 ? (
                 currentTenants.map((tenant, idx) => {
-                  // Determine if this is the first tenant of a property group
                   const isFirstOfProperty =
                     idx === 0 || currentTenants[idx - 1].propertyName !== tenant.propertyName;
 
                   return (
                     <React.Fragment key={tenant.id}>
-                      {/* Property Section Header */}
                       {isFirstOfProperty && (
                         <tr className="bg-transparent">
                           <td colSpan={12} className="px-2 pt-1.5 pb-1">
@@ -765,7 +781,6 @@ const Tenants = () => {
                         </tr>
                       )}
 
-                      {/* Tenant Row */}
                       <tr
                         className={`border-b border-gray-200 cursor-pointer transition-colors text-xs ${
                           selectedTenants.includes(tenant.id)
@@ -774,190 +789,190 @@ const Tenants = () => {
                         }`}
                         onClick={() => handleSelectTenant(tenant.id)}
                       >
-                      <td
-                        className="px-2 py-1 text-center border-r border-gray-200"
-                        onClick={handleCheckboxClick}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedTenants.includes(tenant.id)}
-                          onChange={() => handleSelectTenant(tenant.id)}
+                        <td
+                          className="px-2 py-1 text-center border-r border-gray-200"
                           onClick={handleCheckboxClick}
-                          className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
-                        />
-                      </td>
-                      <td
-                        className="px-2 py-1 text-center border-r border-gray-200 cursor-pointer"
-                        onClick={() => toggleTenantExpand(tenant.id)}
-                      >
-                        <span>
-                          {expandedTenants.includes(tenant.id) ? "▼" : "▶"}
-                        </span>
-                      </td>
-                      <td className="px-2 py-1 font-mono text-gray-600 border-r border-gray-200 text-xs">
-                        {tenant.tenantCode}
-                      </td>
-                      <td className="px-2 py-1 font-bold text-gray-900 border-r border-gray-200">
-                        {tenant.tenantName}
-                      </td>
-                      <td className="px-2 py-1 font-bold text-gray-900 border-r border-gray-200">
-                        {tenant.propertyName}
-                      </td>
-                      <td className="px-2 py-1 font-bold text-gray-900 border-r border-gray-200">
-                        {tenant.unitNumber}
-                      </td>
-                      <td className="px-2 py-1 font-bold text-gray-900 border-r border-gray-200">
-                        {tenant.startDate}
-                      </td>
-                      <td className="px-2 py-1 font-bold text-gray-900 border-r border-gray-200">
-                        {tenant.endDate}
-                      </td>
-                      <td className="px-2 py-1 font-bold text-gray-900 text-right border-r border-gray-200">
-                        {tenant.rent}
-                      </td>
-                      <td className="px-2 py-1 font-bold text-right border-r border-gray-200">
-                        <span className={`${
-                          tenant.balance > 0 
-                            ? 'text-red-600' 
-                            : tenant.balance < 0
-                            ? 'text-green-600'
-                            : 'text-gray-600'
-                        }`}>
-                          Ksh {tenant.balance.toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="px-2 py-1 text-center border-r border-gray-200">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
-                            tenant.status === "active"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-gray-100 text-gray-800"
-                          }`}
                         >
-                          {tenant.status}
-                        </span>
-                      </td>
-                      <td className="px-2 py-1 font-bold text-gray-900">
-                        {tenant.phone}
-                      </td>
-                    </tr>
+                          <input
+                            type="checkbox"
+                            checked={selectedTenants.includes(tenant.id)}
+                            onChange={() => handleSelectTenant(tenant.id)}
+                            onClick={handleCheckboxClick}
+                            className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                          />
+                        </td>
+                        <td
+                          className="px-2 py-1 text-center border-r border-gray-200 cursor-pointer"
+                          onClick={() => toggleTenantExpand(tenant.id)}
+                        >
+                          <span>
+                            {expandedTenants.includes(tenant.id) ? "▼" : "▶"}
+                          </span>
+                        </td>
+                        <td className="px-2 py-1 font-mono text-gray-600 border-r border-gray-200 text-xs">
+                          {tenant.tenantCode}
+                        </td>
+                        <td className="px-2 py-1 font-bold text-gray-900 border-r border-gray-200">
+                          {tenant.tenantName}
+                        </td>
+                        <td className="px-2 py-1 font-bold text-gray-900 border-r border-gray-200">
+                          {tenant.propertyName}
+                        </td>
+                        <td className="px-2 py-1 font-bold text-gray-900 border-r border-gray-200">
+                          {tenant.unitNumber}
+                        </td>
+                        <td className="px-2 py-1 font-bold text-gray-900 border-r border-gray-200">
+                          {tenant.startDate}
+                        </td>
+                        <td className="px-2 py-1 font-bold text-gray-900 border-r border-gray-200">
+                          {tenant.endDate}
+                        </td>
+                        <td className="px-2 py-1 font-bold text-gray-900 text-right border-r border-gray-200">
+                          {tenant.rent}
+                        </td>
+                        <td className="px-2 py-1 font-bold text-right border-r border-gray-200">
+                          <span
+                            className={`${
+                              tenant.balance > 0
+                                ? "text-red-600"
+                                : tenant.balance < 0
+                                ? "text-green-600"
+                                : "text-gray-600"
+                            }`}
+                          >
+                            Ksh {tenant.balance.toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="px-2 py-1 text-center border-r border-gray-200">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                              tenant.status === "active"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            {tenant.status}
+                          </span>
+                        </td>
+                        <td className="px-2 py-1 font-bold text-gray-900">
+                          {tenant.phone}
+                        </td>
+                      </tr>
 
-                    {/* Expanded Details Row */}
-                    {expandedTenants.includes(tenant.id) && (
-                      <tr className="bg-gray-100 border-b border-gray-200">
-                        <td colSpan="12" className="px-3 py-2">
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
-                            {/* Tenant & Contact Details */}
-                            <div>
-                              <h4 className="font-bold text-gray-900 mb-2 text-xs border-b-2 border-orange-500 pb-1">
-                                👤 Tenant Details
-                              </h4>
-                              <div className="space-y-1 text-xs">
-                                <div>
-                                  <span className="font-bold text-gray-700 block text-xs">Email:</span>
-                                  <p className="text-gray-600 text-xs">{tenant.email}</p>
-                                </div>
-                                <div>
-                                  <span className="font-bold text-gray-700 block text-xs">Phone:</span>
-                                  <p className="text-gray-600 text-xs">{tenant.phone}</p>
-                                </div>
-                                <div>
-                                  <span className="font-bold text-gray-700 block text-xs">Property:</span>
-                                  <p className="text-gray-600 text-xs">{tenant.propertyName}</p>
+                      {expandedTenants.includes(tenant.id) && (
+                        <tr className="bg-gray-100 border-b border-gray-200">
+                          <td colSpan="12" className="px-3 py-2">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                              <div>
+                                <h4 className="font-bold text-gray-900 mb-2 text-xs border-b-2 border-orange-500 pb-1">
+                                  👤 Tenant Details
+                                </h4>
+                                <div className="space-y-1 text-xs">
+                                  <div>
+                                    <span className="font-bold text-gray-700 block text-xs">Email:</span>
+                                    <p className="text-gray-600 text-xs">{tenant.email}</p>
+                                  </div>
+                                  <div>
+                                    <span className="font-bold text-gray-700 block text-xs">Phone:</span>
+                                    <p className="text-gray-600 text-xs">{tenant.phone}</p>
+                                  </div>
+                                  <div>
+                                    <span className="font-bold text-gray-700 block text-xs">Property:</span>
+                                    <p className="text-gray-600 text-xs">{tenant.propertyName}</p>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            {/* Billing-Critical Details */}
-                            <div>
-                              <h4 className="font-bold text-gray-900 mb-2 text-xs border-b-2 border-green-500 pb-1">
-                                💰 Billing Info
-                              </h4>
-                              <div className="space-y-1 text-xs">
-                                <div>
-                                  <span className="font-bold text-gray-700 block text-xs">Monthly Rent:</span>
-                                  <p className="text-gray-600 font-bold">{tenant.rent}</p>
-                                </div>
-                                <div>
-                                  <span className="font-bold text-gray-700 block text-xs">Balance:</span>
-                                  <p className={`font-bold ${
-                                    tenant.accountBalance >= 0 
-                                      ? 'text-green-600' 
-                                      : 'text-red-600'
-                                  }`}>
-                                    Ksh {tenant.accountBalance.toLocaleString()}
-                                  </p>
-                                </div>
-                                <div>
-                                  <span className="font-bold text-gray-700 block text-xs">Status:</span>
-                                  <p className={`text-xs font-bold ${
-                                    tenant.status === 'active'
-                                      ? 'text-green-700'
-                                      : 'text-gray-700'
-                                  }`}>
-                                    {tenant.status.toUpperCase()}
-                                  </p>
+                              <div>
+                                <h4 className="font-bold text-gray-900 mb-2 text-xs border-b-2 border-green-500 pb-1">
+                                  💰 Billing Info
+                                </h4>
+                                <div className="space-y-1 text-xs">
+                                  <div>
+                                    <span className="font-bold text-gray-700 block text-xs">Monthly Rent:</span>
+                                    <p className="text-gray-600 font-bold">{tenant.rent}</p>
+                                  </div>
+                                  <div>
+                                    <span className="font-bold text-gray-700 block text-xs">Balance:</span>
+                                    <p
+                                      className={`font-bold ${
+                                        tenant.balance > 0
+                                          ? "text-red-600"
+                                          : tenant.balance < 0
+                                          ? "text-green-600"
+                                          : "text-gray-600"
+                                      }`}
+                                    >
+                                      Ksh {tenant.balance.toLocaleString()}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <span className="font-bold text-gray-700 block text-xs">Status:</span>
+                                    <p
+                                      className={`text-xs font-bold ${
+                                        tenant.status === "active"
+                                          ? "text-green-700"
+                                          : "text-gray-700"
+                                      }`}
+                                    >
+                                      {tenant.status.toUpperCase()}
+                                    </p>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            {/* Lease Details */}
-                            <div>
-                              <h4 className="font-bold text-gray-900 mb-2 text-xs border-b-2 border-blue-500 pb-1">
-                                📋 Lease Details
-                              </h4>
-                              <div className="space-y-1 text-xs">
-                                <div>
-                                  <span className="font-bold text-gray-700 block text-xs">Unit:</span>
-                                  <p className="text-gray-600 text-xs">{tenant.unitNumber}</p>
-                                </div>
-                                <div>
-                                  <span className="font-bold text-gray-700 block text-xs">Lease Start Date:</span>
-                                  <p className="text-gray-600 font-bold text-xs">{tenant.startDate}</p>
-                                </div>
-                                <div>
-                                  <span className="font-bold text-gray-700 block text-xs">Lease End Date:</span>
-                                  <p className="text-gray-600 font-bold text-xs">{tenant.endDate}</p>
+                              <div>
+                                <h4 className="font-bold text-gray-900 mb-2 text-xs border-b-2 border-blue-500 pb-1">
+                                  📋 Lease Details
+                                </h4>
+                                <div className="space-y-1 text-xs">
+                                  <div>
+                                    <span className="font-bold text-gray-700 block text-xs">Unit:</span>
+                                    <p className="text-gray-600 text-xs">{tenant.unitNumber}</p>
+                                  </div>
+                                  <div>
+                                    <span className="font-bold text-gray-700 block text-xs">Lease Start Date:</span>
+                                    <p className="text-gray-600 font-bold text-xs">{tenant.startDate}</p>
+                                  </div>
+                                  <div>
+                                    <span className="font-bold text-gray-700 block text-xs">Lease End Date:</span>
+                                    <p className="text-gray-600 font-bold text-xs">{tenant.endDate}</p>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            {/* Action Buttons */}
-                            <div>
-                              <h4 className="font-bold text-gray-900 mb-2 text-xs border-b-2 border-purple-500 pb-1">
-                                ⚙️ Actions
-                              </h4>
-                              <div className="flex flex-col gap-1">
-                                <button
+                              <div>
+                                <h4 className="font-bold text-gray-900 mb-2 text-xs border-b-2 border-purple-500 pb-1">
+                                  ⚙️ Actions
+                                </h4>
+                                <div className="flex flex-col gap-1">
+                                  <button
+                                    onClick={() => {
+                                      const firstName = (tenant.tenantName || "Tenant").split(" ")[0];
+                                      const tabTitle = `${firstName}-${tenant.tenantCode || "TT0000"}`;
+                                      navigate(`/tenant/${tenant.id}/statement`, { state: { tabTitle } });
+                                    }}
+                                    className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded text-xs transition-colors"
+                                  >
+                                    💳 View Statement
+                                  </button>
+                                  <button
                                   onClick={() => {
-                                    const firstName = (tenant.tenantName || "Tenant").split(" ")[0];
-                                    const tabTitle = `${firstName}-${tenant.tenantCode || "TT0000"}`;
-                                    navigate(`/tenant/${tenant.id}/statement`, { state: { tabTitle } });
-                                  }}
-                                  className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded text-xs transition-colors"
-                                >
-                                  💳 View Statement
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    if (selectedTenants.length === 0) {
-                                      toast.warning("Please select a tenant to delete");
-                                      return;
-                                    }
                                     setSelectedTenants([tenant.id]);
                                     setShowDeleteModal(true);
                                   }}
-                                  className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded text-xs transition-colors"
-                                >
-                                  🗑️ Delete
-                                </button>
+            
+                                    className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded text-xs transition-colors"
+                                  >
+                                    🗑️ Delete
+                                  </button>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })
               ) : (
@@ -1038,7 +1053,6 @@ const Tenants = () => {
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/0 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-md transform transition-all">
-            {/* Modal Header */}
             <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-t-lg">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <FaTrash size={18} />
@@ -1046,7 +1060,6 @@ const Tenants = () => {
               </h3>
             </div>
 
-            {/* Modal Body */}
             <div className="p-6">
               <p className="text-gray-700 mb-4">
                 Are you sure you want to delete <strong>{selectedTenants.length}</strong> tenant(s)?
@@ -1054,13 +1067,13 @@ const Tenants = () => {
               <p className="text-sm text-red-600 font-semibold">
                 ⚠️ This action cannot be undone!
               </p>
-              
+
               {selectedTenants.length > 0 && (
                 <div className="mt-4 p-3 bg-gray-50 rounded border border-gray-200">
                   <p className="text-xs text-gray-600 mb-2">Tenants to be deleted:</p>
                   <ul className="text-xs text-gray-700 space-y-1 max-h-32 overflow-y-auto">
                     {selectedTenants.slice(0, 10).map((tenantId) => {
-                      const tenant = transformedTenants.find(t => t.id === tenantId);
+                      const tenant = transformedTenants.find((t) => t.id === tenantId);
                       return tenant ? (
                         <li key={tenantId} className="flex items-center gap-2">
                           <span className="w-2 h-2 bg-red-500 rounded-full"></span>
@@ -1078,7 +1091,6 @@ const Tenants = () => {
               )}
             </div>
 
-            {/* Modal Footer */}
             <div className="flex gap-3 px-6 py-4 bg-gray-50 rounded-b-lg">
               <button
                 onClick={() => setShowDeleteModal(false)}
@@ -1110,10 +1122,10 @@ const Tenants = () => {
       )}
 
       {/* ===== TENANTS IMPORT MODAL ===== */}
-      <TenantsImportModal 
-        isOpen={showImportModal} 
-        onClose={() => setShowImportModal(false)} 
-        onImport={handleBulkImport} 
+      <TenantsImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImport={handleBulkImport}
       />
     </DashboardLayout>
   );

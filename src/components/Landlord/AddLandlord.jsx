@@ -196,7 +196,7 @@ const AddLandlord = () => {
     const k = 1024;
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
   const handleFileUpload = (e) => {
@@ -231,6 +231,11 @@ const AddLandlord = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!currentCompany?._id) {
+      toast.error("No active company selected. Please create or select a company first.");
+      return;
+    }
+
     // Validation
     if (!formData.landlordName?.trim()) {
       toast.error("Landlord name is required");
@@ -256,12 +261,12 @@ const AddLandlord = () => {
     try {
       const payload = {
         ...formData,
-        company: currentCompany?._id,
-        attachments: attachments.map(({ id, name, size, dateTime }) => ({ 
-          id, 
-          name, 
-          size, 
-          dateTime 
+        company: currentCompany._id,
+        attachments: attachments.map(({ id, name, size, dateTime }) => ({
+          id,
+          name,
+          size,
+          dateTime
         })),
       };
 
@@ -272,11 +277,10 @@ const AddLandlord = () => {
         await dispatch(createLandlord(payload));
         toast.success("Landlord added successfully!");
       }
-      
-      // Navigate back to landlords page
+
       navigate("/landlords");
     } catch (err) {
-      console.error('Error:', err);
+      console.error("Error:", err);
       toast.error(err?.message || (isEditMode ? "Failed to update landlord" : "Failed to add landlord"));
     }
   };
@@ -294,6 +298,11 @@ const AddLandlord = () => {
             <div>
               <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Landlord Details</h1>
               <p className="text-sm text-slate-600 mt-1">Fill in the landlord details below</p>
+              {currentCompany?.companyName && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Active company: <span className="font-semibold">{currentCompany.companyName}</span>
+                </p>
+              )}
             </div>
             <button
               onClick={handleCancel}
